@@ -1,0 +1,154 @@
+{
+  "header": {
+    "tool": "cclint",
+    "version": "1.0.0",
+    "timestamp": "2025-12-22T17:34:58-05:00"
+  },
+  "summary": {
+    "total_files": 26,
+    "successful_files": 25,
+    "failed_files": 1,
+    "total_errors": 1,
+    "total_warnings": 0,
+    "duration": "0s"
+  },
+  "results": [
+    {
+      "file": "commands/analyze.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/book-org.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/catalog.md",
+      "type": "command",
+      "success": false,
+      "errors": [
+        {
+          "file": "commands/catalog.md",
+          "message": "Error parsing frontmatter: yaml: line 5: did not find expected comment or line break",
+          "severity": "error"
+        }
+      ]
+    },
+    {
+      "file": "commands/commit.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/debug.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/design.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/dry.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/feature.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/flow.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/grai.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/iterate.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/learn.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/lint.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/ocd.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/optimize-image.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/port.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/refactor.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/review.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/slash-learn.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/storage-cleanup.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/suggest.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/tests.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/til.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/validate.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/weak.md",
+      "type": "command",
+      "success": true
+    },
+    {
+      "file": "commands/write.md",
+      "type": "command",
+      "success": true
+    }
+  ]
+}
