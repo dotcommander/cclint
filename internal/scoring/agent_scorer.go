@@ -18,10 +18,10 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	var details []ScoringMetric
 	lines := strings.Count(content, "\n") + 1
 
-	// === STRUCTURAL (40 points max) ===
+	// === STRUCTURAL (35 points max) ===
 	structural := 0
 
-	// Required fields (5 points each, 25 total)
+	// Required fields (5 points each, 20 total)
 	requiredFields := []struct {
 		name   string
 		points int
@@ -30,7 +30,6 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 		{"description", 5},
 		{"model", 5},
 		{"tools", 5},
-		{"triggers", 5},
 	}
 
 	for _, field := range requiredFields {
@@ -77,21 +76,8 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 		})
 	}
 
-	// === PRACTICES (40 points max) ===
+	// === PRACTICES (35 points max) ===
 	practices := 0
-
-	// context_isolation (5 points)
-	hasContextIsolation := strings.Contains(content, "context_isolation: true")
-	if hasContextIsolation {
-		practices += 5
-	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "context_isolation: true",
-		Points:    boolToInt(hasContextIsolation) * 5,
-		MaxPoints: 5,
-		Passed:    hasContextIsolation,
-	})
 
 	// Skill reference (10 points)
 	hasSkillRef, _ := regexp.MatchString(`(?i)Skill:\s*\S+`, bodyContent)

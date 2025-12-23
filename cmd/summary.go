@@ -135,8 +135,6 @@ func categorizeIssue(message string) string {
 		return "Missing Success Criteria"
 	case contains(message, "Expected Output"):
 		return "Missing Expected Output"
-	case contains(message, "context_isolation"):
-		return "Missing context_isolation"
 	case contains(message, "Skill()", "methodology"):
 		return "Embedded methodology (should extract)"
 	case contains(message, "triggers"):

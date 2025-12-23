@@ -111,7 +111,6 @@ func DetermineSeverity(message string) string {
 		"Foundation",
 		"Workflow",
 		"Anti-Pattern",
-		"context_isolation",
 		"methodology",
 		"Skill()",
 	}
@@ -148,23 +147,6 @@ func GetAgentImprovements(content string, data map[string]interface{}) []Improve
 		})
 	}
 
-	if _, ok := data["triggers"]; !ok {
-		recs = append(recs, ImprovementRecommendation{
-			Description: "Add 'triggers: [keyword1, keyword2]' to frontmatter",
-			PointValue:  5,
-			Line:        GetFrontmatterEndLine(content),
-			Severity:    SeverityMedium,
-		})
-	}
-
-	if !strings.Contains(content, "context_isolation: true") {
-		recs = append(recs, ImprovementRecommendation{
-			Description: "Add 'context_isolation: true' to frontmatter",
-			PointValue:  5,
-			Line:        GetFrontmatterEndLine(content),
-			Severity:    SeverityMedium,
-		})
-	}
 
 	if !strings.Contains(content, "## Foundation") {
 		recs = append(recs, ImprovementRecommendation{
