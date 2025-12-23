@@ -144,6 +144,57 @@ This makes skills discoverable. Without it, nobody knows what your skill does.
 
 ---
 
+## Make It Your Own
+
+This linter is opinionated—but they're *my* opinions. Fork it and make it yours.
+
+### Customize the rules
+
+The validation schemas live in `internal/cue/schemas/`:
+
+```
+internal/cue/schemas/
+├── agent.cue      # Agent frontmatter schema
+├── command.cue    # Command frontmatter schema
+├── settings.cue   # Settings validation
+└── claude_md.cue  # CLAUDE.md structure
+```
+
+Edit these CUE files to match your team's conventions:
+
+```cue
+// Example: Change allowed colors in agent.cue
+#Color: "red" | "blue" | "green"  // Your brand colors only
+
+// Example: Require specific fields
+#Agent: {
+    name: string
+    description: string
+    owner: string        // Add required fields
+    team?: string        // Add optional fields
+    ...
+}
+```
+
+### Adjust size limits
+
+In `internal/cli/agents.go`, `commands.go`, and `skills.go`, find the line limits:
+
+```go
+if lines > 200 {  // Change to your preference
+```
+
+### Add new checks
+
+The validation functions in `internal/cli/*.go` are straightforward Go. Add checks that matter to your team, remove ones that don't.
+
+After changes:
+```bash
+go build -o cclint .
+```
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |
