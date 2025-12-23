@@ -19,3 +19,18 @@ go.work
 *.swp
 *.swo
 *~
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+*.coverage
+node_modules/
