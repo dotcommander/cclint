@@ -6,33 +6,18 @@ Like ESLint but for your Claude Code config. Catches structural issues, validate
 
 ---
 
-## Quick Start (No Install Needed!)
-
-### Option 1: Clone once, run anywhere (npx-style)
-
-```bash
-# Clone once to your home directory
-git clone https://github.com/dotcommander/cclint.git ~/cclint
-
-# Now run from any project
-cd ~/your-project
-~/cclint/cclint agents
-
-# Or add to PATH for global access
-export PATH="$PATH:~/cclint"
-cclint agents
-```
-
-### Option 2: Build from source
+## Install
 
 ```bash
 git clone https://github.com/dotcommander/cclint.git && cd cclint
 go build -o cclint .
-ln -sf $(pwd)/cclint ~/go/bin/cclint  # or /usr/local/bin
-cclint agents
+ln -sf $(pwd)/cclint ~/go/bin/cclint
 ```
 
-**Note:** Unlike `npx` which auto-downloads every run, Go needs a local binary. But once you have it, it's instant—no network, no waiting.
+Then run from anywhere:
+```bash
+cclint agents
+```
 
 ---
 
