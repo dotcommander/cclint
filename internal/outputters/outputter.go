@@ -45,6 +45,4 @@ func (o *Outputter) Format(summary *cli.LintSummary, format string) error {
 	default:
 		return fmt.Errorf("unsupported format: %s", format)
 	}
-
-	return nil
 }

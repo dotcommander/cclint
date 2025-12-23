@@ -56,14 +56,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFile, "output", "o", "", "Output file for reports (requires --format)")
 	rootCmd.PersistentFlags().StringVarP(&failOn, "fail-on", "", "error", "Fail build on specified level (error|warning|suggestion)")
 
-	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
-	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	viper.BindPFlag("showScores", rootCmd.PersistentFlags().Lookup("scores"))
-	viper.BindPFlag("showImprovements", rootCmd.PersistentFlags().Lookup("improvements"))
-	viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
-	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("fail-on", rootCmd.PersistentFlags().Lookup("fail-on"))
+	_ = viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
+	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
+	_ = viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	_ = viper.BindPFlag("showScores", rootCmd.PersistentFlags().Lookup("scores"))
+	_ = viper.BindPFlag("showImprovements", rootCmd.PersistentFlags().Lookup("improvements"))
+	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
+	_ = viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
+	_ = viper.BindPFlag("fail-on", rootCmd.PersistentFlags().Lookup("fail-on"))
 }
 
 func initConfig() {
@@ -107,10 +107,5 @@ func runLint() error {
 		}
 	}
 
-	return nil
-}
-
-func validatePath(path string) error {
-	// TODO: Implement path validation to ensure it's safe
 	return nil
 }
