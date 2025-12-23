@@ -5,10 +5,10 @@ import (
 	"log"
 	"strings"
 
-	"github.com/carlrannaberg/cclint/internal/cue"
-	"github.com/carlrannaberg/cclint/internal/discovery"
-	"github.com/carlrannaberg/cclint/internal/frontend"
-	"github.com/carlrannaberg/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/frontend"
+	"github.com/dotcommander/cclint/internal/project"
 )
 
 // LintCommands runs linting on command files

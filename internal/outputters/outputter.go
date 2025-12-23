@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/carlrannaberg/cclint/internal/config"
-	"github.com/carlrannaberg/cclint/internal/cli"
-	"github.com/carlrannaberg/cclint/internal/output"
+	"github.com/dotcommander/cclint/internal/config"
+	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/output"
 )
 
 // Outputter handles output formatting

@@ -6,9 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/carlrannaberg/cclint/internal/config"
-	"github.com/carlrannaberg/cclint/internal/cli"
-	"github.com/carlrannaberg/cclint/internal/outputters"
+	"github.com/dotcommander/cclint/internal/config"
+	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/outputters"
 )
 
 var (

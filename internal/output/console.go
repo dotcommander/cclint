@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/carlrannaberg/cclint/internal/cli"
-	"github.com/carlrannaberg/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/charmbracelet/lipgloss"
 )
 

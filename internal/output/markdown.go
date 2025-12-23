@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/carlrannaberg/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/cli"
 )
 
 // MarkdownFormatter formats output as Markdown

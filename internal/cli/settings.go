@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/carlrannaberg/cclint/internal/cue"
-	"github.com/carlrannaberg/cclint/internal/discovery"
-	"github.com/carlrannaberg/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/project"
 )
 
 // LintSettings runs linting on settings files

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/carlrannaberg/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/cli"
 )
 
 // JSONFormatter formats output as JSON

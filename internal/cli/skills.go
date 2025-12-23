@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/carlrannaberg/cclint/internal/cue"
-	"github.com/carlrannaberg/cclint/internal/discovery"
-	"github.com/carlrannaberg/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/project"
 )
 
 // LintSkills runs linting on skill files
