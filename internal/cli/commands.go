@@ -9,6 +9,7 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
 	"github.com/dotcommander/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // LintCommands runs linting on command files
@@ -101,6 +102,14 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 				result.Success = false
 				summary.FailedFiles++
 			}
+
+			// Score command quality
+			scorer := scoring.NewCommandScorer()
+			score := scorer.Score(file.Contents, fm.Data, fm.Body)
+			result.Quality = &score
+
+			// Get improvement recommendations
+			result.Improvements = GetCommandImprovements(file.Contents, fm.Data)
 		}
 
 		summary.Results = append(summary.Results, result)

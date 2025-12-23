@@ -34,7 +34,7 @@ func (o *Outputter) Format(summary *cli.LintSummary, format string) error {
 	// Create appropriate formatter based on format
 	switch format {
 	case "console":
-		formatter := output.NewConsoleFormatter(o.config.Quiet, o.config.Verbose)
+		formatter := output.NewConsoleFormatter(o.config.Quiet, o.config.Verbose, o.config.ShowScores, o.config.ShowImprovements)
 		return formatter.Format(summary)
 	case "json":
 		formatter := output.NewJSONFormatter(o.config.Quiet, true, o.config.Output)

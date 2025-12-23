@@ -11,19 +11,23 @@ import (
 
 // ConsoleFormatter formats output for console display
 type ConsoleFormatter struct {
-	quiet     bool
-	verbose   bool
-	colorize   bool
-	startTime  time.Time
+	quiet            bool
+	verbose          bool
+	colorize         bool
+	showScores       bool
+	showImprovements bool
+	startTime        time.Time
 }
 
 // NewConsoleFormatter creates a new ConsoleFormatter
-func NewConsoleFormatter(quiet, verbose bool) *ConsoleFormatter {
+func NewConsoleFormatter(quiet, verbose, showScores, showImprovements bool) *ConsoleFormatter {
 	return &ConsoleFormatter{
-		quiet:   quiet,
-		verbose: verbose,
-		colorize: true,
-		startTime: time.Now(),
+		quiet:            quiet,
+		verbose:          verbose,
+		colorize:         true,
+		showScores:       showScores,
+		showImprovements: showImprovements,
+		startTime:        time.Now(),
 	}
 }
 
@@ -82,7 +86,26 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 			}
 		}
 
-		fmt.Printf("%s %s\n", fileStyle.Render(status), result.File)
+		// Add quality score if available and enabled
+		scoreStr := ""
+		if f.showScores && result.Quality != nil {
+			scoreStyle := lipgloss.NewStyle()
+			if f.colorize {
+				switch result.Quality.Tier {
+				case "A":
+					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
+				case "B":
+					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // blue
+				case "C":
+					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
+				default:
+					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
+				}
+			}
+			scoreStr = fmt.Sprintf(" [%s %s]", scoreStyle.Render(result.Quality.Tier), scoreStyle.Render(fmt.Sprintf("%d", result.Quality.Overall)))
+		}
+
+		fmt.Printf("%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
 
 		// Print errors and warnings
 		for _, err := range result.Errors {
@@ -93,6 +116,30 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 		}
 		for _, suggestion := range result.Suggestions {
 			f.printValidationError(suggestion, "suggestion")
+		}
+
+		// Print score details if verbose and scores enabled
+		if f.verbose && f.showScores && result.Quality != nil {
+			fmt.Printf("    Score: %d/100 (%s)\n", result.Quality.Overall, result.Quality.Tier)
+			fmt.Printf("      Structural: %d/40  Practices: %d/40  Composition: %d/10  Documentation: %d/10\n",
+				result.Quality.Structural, result.Quality.Practices, result.Quality.Composition, result.Quality.Documentation)
+		}
+
+		// Print improvements if enabled
+		if f.showImprovements && len(result.Improvements) > 0 {
+			impStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // cyan
+			ptsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
+			fmt.Printf("    %s\n", impStyle.Render("Improvements:"))
+			for _, imp := range result.Improvements {
+				lineRef := ""
+				if imp.Line > 0 {
+					lineRef = fmt.Sprintf(" (line %d)", imp.Line)
+				}
+				fmt.Printf("      %s %s%s\n",
+					ptsStyle.Render(fmt.Sprintf("+%d pts:", imp.PointValue)),
+					imp.Description,
+					lineRef)
+			}
 		}
 	}
 }

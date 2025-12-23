@@ -11,18 +11,20 @@ import (
 
 // Config represents the cclint configuration
 type Config struct {
-	Root          string            `mapstructure:"root"`
-	Exclude       []string          `mapstructure:"exclude"`
-	FollowSymlinks bool              `mapstructure:"followSymlinks"`
-	Format        string            `mapstructure:"format"`
-	Output        string            `mapstructure:"output"`
-	FailOn        string            `mapstructure:"failOn"`
-	Quiet         bool              `mapstructure:"quiet"`
-	Verbose       bool              `mapstructure:"verbose"`
-	Rules         RulesConfig       `mapstructure:"rules"`
-	Schemas       SchemaConfig      `mapstructure:"schemas"`
-	Concurrency   int               `mapstructure:"concurrency"`
-	Parallel      bool              `mapstructure:"parallel"`
+	Root             string            `mapstructure:"root"`
+	Exclude          []string          `mapstructure:"exclude"`
+	FollowSymlinks   bool              `mapstructure:"followSymlinks"`
+	Format           string            `mapstructure:"format"`
+	Output           string            `mapstructure:"output"`
+	FailOn           string            `mapstructure:"failOn"`
+	Quiet            bool              `mapstructure:"quiet"`
+	Verbose          bool              `mapstructure:"verbose"`
+	ShowScores       bool              `mapstructure:"showScores"`
+	ShowImprovements bool              `mapstructure:"showImprovements"`
+	Rules            RulesConfig       `mapstructure:"rules"`
+	Schemas          SchemaConfig      `mapstructure:"schemas"`
+	Concurrency      int               `mapstructure:"concurrency"`
+	Parallel         bool              `mapstructure:"parallel"`
 }
 
 // RulesConfig contains rule configuration
@@ -46,6 +48,8 @@ func LoadConfig(rootPath string) (*Config, error) {
 	viper.SetDefault("followSymlinks", false)
 	viper.SetDefault("quiet", false)
 	viper.SetDefault("verbose", false)
+	viper.SetDefault("showScores", false)
+	viper.SetDefault("showImprovements", false)
 	viper.SetDefault("concurrency", 10)
 	viper.SetDefault("parallel", true)
 	viper.SetDefault("rules.strict", true)

@@ -10,17 +10,20 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
 	"github.com/dotcommander/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // LintResult represents a single linting result
 type LintResult struct {
-	File       string
-	Type       string
-	Errors     []cue.ValidationError
-	Warnings   []cue.ValidationError
-	Suggestions []cue.ValidationError
-	Success    bool
-	Duration   int64
+	File         string
+	Type         string
+	Errors       []cue.ValidationError
+	Warnings     []cue.ValidationError
+	Suggestions  []cue.ValidationError
+	Improvements []ImprovementRecommendation
+	Success      bool
+	Duration     int64
+	Quality      *scoring.QualityScore
 }
 
 // LintSummary summarizes all linting results
@@ -140,6 +143,14 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 				result.Success = false
 				summary.FailedFiles++
 			}
+
+			// Score agent quality
+			scorer := scoring.NewAgentScorer()
+			score := scorer.Score(file.Contents, fm.Data, fm.Body)
+			result.Quality = &score
+
+			// Get improvement recommendations
+			result.Improvements = GetAgentImprovements(file.Contents, fm.Data)
 		}
 
 		summary.Results = append(summary.Results, result)
@@ -162,6 +173,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			File:     filePath,
 			Message:  "Required field 'name' is missing or empty",
 			Severity: "error",
+			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})
 	}
 
@@ -170,6 +182,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			File:     filePath,
 			Message:  "Required field 'description' is missing or empty",
 			Severity: "error",
+			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
 	}
 
@@ -187,6 +200,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				File:     filePath,
 				Message:  "Name must contain only lowercase letters, numbers, and hyphens",
 				Severity: "error",
+				Line:     FindFrontmatterFieldLine(contents, "name"),
 			})
 		}
 
@@ -248,6 +262,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 // validateAgentBestPractices checks opinionated best practices for agents
 func validateAgentBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
 	var suggestions []cue.ValidationError
+	fmEndLine := GetFrontmatterEndLine(contents)
 
 	// Count total lines
 	lines := strings.Count(contents, "\n")
@@ -256,6 +271,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  fmt.Sprintf("Agent is %d lines. Best practice: keep agents under 200 lines - move methodology to skills instead.", lines),
 			Severity: "suggestion",
+			Line:     1,
 		})
 	}
 
@@ -265,6 +281,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks 'model' specification. Consider adding 'model: sonnet' or appropriate model for optimal performance.",
 			Severity: "suggestion",
+			Line:     fmEndLine,
 		})
 	}
 
@@ -274,6 +291,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks 'triggers' array. Add keyword triggers for automatic activation.",
 			Severity: "suggestion",
+			Line:     fmEndLine,
 		})
 	}
 
@@ -285,6 +303,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 				File:     filePath,
 				Message:  "Agent has 'triggers' but no 'proactive_triggers'. Consider adding proactive trigger phrases for better activation.",
 				Severity: "suggestion",
+				Line:     FindFrontmatterFieldLine(contents, "triggers"),
 			})
 		}
 	}
@@ -295,6 +314,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks 'context_isolation: true'. Consider adding for cleaner context management.",
 			Severity: "suggestion",
+			Line:     fmEndLine,
 		})
 	}
 
@@ -309,6 +329,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks '## Foundation' section. Should define skill loading and initialization.",
 			Severity: "suggestion",
+			Line:     fmEndLine + 2,
 		})
 	}
 
@@ -317,6 +338,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks '## Workflow' section. Should define phased execution plan.",
 			Severity: "suggestion",
+			Line:     FindSectionLine(contents, "Foundation"),
 		})
 	}
 
@@ -325,6 +347,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks '## Expected Output' section. Should define what success looks like.",
 			Severity: "suggestion",
+			Line:     FindSectionLine(contents, "Workflow"),
 		})
 	}
 
@@ -333,6 +356,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent lacks '## Success Criteria' checklist. Should define completion conditions.",
 			Severity: "suggestion",
+			Line:     FindSectionLine(contents, "Expected Output"),
 		})
 	}
 
@@ -345,6 +369,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "Agent has methodology sections. Consider extracting to a skill and loading with Skill() tool for reusability.",
 			Severity: "suggestion",
+			Line:     FindSectionLine(contents, "Foundation"),
 		})
 	}
 
@@ -355,6 +380,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 				File:     filePath,
 				Message:  "Description lacks 'Use PROACTIVELY when...' pattern. Add to clarify activation scenarios.",
 				Severity: "suggestion",
+				Line:     FindFrontmatterFieldLine(contents, "description"),
 			})
 		}
 	}

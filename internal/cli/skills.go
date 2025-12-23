@@ -8,7 +8,9 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/frontend"
 	"github.com/dotcommander/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // LintSkills runs linting on skill files
@@ -99,6 +101,24 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		if len(result.Errors) == 0 {
 			summary.SuccessfulFiles++
 		}
+
+		// Score skill quality
+		scorer := scoring.NewSkillScorer()
+		fm, _ := frontend.ParseYAMLFrontmatter(file.Contents)
+		var fmData map[string]interface{}
+		var bodyContent string
+		if fm != nil {
+			fmData = fm.Data
+			bodyContent = fm.Body
+		} else {
+			fmData = make(map[string]interface{})
+			bodyContent = file.Contents
+		}
+		score := scorer.Score(file.Contents, fmData, bodyContent)
+		result.Quality = &score
+
+		// Get improvement recommendations
+		result.Improvements = GetSkillImprovements(file.Contents, fmData)
 
 		summary.Results = append(summary.Results, result)
 

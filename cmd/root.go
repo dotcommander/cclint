@@ -12,12 +12,14 @@ import (
 )
 
 var (
-	rootPath     string
-	quiet        bool
-	verbose      bool
-	outputFormat string
-	outputFile   string
-	failOn       string
+	rootPath         string
+	quiet            bool
+	verbose          bool
+	showScores       bool
+	showImprovements bool
+	outputFormat     string
+	outputFile       string
+	failOn           string
 )
 
 var rootCmd = &cobra.Command{
@@ -48,6 +50,8 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&rootPath, "root", "r", "", "Project root directory (auto-detected if not specified)")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
+	rootCmd.PersistentFlags().BoolVarP(&showScores, "scores", "s", false, "Show quality scores (0-100) for each component")
+	rootCmd.PersistentFlags().BoolVarP(&showImprovements, "improvements", "i", false, "Show specific improvements with point values")
 	rootCmd.PersistentFlags().StringVarP(&outputFormat, "format", "f", "console", "Output format for reports (console|json|markdown)")
 	rootCmd.PersistentFlags().StringVarP(&outputFile, "output", "o", "", "Output file for reports (requires --format)")
 	rootCmd.PersistentFlags().StringVarP(&failOn, "fail-on", "", "error", "Fail build on specified level (error|warning|suggestion)")
@@ -55,6 +59,8 @@ func init() {
 	viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("showScores", rootCmd.PersistentFlags().Lookup("scores"))
+	viper.BindPFlag("showImprovements", rootCmd.PersistentFlags().Lookup("improvements"))
 	viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
 	viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
 	viper.BindPFlag("fail-on", rootCmd.PersistentFlags().Lookup("fail-on"))

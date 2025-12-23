@@ -74,6 +74,18 @@ func (f *JSONFormatter) Format(summary *cli.LintSummary) error {
 			})
 		}
 
+		// Add quality score if available
+		if result.Quality != nil {
+			jsonResult.Quality = &JSONQualityScore{
+				Overall:       result.Quality.Overall,
+				Tier:          result.Quality.Tier,
+				Structural:    result.Quality.Structural,
+				Practices:     result.Quality.Practices,
+				Composition:   result.Quality.Composition,
+				Documentation: result.Quality.Documentation,
+			}
+		}
+
 		report.Results[i] = jsonResult
 	}
 
@@ -130,12 +142,23 @@ type JSONSummary struct {
 
 // JSONResult represents a single file's linting result
 type JSONResult struct {
-	File     string              `json:"file"`
-	Type     string              `json:"type"`
-	Success  bool                `json:"success"`
-	Duration int64               `json:"duration_ms,omitempty"`
+	File     string               `json:"file"`
+	Type     string               `json:"type"`
+	Success  bool                 `json:"success"`
+	Duration int64                `json:"duration_ms,omitempty"`
 	Errors   []JSONValidationError `json:"errors,omitempty"`
 	Warnings []JSONValidationError `json:"warnings,omitempty"`
+	Quality  *JSONQualityScore    `json:"quality,omitempty"`
+}
+
+// JSONQualityScore represents the quality score for a component
+type JSONQualityScore struct {
+	Overall       int    `json:"overall"`
+	Tier          string `json:"tier"`
+	Structural    int    `json:"structural"`
+	Practices     int    `json:"practices"`
+	Composition   int    `json:"composition"`
+	Documentation int    `json:"documentation"`
 }
 
 // JSONValidationError represents a validation error
