@@ -1,10 +1,8 @@
 # cclint
 
-> Opinionated linter for Claude Code agents, commands, and skills.
+Linter for Claude Code components (agents, commands, skills).
 
-Like ESLint but for your Claude Code config. Catches structural issues, validates schemas, and yells at you about best practices.
-
----
+Validates structure, checks frontmatter schemas, suggests improvements based on patterns I've found useful. Your mileage may vary.
 
 ## Install
 
@@ -14,186 +12,62 @@ go build -o cclint .
 ln -sf $(pwd)/cclint ~/go/bin/cclint
 ```
 
-Then run from anywhere:
-```bash
-cclint agents
-```
+## Usage
 
----
+```bash
+cclint                  # check everything
+cclint agents           # just agents
+cclint commands         # just commands
+cclint skills           # just skills
+
+cclint --root ~/project agents          # specific directory
+cclint --format json --output report.json   # JSON for CI
+cclint --quiet                          # errors only
+cclint --scores                         # show quality scores
+```
 
 ## What It Checks
 
-| Thing | What It Yells About |
-|-------|---------------------|
-| **Agents** | Missing fields, bad names, too long (>200 lines), missing sections, no Skill() loading |
-| **Commands** | Bad names, too long (>50 lines), missing Usage/Workflow, no semantic routing tables |
-| **Skills** | Wrong filename, empty files, no frontmatter, no Quick Reference table, too long (>500 lines) |
+| Component | Errors | Suggestions |
+|-----------|--------|-------------|
+| Agents | Missing name/description, invalid name format, bad color values | Line count >200, missing model/triggers, missing sections |
+| Commands | Missing required fields, invalid format | Line count >50, no routing table |
+| Skills | Wrong filename (must be SKILL.md), empty content | Line count >500, no Quick Reference table |
 
----
-
-## Usage Examples
-
-```bash
-# Check all agents
-cclint agents
-
-# Check just commands
-cclint commands
-
-# Check just skills
-cclint skills
-
-# Check everything (default)
-cclint
-
-# From a specific directory
-cclint --root ~/my-project agents
-
-# JSON output for CI/CD
-cclint --format json --output report.json agents
-
-# Quiet mode (errors only, no suggestions)
-cclint --quiet commands
-
-# Verbose mode (natter on about everything)
-cclint --verbose skills
-```
-
----
-
-## What The Output Looks Like
+## Output
 
 ```
-💡 agents/architecture-specialist.md
-    💡 Agent is 251 lines. Best practice: keep agents under 200 lines - move methodology to skills instead.
-    💡 Agent has 'triggers' but no 'proactive_triggers'. Consider adding proactive trigger phrases.
-    💡 Agent lacks 'context_isolation: true'. Consider adding for cleaner context management.
+💡 agents/my-agent.md
+    💡 Agent is 251 lines. Best practice: keep under 200 lines.
+    💡 Missing 'model' field.
 
-💡 commands/commit.md
-    💡 Command is 129 lines. Best practice: keep commands under 50 lines - delegate to specialist agents.
-    💡 Consider adding a semantic routing table for discoverability (| User Question | Action |).
+✗ commands/broken.md
+    ✗ Required field 'name' is missing.
 
-70/70 passed, 0 errors, 308 suggestions (0s)
+70/70 passed, 0 errors, 12 suggestions
 ```
 
-💡 = Suggestion (won't fail lint)
-✗ = Error (will fail lint)
+- 💡 Suggestion - won't fail the build
+- ✗ Error - exit code 1
 
----
+## Customization
 
-## Opinionated Best Practices
+Fork it. The rules are my preferences, not universal truths.
 
-This tool enforces patterns from real-world Claude Code setups:
+**Schemas:** `internal/cue/schemas/*.cue`
 
-### Commands should be tiny (<50 lines)
+**Line limits:** Search for `lines > 200` in `internal/cli/*.go`
 
-```markdown
----
-allowed-tools: Task(specialist)
----
-Delegate to specialist for the actual work.
-Task(specialist): $ARGUMENTS
-```
+**Add/remove checks:** Edit validation functions in `internal/cli/*.go`
 
-If your command is >50 lines, you're doing it wrong. Extract methodology to a skill.
-
-### Agents should load skills
-
-```markdown
----
-model: sonnet
-triggers: ["performance", "slow"]
-proactive_triggers: ["investigate slowness", "optimize"]
----
-## Foundation
-Skill(performance-patterns)
-
-## Workflow
-Phase 1: Profile → Phase 2: Analyze → Phase 3: Optimize
-```
-
-Don't embed methodology in agents. Put it in skills, load with `Skill()`.
-
-### Skills need routing tables
-
-```markdown
-## Quick Reference
-
-| User Question | Action |
-|---------------|--------|
-| "How do I cache?" | Read(references/caching.md) |
-| "What's the cache strategy?" | Read(references/strategy.md) |
-```
-
-This makes skills discoverable. Without it, nobody knows what your skill does.
-
----
-
-## Make It Your Own
-
-This linter is opinionated—but they're *my* opinions. Fork it and make it yours.
-
-### Customize the rules
-
-The validation schemas live in `internal/cue/schemas/`:
-
-```
-internal/cue/schemas/
-├── agent.cue      # Agent frontmatter schema
-├── command.cue    # Command frontmatter schema
-├── settings.cue   # Settings validation
-└── claude_md.cue  # CLAUDE.md structure
-```
-
-Edit these CUE files to match your team's conventions:
-
-```cue
-// Example: Change allowed colors in agent.cue
-#Color: "red" | "blue" | "green"  // Your brand colors only
-
-// Example: Require specific fields
-#Agent: {
-    name: string
-    description: string
-    owner: string        // Add required fields
-    team?: string        // Add optional fields
-    ...
-}
-```
-
-### Adjust size limits
-
-In `internal/cli/agents.go`, `commands.go`, and `skills.go`, find the line limits:
-
-```go
-if lines > 200 {  // Change to your preference
-```
-
-### Add new checks
-
-The validation functions in `internal/cli/*.go` are straightforward Go. Add checks that matter to your team, remove ones that don't.
-
-After changes:
-```bash
-go build -o cclint .
-```
-
----
+Rebuild after changes: `go build -o cclint .`
 
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | All good (suggestions don't count) |
+| 0 | No errors (suggestions don't count) |
 | 1 | Errors found |
-
----
-
-## Contributing
-
-Found a false positive? Missing check? Open an issue or PR.
-
----
 
 ## License
 
