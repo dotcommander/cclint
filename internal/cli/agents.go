@@ -48,22 +48,9 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 	validator := cue.NewValidator()
 	discoverer := discovery.NewFileDiscovery(rootPath, false)
 
-	// Load schemas - try multiple paths
-	schemaPaths := []string{
-		"schemas",
-		"./schemas",
-		"/schemas",
-	}
-	var schemaLoaded bool
-	for _, path := range schemaPaths {
-		if err := validator.LoadSchemas(path); err == nil {
-			schemaLoaded = true
-			break
-		}
-	}
-	if !schemaLoaded {
+	// Load embedded schemas
+	if err := validator.LoadSchemas(""); err != nil {
 		log.Printf("Warning: CUE schemas not loaded, using Go validation")
-		// Continue with basic validation
 	}
 
 	// Find project root
