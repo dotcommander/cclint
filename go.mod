@@ -1,4 +1,4 @@
-module github.com/carlrannaberg/cclint
+module github.com/dotcommander/cclint
 
 go 1.21
 
