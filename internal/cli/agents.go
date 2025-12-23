@@ -44,6 +44,15 @@ type LintSummary struct {
 func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
 	summary := &LintSummary{}
 
+	// Find project root first
+	if rootPath == "" {
+		var err error
+		rootPath, err = project.FindProjectRoot(".")
+		if err != nil {
+			return nil, fmt.Errorf("error finding project root: %w", err)
+		}
+	}
+
 	// Initialize components
 	validator := cue.NewValidator()
 	discoverer := discovery.NewFileDiscovery(rootPath, false)
@@ -51,15 +60,6 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 	// Load embedded schemas
 	if err := validator.LoadSchemas(""); err != nil {
 		log.Printf("Warning: CUE schemas not loaded, using Go validation")
-	}
-
-	// Find project root
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
 	}
 
 	// Discover files
@@ -198,17 +198,13 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			filename = filename[idx+1:]
 		}
 		// Remove .md extension
-		if strings.HasSuffix(filename, ".md") {
-			filename = filename[:len(filename)-3]
-		}
+		filename = strings.TrimSuffix(filename, ".md")
 		// For nested paths, use the last component
 		if idx := strings.LastIndex(filename, "/"); idx != -1 {
 			filename = filename[idx+1:]
 		}
 		// Remove .md extension again if present
-		if strings.HasSuffix(filename, ".md") {
-			filename = filename[:len(filename)-3]
-		}
+		filename = strings.TrimSuffix(filename, ".md")
 
 		if name != filename {
 			errors = append(errors, cue.ValidationError{

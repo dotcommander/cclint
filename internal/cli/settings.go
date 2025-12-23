@@ -14,6 +14,15 @@ import (
 func LintSettings(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
 	summary := &LintSummary{}
 
+	// Find project root first
+	if rootPath == "" {
+		var err error
+		rootPath, err = project.FindProjectRoot(".")
+		if err != nil {
+			return nil, fmt.Errorf("error finding project root: %w", err)
+		}
+	}
+
 	// Initialize components
 	validator := cue.NewValidator()
 	discoverer := discovery.NewFileDiscovery(rootPath, false)
@@ -23,15 +32,6 @@ func LintSettings(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 	if err := validator.LoadSchemas(schemaDir); err != nil {
 		log.Printf("Error loading schemas: %v", err)
 		// Continue with basic validation
-	}
-
-	// Find project root
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
 	}
 
 	// Discover files

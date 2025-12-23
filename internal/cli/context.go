@@ -15,8 +15,16 @@ import (
 func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
 	summary := &LintSummary{}
 
+	// Find project root first
+	if rootPath == "" {
+		var err error
+		rootPath, err = project.FindProjectRoot(".")
+		if err != nil {
+			return nil, fmt.Errorf("error finding project root: %w", err)
+		}
+	}
+
 	// Initialize components
-	// projectDetector := &project.Detector{} // Not needed
 	validator := cue.NewValidator()
 	discoverer := discovery.NewFileDiscovery(rootPath, false)
 
@@ -25,15 +33,6 @@ func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error
 	if err := validator.LoadSchemas(schemaDir); err != nil {
 		log.Printf("Error loading schemas: %v", err)
 		// Continue with basic validation
-	}
-
-	// Find project root
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
 	}
 
 	// Discover files
@@ -119,7 +118,6 @@ func parseMarkdownSections(content string) []map[string]interface{} {
 
 	// This is a simplified parser - in practice, would use a proper markdown parser
 	lines := []string{}
-	content = content
 	if fm, err := frontend.ParseYAMLFrontmatter(content); err == nil {
 		lines = append(lines, strings.Split(fm.Body, "\n")...)
 	} else {

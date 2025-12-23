@@ -17,10 +17,7 @@ import (
 func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
 	summary := &LintSummary{}
 
-	// Initialize components
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-
-	// Find project root
+	// Find project root first
 	if rootPath == "" {
 		var err error
 		rootPath, err = project.FindProjectRoot(".")
@@ -28,6 +25,9 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 			return nil, fmt.Errorf("error finding project root: %w", err)
 		}
 	}
+
+	// Initialize components
+	discoverer := discovery.NewFileDiscovery(rootPath, false)
 
 	// Discover files
 	files, err := discoverer.DiscoverFiles()
