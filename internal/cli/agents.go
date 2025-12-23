@@ -268,38 +268,6 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		})
 	}
 
-	// Check for triggers array
-	if _, hasTriggers := data["triggers"]; !hasTriggers {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks 'triggers' array. Add keyword triggers for automatic activation.",
-			Severity: "suggestion",
-			Line:     fmEndLine,
-		})
-	}
-
-	// Check for proactive_triggers (complement to triggers)
-	if _, hasProactiveTriggers := data["proactive_triggers"]; !hasProactiveTriggers {
-		_, hasTriggers := data["triggers"]
-		if hasTriggers {
-			suggestions = append(suggestions, cue.ValidationError{
-				File:     filePath,
-				Message:  "Agent has 'triggers' but no 'proactive_triggers'. Consider adding proactive trigger phrases for better activation.",
-				Severity: "suggestion",
-				Line:     FindFrontmatterFieldLine(contents, "triggers"),
-			})
-		}
-	}
-
-	// Check for performance optimization fields
-	if _, hasContextIsolation := data["context_isolation"]; !hasContextIsolation {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks 'context_isolation: true'. Consider adding for cleaner context management.",
-			Severity: "suggestion",
-			Line:     fmEndLine,
-		})
-	}
 
 	// Check for required sections
 	hasFoundation := strings.Contains(contents, "## Foundation")
