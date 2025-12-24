@@ -42,6 +42,9 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 		return nil, fmt.Errorf("error discovering files: %w", err)
 	}
 
+	// Initialize cross-file validator with all discovered files
+	crossValidator := NewCrossFileValidator(files)
+
 	// Filter command files
 	var commandFiles []discovery.File
 	for _, file := range files {
@@ -90,6 +93,11 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 			errors := validateCommandSpecific(fm.Data, file.RelPath, file.Contents)
 			result.Errors = append(result.Errors, errors...)
 			summary.TotalErrors += len(errors)
+
+			// Cross-file validation (missing agents, unused tools)
+			crossErrors := crossValidator.ValidateCommand(file.RelPath, file.Contents, fm.Data)
+			result.Errors = append(result.Errors, crossErrors...)
+			summary.TotalErrors += len(crossErrors)
 
 			// Best practice checks
 			suggestions := validateCommandBestPractices(file.RelPath, file.Contents)
@@ -180,29 +188,59 @@ func validateCommandBestPractices(filePath string, contents string) []cue.Valida
 		})
 	}
 
-	// Check for required sections
-	if !strings.Contains(contents, "## Usage") && !strings.Contains(contents, "## Workflow") {
+	// Thin command pattern: Commands should delegate to agents, not contain methodology.
+	hasTaskDelegation := strings.Contains(contents, "Task(")
+
+	// === BLOAT SECTIONS DETECTOR (thin commands only) ===
+	if hasTaskDelegation {
+		bloatSections := []struct {
+			pattern string
+			message string
+		}{
+			{"## Quick Reference", "Thin command has '## Quick Reference' - belongs in skill, not command"},
+			{"## Usage", "Thin command has '## Usage' - agent has full context, remove"},
+			{"## Workflow", "Thin command has '## Workflow' - duplicates agent content, remove"},
+			{"## When to use", "Thin command has '## When to use' - belongs in description, remove"},
+			{"## What it does", "Thin command has '## What it does' - belongs in description, remove"},
+		}
+		for _, section := range bloatSections {
+			if strings.Contains(contents, section.pattern) {
+				suggestions = append(suggestions, cue.ValidationError{
+					File:     filePath,
+					Message:  section.message,
+					Severity: "suggestion",
+				})
+			}
+		}
+	}
+
+	// === EXCESSIVE EXAMPLES DETECTOR ===
+	exampleCount := strings.Count(contents, "```bash") + strings.Count(contents, "```shell")
+	if exampleCount > 2 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  "Command lacks '## Usage' or '## Workflow' section. Document how to use this command.",
+			Message:  fmt.Sprintf("Command has %d code examples. Best practice: max 2 examples.", exampleCount),
 			Severity: "suggestion",
 		})
 	}
 
-	// Check for semantic routing table
-	if !strings.Contains(contents, "| User") && !strings.Contains(contents, "User Question") && !strings.Contains(contents, "Quick Reference") {
+	// === SUCCESS CRITERIA FORMAT DETECTOR ===
+	// Success criteria should be checkboxes, not prose
+	hasSuccessSection := strings.Contains(contents, "## Success") || strings.Contains(contents, "Success criteria:")
+	hasCheckboxes := strings.Contains(contents, "- [ ]")
+	if hasSuccessSection && !hasCheckboxes {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  "Consider adding a semantic routing table for discoverability (| User Question | Action |).",
+			Message:  "Success criteria should use checkbox format '- [ ]' not prose",
 			Severity: "suggestion",
 		})
 	}
 
-	// Check for Examples section
-	if !strings.Contains(contents, "## Example") && !strings.Contains(contents, "## Examples") {
+	// Only suggest Usage section for FAT commands (>40 lines without Task delegation)
+	if !hasTaskDelegation && lines > 40 && !strings.Contains(contents, "## Usage") && !strings.Contains(contents, "## Workflow") {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  "Consider adding an Examples section to show typical usage patterns.",
+			Message:  "Fat command without Task delegation lacks '## Usage' section. Consider delegating to a specialist agent.",
 			Severity: "suggestion",
 		})
 	}

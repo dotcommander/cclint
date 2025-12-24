@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 	"time"
 
@@ -68,6 +69,9 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		return nil, fmt.Errorf("error discovering files: %w", err)
 	}
 
+	// Initialize cross-file validator with all discovered files
+	crossValidator := NewCrossFileValidator(files)
+
 	// Filter agent files
 	var agentFiles []discovery.File
 	for _, file := range files {
@@ -123,6 +127,11 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 					summary.TotalErrors++
 				}
 			}
+
+			// Cross-file validation (missing skills)
+			crossErrors := crossValidator.ValidateAgent(file.RelPath, file.Contents)
+			result.Errors = append(result.Errors, crossErrors...)
+			summary.TotalErrors += len(crossErrors)
 
 			if len(result.Errors) == 0 {
 				summary.SuccessfulFiles++
@@ -258,6 +267,48 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		})
 	}
 
+	// === BLOAT SECTIONS DETECTOR ===
+	// Check for bloat sections (only match exact h2 headings, not substrings)
+	bloatPatterns := []struct {
+		regex   *regexp.Regexp
+		message string
+	}{
+		{regexp.MustCompile(`(?m)^## Quick Reference\s*$`), "Agent has '## Quick Reference' - belongs in skill, not agent"},
+		{regexp.MustCompile(`(?m)^## When to Use\s*$`), "Agent has '## When to Use' - caller decides, use description triggers"},
+		{regexp.MustCompile(`(?m)^## What it does\s*$`), "Agent has '## What it does' - belongs in description"},
+		{regexp.MustCompile(`(?m)^## Usage\s*$`), "Agent has '## Usage' - belongs in skill or remove"},
+	}
+	for _, bp := range bloatPatterns {
+		if bp.regex.MatchString(contents) {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  bp.message,
+				Severity: "suggestion",
+			})
+		}
+	}
+
+	// === INLINE METHODOLOGY DETECTOR ===
+	inlinePatterns := []struct {
+		pattern string
+		message string
+	}{
+		{`score\s*=\s*\([^)]{20,}`, "Inline scoring formula detected - should be 'See skill for scoring'"},
+		{`\|\s*CRITICAL\s*\|[^|]*\|\s*HIGH\s*\|`, "Inline priority matrix detected - move to skill"},
+		{`(?i)tier\s*(bonus|1|2|3|4)[^|]*\+\s*\d+`, "Tier scoring details inline - move to skill"},
+		{`regexp\.(MustCompile|Compile)\s*\(`, "Detection patterns inline - move to skill"},
+	}
+	for _, ip := range inlinePatterns {
+		matched, _ := regexp.MatchString(ip.pattern, contents)
+		if matched {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  ip.message,
+				Severity: "suggestion",
+			})
+		}
+	}
+
 	// Check for missing model specification
 	if _, hasModel := data["model"]; !hasModel {
 		suggestions = append(suggestions, cue.ValidationError{
@@ -268,57 +319,14 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		})
 	}
 
-
-	// Check for required sections
-	hasFoundation := strings.Contains(contents, "## Foundation")
-	hasWorkflow := strings.Contains(contents, "## Workflow")
-	hasExpectedOutput := strings.Contains(contents, "## Expected Output")
-	hasSuccessCriteria := strings.Contains(contents, "## Success Criteria")
-
-	if !hasFoundation {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks '## Foundation' section. Should define skill loading and initialization.",
-			Severity: "suggestion",
-			Line:     fmEndLine + 2,
-		})
-	}
-
-	if !hasWorkflow {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks '## Workflow' section. Should define phased execution plan.",
-			Severity: "suggestion",
-			Line:     FindSectionLine(contents, "Foundation"),
-		})
-	}
-
-	if !hasExpectedOutput {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks '## Expected Output' section. Should define what success looks like.",
-			Severity: "suggestion",
-			Line:     FindSectionLine(contents, "Workflow"),
-		})
-	}
-
-	if !hasSuccessCriteria {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Agent lacks '## Success Criteria' checklist. Should define completion conditions.",
-			Severity: "suggestion",
-			Line:     FindSectionLine(contents, "Expected Output"),
-		})
-	}
-
 	// Check for Skill loading pattern
-	if strings.Contains(contents, "Skill(") {
-		// Has Skill calls - good practice
-	} else if strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow") {
-		// Has structure but no explicit Skill loading
+	// Accept Skill() tool calls, Skill: references, and Skills: (plural) references
+	hasSkillRef := strings.Contains(contents, "Skill(") || strings.Contains(contents, "Skill:") || strings.Contains(contents, "Skills:")
+	if !hasSkillRef && (strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow")) {
+		// Has structure but no skill reference - gentle reminder
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  "Agent has methodology sections. Consider extracting to a skill and loading with Skill() tool for reusability.",
+			Message:  "No skill reference found. If methodology is reusable, consider extracting to a skill.",
 			Severity: "suggestion",
 			Line:     FindSectionLine(contents, "Foundation"),
 		})
@@ -326,7 +334,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 
 	// Check for Use PROACTIVELY pattern in description
 	if desc, hasDesc := data["description"].(string); hasDesc {
-		if !strings.Contains(strings.ToLower(desc), "proactively") && !strings.Contains(strings.ToLower(desc), "use proactively") {
+		if !strings.Contains(desc, "PROACTIVELY") {
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
 				Message:  "Description lacks 'Use PROACTIVELY when...' pattern. Add to clarify activation scenarios.",

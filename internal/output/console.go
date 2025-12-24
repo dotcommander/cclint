@@ -61,8 +61,8 @@ func (f *ConsoleFormatter) printHeader(summary *cli.LintSummary) {
 // printFileResults prints results for each file
 func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 	for _, result := range summary.Results {
-		// Show file if it has errors, warnings, or suggestions
-		hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0 || len(result.Suggestions) > 0
+		// Show file if it has errors or warnings (suggestions only in verbose mode)
+		hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0
 		if !hasIssues && !f.verbose {
 			continue
 		}
@@ -71,7 +71,7 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 		status := "✓"
 		if len(result.Errors) > 0 {
 			status = "✗"
-		} else if len(result.Suggestions) > 0 {
+		} else if f.verbose && len(result.Suggestions) > 0 {
 			status = "💡"
 		}
 
@@ -79,7 +79,7 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 		if f.colorize {
 			if len(result.Errors) > 0 {
 				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
-			} else if len(result.Suggestions) > 0 {
+			} else if f.verbose && len(result.Suggestions) > 0 {
 				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // gray
 			} else {
 				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
@@ -114,8 +114,11 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 		for _, warning := range result.Warnings {
 			f.printValidationError(warning, "warning")
 		}
-		for _, suggestion := range result.Suggestions {
-			f.printValidationError(suggestion, "suggestion")
+		// Only print suggestions in verbose mode
+		if f.verbose {
+			for _, suggestion := range result.Suggestions {
+				f.printValidationError(suggestion, "suggestion")
+			}
 		}
 
 		// Print score details if verbose and scores enabled
@@ -184,16 +187,27 @@ func (f *ConsoleFormatter) printSummary(summary *cli.LintSummary) {
 		return
 	}
 
-	// Only show summary if there are issues
-	if summary.FailedFiles == 0 && summary.TotalSuggestions == 0 {
+	// Only show summary if there are errors/warnings, or suggestions in verbose mode
+	suggestionsCount := 0
+	if f.verbose {
+		suggestionsCount = summary.TotalSuggestions
+	}
+	if summary.FailedFiles == 0 && suggestionsCount == 0 {
 		return
 	}
 
 	duration := time.Since(f.startTime)
-	fmt.Printf("\n%d/%d passed, %d errors, %d suggestions (%v)\n",
-		summary.SuccessfulFiles, summary.TotalFiles,
-		summary.TotalErrors, summary.TotalSuggestions,
-		duration.Round(time.Millisecond))
+	if f.verbose {
+		fmt.Printf("\n%d/%d passed, %d errors, %d suggestions (%v)\n",
+			summary.SuccessfulFiles, summary.TotalFiles,
+			summary.TotalErrors, summary.TotalSuggestions,
+			duration.Round(time.Millisecond))
+	} else {
+		fmt.Printf("\n%d/%d passed, %d errors (%v)\n",
+			summary.SuccessfulFiles, summary.TotalFiles,
+			summary.TotalErrors,
+			duration.Round(time.Millisecond))
+	}
 }
 
 // printConclusion prints the conclusion message
@@ -207,7 +221,13 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 		fmt.Println()
 	}
 
-	if summary.FailedFiles == 0 && summary.TotalSuggestions == 0 {
+	// Check for success (only count suggestions in verbose mode)
+	allPassed := summary.FailedFiles == 0
+	if f.verbose {
+		allPassed = allPassed && summary.TotalSuggestions == 0
+	}
+
+	if allPassed {
 		if f.colorize {
 			style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
 			fmt.Printf("%s\n", style.Render("✓ All passed"))

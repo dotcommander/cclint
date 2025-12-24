@@ -61,73 +61,49 @@ func (s *CommandScorer) Score(content string, frontmatter map[string]interface{}
 	})
 
 	// === PRACTICES (40 points max) ===
+	// Thin command pattern: Commands delegate to agents, not contain methodology.
+	// Quick Reference and Semantic routing belong in SKILLS, not commands.
 	practices := 0
 
-	// Quick Reference section (10 points)
-	hasQuickRef, _ := regexp.MatchString(`(?i)## Quick Reference`, bodyContent)
-	if hasQuickRef {
-		practices += 10
-	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Quick Reference section",
-		Points:    boolToInt(hasQuickRef) * 10,
-		MaxPoints: 10,
-		Passed:    hasQuickRef,
-	})
-
-	// Semantic routing table (10 points)
-	hasSemanticRouting, _ := regexp.MatchString(`\|.*User Question.*\|.*Action.*\|`, bodyContent)
-	if hasSemanticRouting {
-		practices += 10
-	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Semantic routing table",
-		Points:    boolToInt(hasSemanticRouting) * 10,
-		MaxPoints: 10,
-		Passed:    hasSemanticRouting,
-	})
-
-	// Usage section (10 points)
-	hasUsage, _ := regexp.MatchString(`(?i)## Usage`, bodyContent)
-	if hasUsage {
-		practices += 10
-	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Usage section",
-		Points:    boolToInt(hasUsage) * 10,
-		MaxPoints: 10,
-		Passed:    hasUsage,
-	})
-
-	// Success criteria (5 points)
-	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria`, bodyContent)
+	// Success criteria (15 points) - important for validation
+	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, bodyContent)
 	if hasSuccessCriteria {
-		practices += 5
+		practices += 15
 	}
 	details = append(details, ScoringMetric{
 		Category:  "practices",
 		Name:      "Success criteria",
-		Points:    boolToInt(hasSuccessCriteria) * 5,
-		MaxPoints: 5,
+		Points:    boolToInt(hasSuccessCriteria) * 15,
+		MaxPoints: 15,
 		Passed:    hasSuccessCriteria,
 	})
 
-	// Single Task delegation (5 points) - penalize multiple
+	// Task delegation present (15 points) - core thin command pattern
 	taskCount := strings.Count(bodyContent, "Task(")
-	singleTask := taskCount == 1
-	if singleTask {
-		practices += 5
+	hasTask := taskCount >= 1
+	if hasTask {
+		practices += 15
 	}
 	details = append(details, ScoringMetric{
 		Category:  "practices",
-		Name:      "Single Task delegation",
-		Points:    boolToInt(singleTask) * 5,
-		MaxPoints: 5,
-		Passed:    singleTask,
+		Name:      "Task delegation",
+		Points:    boolToInt(hasTask) * 15,
+		MaxPoints: 15,
+		Passed:    hasTask,
 		Note:      pluralize(taskCount, "Task() call"),
+	})
+
+	// Flags/options documented (10 points) - helps Claude understand inputs
+	hasFlags, _ := regexp.MatchString(`(?i)## Flags|--\w+`, bodyContent)
+	if hasFlags {
+		practices += 10
+	}
+	details = append(details, ScoringMetric{
+		Category:  "practices",
+		Name:      "Flags documented",
+		Points:    boolToInt(hasFlags) * 10,
+		MaxPoints: 10,
+		Passed:    hasFlags,
 	})
 
 	// === COMPOSITION (10 points max) ===

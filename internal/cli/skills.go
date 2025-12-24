@@ -35,6 +35,9 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		return nil, fmt.Errorf("error discovering files: %w", err)
 	}
 
+	// Initialize cross-file validator with all discovered files
+	crossValidator := NewCrossFileValidator(files)
+
 	// Filter skill files
 	var skillFiles []discovery.File
 	for _, file := range files {
@@ -98,6 +101,11 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		result.Suggestions = append(result.Suggestions, suggestions...)
 		summary.TotalSuggestions += len(suggestions)
 
+		// Cross-file validation (missing agents)
+		crossErrors := crossValidator.ValidateSkill(file.RelPath, file.Contents)
+		result.Errors = append(result.Errors, crossErrors...)
+		summary.TotalErrors += len(crossErrors)
+
 		if len(result.Errors) == 0 {
 			summary.SuccessfulFiles++
 		}
@@ -127,6 +135,20 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		}
 	}
 
+	// Find orphaned skills (no incoming references)
+	orphanedSkills := crossValidator.FindOrphanedSkills()
+	for _, orphan := range orphanedSkills {
+		// Add as suggestions to the summary
+		summary.TotalSuggestions++
+		// Also add to individual file results for display
+		for i, result := range summary.Results {
+			if result.File == orphan.File {
+				summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, orphan)
+				break
+			}
+		}
+	}
+
 	return summary, nil
 }
 
@@ -134,71 +156,6 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 func validateSkillBestPractices(filePath string, contents string) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 	lowerContents := strings.ToLower(contents)
-
-	// === MARKETING CLAIMS DETECTOR ===
-	// Only flag vague/unverifiable marketing claims in main content
-	// Skip: descriptions, tables, conditionals, code blocks, anti-pattern docs
-	marketingPattern := `\d+(\.\d+)?-?\d*x\s*(speedup|faster|improvement|boost)`
-	matched, _ := regexp.MatchString(marketingPattern, lowerContents)
-	if matched {
-		skipThis := false
-		lines := strings.Split(contents, "\n")
-		inCodeBlock := false
-		for _, line := range lines {
-			// Track code blocks
-			if strings.HasPrefix(strings.TrimSpace(line), "```") {
-				inCodeBlock = !inCodeBlock
-				continue
-			}
-			lowerLine := strings.ToLower(line)
-			if regexp.MustCompile(marketingPattern).MatchString(lowerLine) {
-				// Skip if in code block
-				if inCodeBlock {
-					skipThis = true
-					break
-				}
-				// Skip if in table, conditional, comparison, or anti-pattern documentation
-				skipContexts := []string{
-					"when", "if", "can be", "up to", "potential", "|",
-					"remove", "must not", "don't", "avoid", "#",
-					"(", ")", // Parenthetical comparisons like "(10x faster)"
-					"than", "vs", "compared to", // Legitimate comparisons
-				}
-				for _, ctx := range skipContexts {
-					if strings.Contains(lowerLine, ctx) {
-						skipThis = true
-						break
-					}
-				}
-				if skipThis {
-					break
-				}
-			}
-		}
-		// Also skip if in frontmatter description
-		if !skipThis && strings.Contains(contents[:min(500, len(contents))], "description:") {
-			re := regexp.MustCompile(`(?i)description:.*` + marketingPattern)
-			if re.MatchString(contents[:min(500, len(contents))]) {
-				skipThis = true
-			}
-		}
-		if !skipThis {
-			suggestions = append(suggestions, cue.ValidationError{
-				File:     filePath,
-				Message:  "Skill contains marketing claim (e.g., '2x speedup'). Remove unverifiable performance metrics.",
-				Severity: "warning",
-			})
-		}
-	}
-
-	// Check for Quick Reference table (semantic routing)
-	if !strings.Contains(contents, "Quick Reference") && !strings.Contains(contents, "| User") && !strings.Contains(contents, "User Question") {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Skill lacks 'Quick Reference' table. Add semantic routing for discoverability (| User Question | Action |).",
-			Severity: "suggestion",
-		})
-	}
 
 	// Check for Anti-Patterns section (or equivalent)
 	hasAntiPatterns := strings.Contains(contents, "## Anti-Pattern") ||
