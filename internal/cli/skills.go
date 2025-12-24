@@ -133,6 +133,63 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 // validateSkillBestPractices checks opinionated best practices for skills
 func validateSkillBestPractices(filePath string, contents string) []cue.ValidationError {
 	var suggestions []cue.ValidationError
+	lowerContents := strings.ToLower(contents)
+
+	// === MARKETING CLAIMS DETECTOR ===
+	// Only flag vague/unverifiable marketing claims in main content
+	// Skip: descriptions, tables, conditionals, code blocks, anti-pattern docs
+	marketingPattern := `\d+(\.\d+)?-?\d*x\s*(speedup|faster|improvement|boost)`
+	matched, _ := regexp.MatchString(marketingPattern, lowerContents)
+	if matched {
+		skipThis := false
+		lines := strings.Split(contents, "\n")
+		inCodeBlock := false
+		for _, line := range lines {
+			// Track code blocks
+			if strings.HasPrefix(strings.TrimSpace(line), "```") {
+				inCodeBlock = !inCodeBlock
+				continue
+			}
+			lowerLine := strings.ToLower(line)
+			if regexp.MustCompile(marketingPattern).MatchString(lowerLine) {
+				// Skip if in code block
+				if inCodeBlock {
+					skipThis = true
+					break
+				}
+				// Skip if in table, conditional, comparison, or anti-pattern documentation
+				skipContexts := []string{
+					"when", "if", "can be", "up to", "potential", "|",
+					"remove", "must not", "don't", "avoid", "#",
+					"(", ")", // Parenthetical comparisons like "(10x faster)"
+					"than", "vs", "compared to", // Legitimate comparisons
+				}
+				for _, ctx := range skipContexts {
+					if strings.Contains(lowerLine, ctx) {
+						skipThis = true
+						break
+					}
+				}
+				if skipThis {
+					break
+				}
+			}
+		}
+		// Also skip if in frontmatter description
+		if !skipThis && strings.Contains(contents[:min(500, len(contents))], "description:") {
+			re := regexp.MustCompile(`(?i)description:.*` + marketingPattern)
+			if re.MatchString(contents[:min(500, len(contents))]) {
+				skipThis = true
+			}
+		}
+		if !skipThis {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "Skill contains marketing claim (e.g., '2x speedup'). Remove unverifiable performance metrics.",
+				Severity: "warning",
+			})
+		}
+	}
 
 	// Check for Quick Reference table (semantic routing)
 	if !strings.Contains(contents, "Quick Reference") && !strings.Contains(contents, "| User") && !strings.Contains(contents, "User Question") {
@@ -143,8 +200,13 @@ func validateSkillBestPractices(filePath string, contents string) []cue.Validati
 		})
 	}
 
-	// Check for Anti-Patterns section
-	if !strings.Contains(contents, "## Anti-Pattern") && !strings.Contains(contents, "## Anti-Patterns") {
+	// Check for Anti-Patterns section (or equivalent)
+	hasAntiPatterns := strings.Contains(contents, "## Anti-Pattern") ||
+		strings.Contains(contents, "## Anti-Patterns") ||
+		strings.Contains(contents, "### Anti-Pattern") ||
+		(strings.Contains(contents, "## Best Practices") && strings.Contains(lowerContents, "### don't")) ||
+		strings.Contains(contents, "| Anti-Pattern")
+	if !hasAntiPatterns {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Consider adding '## Anti-Patterns' section to document common mistakes.",
@@ -162,8 +224,13 @@ func validateSkillBestPractices(filePath string, contents string) []cue.Validati
 		})
 	}
 
-	// Check for Examples section
-	if !strings.Contains(contents, "## Example") && !strings.Contains(contents, "## Examples") {
+	// Check for Examples section (or equivalent)
+	hasExamples := strings.Contains(contents, "## Example") ||
+		strings.Contains(contents, "## Examples") ||
+		strings.Contains(contents, "## Expected Output") ||
+		strings.Contains(contents, "## Usage") ||
+		strings.Contains(contents, "### Example")
+	if !hasExamples {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Consider adding '## Examples' section to illustrate skill usage.",

@@ -47,6 +47,7 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	}
 
 	// Required sections (20 points)
+	// Patterns are inclusive to recognize equivalent sections
 	sections := []struct {
 		pattern string
 		name    string
@@ -54,12 +55,20 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	}{
 		{`(?i)## Quick Reference`, "Quick Reference", 8},
 		{`(?i)## Workflow`, "Workflow section", 6},
-		{`(?i)## Anti-Patterns`, "Anti-Patterns section", 4},
+		{`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`, "Anti-Patterns section", 4},
 		{`(?i)## Success Criteria`, "Success Criteria", 2},
 	}
 
 	for _, sec := range sections {
 		matched, _ := regexp.MatchString(sec.pattern, bodyContent)
+		// Special case: "Best Practices" with "Don't" subsection counts as Anti-Patterns
+		if sec.name == "Anti-Patterns section" && !matched {
+			hasBestPractices := strings.Contains(bodyContent, "## Best Practices")
+			hasDont := strings.Contains(strings.ToLower(bodyContent), "### don't")
+			if hasBestPractices && hasDont {
+				matched = true
+			}
+		}
 		points := 0
 		if matched {
 			points = sec.points
