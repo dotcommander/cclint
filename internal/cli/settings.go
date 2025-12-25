@@ -3,52 +3,22 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/project"
 )
 
 // LintSettings runs linting on settings files
 func LintSettings(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
-	summary := &LintSummary{}
-
-	// Find project root first
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
-	}
-
-	// Initialize components
-	validator := cue.NewValidator()
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-
-	// Load schemas
-	schemaDir := "schemas"
-	if err := validator.LoadSchemas(schemaDir); err != nil {
-		log.Printf("Error loading schemas: %v", err)
-		// Continue with basic validation
-	}
-
-	// Discover files
-	files, err := discoverer.DiscoverFiles()
+	// Initialize shared context
+	ctx, err := NewLinterContext(rootPath, quiet, verbose)
 	if err != nil {
-		return nil, fmt.Errorf("error discovering files: %w", err)
+		return nil, err
 	}
 
 	// Filter settings files
-	var settingsFiles []discovery.File
-	for _, file := range files {
-		if file.Type == discovery.FileTypeSettings {
-			settingsFiles = append(settingsFiles, file)
-		}
-	}
-
-	summary.TotalFiles = len(settingsFiles)
+	settingsFiles := ctx.FilterFilesByType(discovery.FileTypeSettings)
+	summary := ctx.NewSummary(len(settingsFiles))
 
 	// Process each settings file
 	for _, file := range settingsFiles {
@@ -72,7 +42,7 @@ func LintSettings(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 		} else {
 			// Validate with CUE
 			if true { // CUE schemas not loaded yet
-				errors, err := validator.ValidateSettings(data)
+				errors, err := ctx.Validator.ValidateSettings(data)
 				if err != nil {
 					result.Errors = append(result.Errors, cue.ValidationError{
 						File:     file.RelPath,
@@ -98,10 +68,7 @@ func LintSettings(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 		}
 
 		summary.Results = append(summary.Results, result)
-
-		if verbose {
-			log.Printf("Processed %s: %d errors", file.RelPath, len(result.Errors))
-		}
+		ctx.LogProcessed(file.RelPath, len(result.Errors))
 	}
 
 	return summary, nil

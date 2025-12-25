@@ -2,58 +2,25 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
-	"github.com/dotcommander/cclint/internal/project"
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // LintCommands runs linting on command files
 func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
-	summary := &LintSummary{}
-
-	// Find project root first
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
-	}
-
-	// Initialize components
-	validator := cue.NewValidator()
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-
-	// Load schemas
-	schemaDir := "schemas"
-	if err := validator.LoadSchemas(schemaDir); err != nil {
-		log.Printf("Error loading schemas: %v", err)
-		// Continue with basic validation
-	}
-
-	// Discover files
-	files, err := discoverer.DiscoverFiles()
+	// Initialize shared context
+	ctx, err := NewLinterContext(rootPath, quiet, verbose)
 	if err != nil {
-		return nil, fmt.Errorf("error discovering files: %w", err)
+		return nil, err
 	}
-
-	// Initialize cross-file validator with all discovered files
-	crossValidator := NewCrossFileValidator(files)
 
 	// Filter command files
-	var commandFiles []discovery.File
-	for _, file := range files {
-		if file.Type == discovery.FileTypeCommand {
-			commandFiles = append(commandFiles, file)
-		}
-	}
-
-	summary.TotalFiles = len(commandFiles)
+	commandFiles := ctx.FilterFilesByType(discovery.FileTypeCommand)
+	summary := ctx.NewSummary(len(commandFiles))
 
 	// Process each command file
 	for _, file := range commandFiles {
@@ -77,7 +44,7 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 		} else {
 			// Validate with CUE
 			if true { // CUE schemas not loaded yet
-				errors, err := validator.ValidateCommand(fm.Data)
+				errors, err := ctx.Validator.ValidateCommand(fm.Data)
 				if err != nil {
 					result.Errors = append(result.Errors, cue.ValidationError{
 						File:     file.RelPath,
@@ -95,7 +62,7 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 			summary.TotalErrors += len(errors)
 
 			// Cross-file validation (missing agents, unused tools)
-			crossErrors := crossValidator.ValidateCommand(file.RelPath, file.Contents, fm.Data)
+			crossErrors := ctx.CrossValidator.ValidateCommand(file.RelPath, file.Contents, fm.Data)
 			result.Errors = append(result.Errors, crossErrors...)
 			summary.TotalErrors += len(crossErrors)
 
@@ -121,10 +88,7 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 		}
 
 		summary.Results = append(summary.Results, result)
-
-		if verbose {
-			log.Printf("Processed %s: %d errors", file.RelPath, len(result.Errors))
-		}
+		ctx.LogProcessed(file.RelPath, len(result.Errors))
 	}
 
 	return summary, nil

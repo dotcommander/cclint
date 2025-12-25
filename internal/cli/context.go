@@ -2,54 +2,24 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
-	"github.com/dotcommander/cclint/internal/project"
 )
 
 // LintContext runs linting on CLAUDE.md files
 func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
-	summary := &LintSummary{}
-
-	// Find project root first
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
-	}
-
-	// Initialize components
-	validator := cue.NewValidator()
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-
-	// Load schemas
-	schemaDir := "schemas"
-	if err := validator.LoadSchemas(schemaDir); err != nil {
-		log.Printf("Error loading schemas: %v", err)
-		// Continue with basic validation
-	}
-
-	// Discover files
-	files, err := discoverer.DiscoverFiles()
+	// Initialize shared context
+	ctx, err := NewLinterContext(rootPath, quiet, verbose)
 	if err != nil {
-		return nil, fmt.Errorf("error discovering files: %w", err)
+		return nil, err
 	}
 
 	// Filter context files
-	var contextFiles []discovery.File
-	for _, file := range files {
-		if file.Type == discovery.FileTypeContext {
-			contextFiles = append(contextFiles, file)
-		}
-	}
-
-	summary.TotalFiles = len(contextFiles)
+	contextFiles := ctx.FilterFilesByType(discovery.FileTypeContext)
+	summary := ctx.NewSummary(len(contextFiles))
 
 	// Process each context file
 	for _, file := range contextFiles {
@@ -69,16 +39,21 @@ func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error
 			})
 		}
 
-		// Parse markdown content
+		// Parse markdown content - safely access frontmatter data
+		var title, description interface{}
+		if fm != nil && fm.Data != nil {
+			title = fm.Data["title"]
+			description = fm.Data["description"]
+		}
 		data := map[string]interface{}{
-			"title":       fm.Data["title"],
-			"description": fm.Data["description"],
+			"title":       title,
+			"description": description,
 			"sections":    parseMarkdownSections(file.Contents),
 		}
 
 		// Validate with CUE
 		if true { // CUE schemas not loaded yet
-			errors, err := validator.ValidateClaudeMD(data)
+			errors, err := ctx.Validator.ValidateClaudeMD(data)
 			if err != nil {
 				result.Errors = append(result.Errors, cue.ValidationError{
 					File:     file.RelPath,
@@ -103,10 +78,7 @@ func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error
 		}
 
 		summary.Results = append(summary.Results, result)
-
-		if verbose {
-			log.Printf("Processed %s: %d errors", file.RelPath, len(result.Errors))
-		}
+		ctx.LogProcessed(file.RelPath, len(result.Errors))
 	}
 
 	return summary, nil

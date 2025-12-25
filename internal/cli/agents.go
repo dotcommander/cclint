@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
-	"github.com/dotcommander/cclint/internal/project"
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
@@ -43,44 +41,15 @@ type LintSummary struct {
 
 // LintAgents runs linting on agent files
 func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
-	summary := &LintSummary{}
-
-	// Find project root first
-	if rootPath == "" {
-		var err error
-		rootPath, err = project.FindProjectRoot(".")
-		if err != nil {
-			return nil, fmt.Errorf("error finding project root: %w", err)
-		}
-	}
-
-	// Initialize components
-	validator := cue.NewValidator()
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-
-	// Load embedded schemas
-	if err := validator.LoadSchemas(""); err != nil {
-		log.Printf("Warning: CUE schemas not loaded, using Go validation")
-	}
-
-	// Discover files
-	files, err := discoverer.DiscoverFiles()
+	// Initialize shared context
+	ctx, err := NewLinterContext(rootPath, quiet, verbose)
 	if err != nil {
-		return nil, fmt.Errorf("error discovering files: %w", err)
+		return nil, err
 	}
-
-	// Initialize cross-file validator with all discovered files
-	crossValidator := NewCrossFileValidator(files)
 
 	// Filter agent files
-	var agentFiles []discovery.File
-	for _, file := range files {
-		if file.Type == discovery.FileTypeAgent {
-			agentFiles = append(agentFiles, file)
-		}
-	}
-
-	summary.TotalFiles = len(agentFiles)
+	agentFiles := ctx.FilterFilesByType(discovery.FileTypeAgent)
+	summary := ctx.NewSummary(len(agentFiles))
 
 	// Process each agent file
 	for _, file := range agentFiles {
@@ -104,7 +73,7 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		} else {
 			// Validate with CUE
 			if true { // CUE schemas not loaded yet
-				errors, err := validator.ValidateAgent(fm.Data)
+				errors, err := ctx.Validator.ValidateAgent(fm.Data)
 				if err != nil {
 					result.Errors = append(result.Errors, cue.ValidationError{
 						File:     file.RelPath,
@@ -129,7 +98,7 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 			}
 
 			// Cross-file validation (missing skills)
-			crossErrors := crossValidator.ValidateAgent(file.RelPath, file.Contents)
+			crossErrors := ctx.CrossValidator.ValidateAgent(file.RelPath, file.Contents)
 			result.Errors = append(result.Errors, crossErrors...)
 			summary.TotalErrors += len(crossErrors)
 
@@ -150,10 +119,7 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		}
 
 		summary.Results = append(summary.Results, result)
-
-		if verbose {
-			log.Printf("Processed %s: %d errors", file.RelPath, len(result.Errors))
-		}
+		ctx.LogProcessed(file.RelPath, len(result.Errors))
 	}
 
 	return summary, nil
