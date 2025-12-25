@@ -85,8 +85,8 @@ func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error
 }
 
 // parseMarkdownSections parses markdown content into sections
-func parseMarkdownSections(content string) []map[string]interface{} {
-	var sections []map[string]interface{}
+func parseMarkdownSections(content string) []interface{} {
+	var sections []interface{}
 
 	// This is a simplified parser - in practice, would use a proper markdown parser
 	lines := []string{}
@@ -102,8 +102,19 @@ func parseMarkdownSections(content string) []map[string]interface{} {
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 
-		if strings.HasPrefix(line, "# ") {
-			// New section found
+		// Detect markdown headers (# or ##)
+		if strings.HasPrefix(line, "## ") {
+			// New h2 section found
+			if inSection {
+				sections = append(sections, currentSection)
+			}
+			currentSection = map[string]interface{}{
+				"heading": strings.TrimPrefix(line, "## "),
+				"content": "",
+			}
+			inSection = true
+		} else if strings.HasPrefix(line, "# ") {
+			// New h1 section found
 			if inSection {
 				sections = append(sections, currentSection)
 			}
