@@ -19,62 +19,27 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	lines := strings.Count(content, "\n") + 1
 
 	// === STRUCTURAL (35 points max) ===
-	structural := 0
-
 	// Required fields (5 points each, 20 total)
-	requiredFields := []struct {
-		name   string
-		points int
-	}{
+	fieldSpecs := []FieldSpec{
 		{"name", 5},
 		{"description", 5},
 		{"model", 5},
 		{"tools", 5},
 	}
-
-	for _, field := range requiredFields {
-		_, exists := frontmatter[field.name]
-		points := 0
-		if exists {
-			points = field.points
-		}
-		structural += points
-		details = append(details, ScoringMetric{
-			Category:  "structural",
-			Name:      "Has " + field.name,
-			Points:    points,
-			MaxPoints: field.points,
-			Passed:    exists,
-		})
-	}
+	fieldScore, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
+	details = append(details, fieldDetails...)
 
 	// Required sections (15 points total)
-	sections := []struct {
-		pattern string
-		name    string
-		points  int
-	}{
+	sectionSpecs := []SectionSpec{
 		{`(?i)## Foundation`, "Foundation section", 5},
 		{`(?i)### Phase`, "Phase workflow", 4},
 		{`(?i)## Success Criteria`, "Success Criteria", 3},
 		{`(?i)## Edge Cases`, "Edge Cases", 3},
 	}
+	sectionScore, sectionDetails := ScoreSections(bodyContent, sectionSpecs)
+	details = append(details, sectionDetails...)
 
-	for _, sec := range sections {
-		matched, _ := regexp.MatchString(sec.pattern, bodyContent)
-		points := 0
-		if matched {
-			points = sec.points
-		}
-		structural += points
-		details = append(details, ScoringMetric{
-			Category:  "structural",
-			Name:      sec.name,
-			Points:    points,
-			MaxPoints: sec.points,
-			Passed:    matched,
-		})
-	}
+	structural := fieldScore + sectionScore
 
 	// === PRACTICES (35 points max) ===
 	practices := 0
@@ -161,34 +126,19 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	})
 
 	// === COMPOSITION (10 points max) ===
-	composition := 0
-	var compositionNote string
-
-	switch {
-	case lines <= 100:
-		composition = 10
-		compositionNote = "Excellent: ≤100 lines"
-	case lines <= 150:
-		composition = 8
-		compositionNote = "Good: ≤150 lines"
-	case lines <= 200:
-		composition = 6
-		compositionNote = "OK: ≤200 lines"
-	case lines <= 250:
-		composition = 3
-		compositionNote = "Over limit: >200 lines"
-	default:
-		composition = 0
-		compositionNote = "Fat agent: >250 lines"
+	agentThresholds := CompositionThresholds{
+		Excellent:     100,
+		ExcellentNote: "Excellent: ≤100 lines",
+		Good:          150,
+		GoodNote:      "Good: ≤150 lines",
+		OK:            200,
+		OKNote:        "OK: ≤200 lines",
+		OverLimit:     250,
+		OverLimitNote: "Over limit: >200 lines",
+		FatNote:       "Fat agent: >250 lines",
 	}
-	details = append(details, ScoringMetric{
-		Category:  "composition",
-		Name:      "Line count",
-		Points:    composition,
-		MaxPoints: 10,
-		Passed:    lines <= 200,
-		Note:      compositionNote,
-	})
+	composition, compositionMetric := ScoreComposition(lines, agentThresholds)
+	details = append(details, compositionMetric)
 
 	// === DOCUMENTATION (10 points max) ===
 	documentation := 0
@@ -248,11 +198,4 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	})
 
 	return NewQualityScore(structural, practices, composition, documentation, details)
-}
-
-func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }

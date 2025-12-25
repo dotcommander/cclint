@@ -19,33 +19,14 @@ func (s *CommandScorer) Score(content string, frontmatter map[string]interface{}
 	lines := strings.Count(content, "\n") + 1
 
 	// === STRUCTURAL (40 points max) ===
-	structural := 0
-
 	// Required frontmatter fields (10 points each, 30 total)
-	requiredFields := []struct {
-		name   string
-		points int
-	}{
+	fieldSpecs := []FieldSpec{
 		{"allowed-tools", 10},
 		{"description", 10},
 		{"argument-hint", 10},
 	}
-
-	for _, field := range requiredFields {
-		_, exists := frontmatter[field.name]
-		points := 0
-		if exists {
-			points = field.points
-		}
-		structural += points
-		details = append(details, ScoringMetric{
-			Category:  "structural",
-			Name:      "Has " + field.name,
-			Points:    points,
-			MaxPoints: field.points,
-			Passed:    exists,
-		})
-	}
+	structural, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
+	details = append(details, fieldDetails...)
 
 	// Task delegation (10 points)
 	hasTaskDelegation, _ := regexp.MatchString(`Task\([^)]+\)`, bodyContent)
@@ -107,34 +88,19 @@ func (s *CommandScorer) Score(content string, frontmatter map[string]interface{}
 	})
 
 	// === COMPOSITION (10 points max) ===
-	composition := 0
-	var compositionNote string
-
-	switch {
-	case lines <= 30:
-		composition = 10
-		compositionNote = "Excellent: ≤30 lines"
-	case lines <= 40:
-		composition = 8
-		compositionNote = "Good: ≤40 lines"
-	case lines <= 50:
-		composition = 6
-		compositionNote = "OK: ≤50 lines"
-	case lines <= 60:
-		composition = 3
-		compositionNote = "Over limit: >50 lines"
-	default:
-		composition = 0
-		compositionNote = "Fat command: >60 lines"
+	commandThresholds := CompositionThresholds{
+		Excellent:     30,
+		ExcellentNote: "Excellent: ≤30 lines",
+		Good:          40,
+		GoodNote:      "Good: ≤40 lines",
+		OK:            50,
+		OKNote:        "OK: ≤50 lines",
+		OverLimit:     60,
+		OverLimitNote: "Over limit: >50 lines",
+		FatNote:       "Fat command: >60 lines",
 	}
-	details = append(details, ScoringMetric{
-		Category:  "composition",
-		Name:      "Line count",
-		Points:    composition,
-		MaxPoints: 10,
-		Passed:    lines <= 50,
-		Note:      compositionNote,
-	})
+	composition, compositionMetric := ScoreComposition(lines, commandThresholds)
+	details = append(details, compositionMetric)
 
 	// === DOCUMENTATION (10 points max) ===
 	documentation := 0

@@ -19,69 +19,37 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	lines := strings.Count(content, "\n") + 1
 
 	// === STRUCTURAL (40 points max) ===
-	structural := 0
-
 	// Required frontmatter (20 points)
-	requiredFields := []struct {
-		name   string
-		points int
-	}{
+	fieldSpecs := []FieldSpec{
 		{"name", 10},
 		{"description", 10},
 	}
-
-	for _, field := range requiredFields {
-		_, exists := frontmatter[field.name]
-		points := 0
-		if exists {
-			points = field.points
-		}
-		structural += points
-		details = append(details, ScoringMetric{
-			Category:  "structural",
-			Name:      "Has " + field.name,
-			Points:    points,
-			MaxPoints: field.points,
-			Passed:    exists,
-		})
-	}
+	fieldScore, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
+	details = append(details, fieldDetails...)
 
 	// Required sections (20 points)
 	// Patterns are inclusive to recognize equivalent sections
-	sections := []struct {
-		pattern string
-		name    string
-		points  int
-	}{
+	sectionSpecs := []SectionSpec{
 		{`(?i)## Quick Reference`, "Quick Reference", 8},
 		{`(?i)## Workflow`, "Workflow section", 6},
 		{`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`, "Anti-Patterns section", 4},
 		{`(?i)## Success Criteria`, "Success Criteria", 2},
 	}
 
-	for _, sec := range sections {
-		matched, _ := regexp.MatchString(sec.pattern, bodyContent)
-		// Special case: "Best Practices" with "Don't" subsection counts as Anti-Patterns
-		if sec.name == "Anti-Patterns section" && !matched {
-			hasBestPractices := strings.Contains(bodyContent, "## Best Practices")
-			hasDont := strings.Contains(strings.ToLower(bodyContent), "### don't")
-			if hasBestPractices && hasDont {
-				matched = true
-			}
+	// Special fallback for Anti-Patterns section: "Best Practices" with "Don't" subsection counts
+	antiPatternsFallback := func(content string, sectionName string) bool {
+		if sectionName == "Anti-Patterns section" {
+			hasBestPractices := strings.Contains(content, "## Best Practices")
+			hasDont := strings.Contains(strings.ToLower(content), "### don't")
+			return hasBestPractices && hasDont
 		}
-		points := 0
-		if matched {
-			points = sec.points
-		}
-		structural += points
-		details = append(details, ScoringMetric{
-			Category:  "structural",
-			Name:      sec.name,
-			Points:    points,
-			MaxPoints: sec.points,
-			Passed:    matched,
-		})
+		return false
 	}
+
+	sectionScore, sectionDetails := ScoreSectionsWithFallback(bodyContent, sectionSpecs, antiPatternsFallback)
+	details = append(details, sectionDetails...)
+
+	structural := fieldScore + sectionScore
 
 	// === PRACTICES (40 points max) ===
 	practices := 0
@@ -178,34 +146,19 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	})
 
 	// === COMPOSITION (10 points max) ===
-	composition := 0
-	var compositionNote string
-
-	switch {
-	case lines <= 200:
-		composition = 10
-		compositionNote = "Excellent: ≤200 lines"
-	case lines <= 350:
-		composition = 8
-		compositionNote = "Good: ≤350 lines"
-	case lines <= 500:
-		composition = 6
-		compositionNote = "OK: ≤500 lines"
-	case lines <= 600:
-		composition = 3
-		compositionNote = "Over limit: >500 lines"
-	default:
-		composition = 0
-		compositionNote = "Fat skill: >600 lines"
+	skillThresholds := CompositionThresholds{
+		Excellent:     200,
+		ExcellentNote: "Excellent: ≤200 lines",
+		Good:          350,
+		GoodNote:      "Good: ≤350 lines",
+		OK:            500,
+		OKNote:        "OK: ≤500 lines",
+		OverLimit:     600,
+		OverLimitNote: "Over limit: >500 lines",
+		FatNote:       "Fat skill: >600 lines",
 	}
-	details = append(details, ScoringMetric{
-		Category:  "composition",
-		Name:      "Line count",
-		Points:    composition,
-		MaxPoints: 10,
-		Passed:    lines <= 500,
-		Note:      compositionNote,
-	})
+	composition, compositionMetric := ScoreComposition(lines, skillThresholds)
+	details = append(details, compositionMetric)
 
 	// === DOCUMENTATION (10 points max) ===
 	documentation := 0
