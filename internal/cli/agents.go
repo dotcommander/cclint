@@ -129,12 +129,13 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 func validateAgentSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Check required fields
+	// Check required fields - FROM ANTHROPIC DOCS: "name" and "description" are Required
 	if name, ok := data["name"].(string); !ok || name == "" {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'name' is missing or empty",
 			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})
 	}
@@ -144,11 +145,12 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			File:     filePath,
 			Message:  "Required field 'description' is missing or empty",
 			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
 	}
 
-	// Check name format
+	// Check name format - FROM ANTHROPIC DOCS: "Unique identifier using lowercase letters and hyphens"
 	if name, ok := data["name"].(string); ok {
 		valid := true
 		for _, c := range name {
@@ -162,11 +164,12 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				File:     filePath,
 				Message:  "Name must contain only lowercase letters, numbers, and hyphens",
 				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "name"),
 			})
 		}
 
-		// Check if name matches filename
+		// Check if name matches filename - OUR OBSERVATION
 		// Extract filename from path (e.g., ".claude/agents/test-agent.md" -> "test-agent")
 		filename := filePath
 		if idx := strings.LastIndex(filename, "/"); idx != -1 {
@@ -186,11 +189,12 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				File:     filePath,
 				Message:  fmt.Sprintf("Name %q doesn't match filename %q", name, filename),
 				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
 
-	// Check valid colors
+	// Check valid colors - OUR OBSERVATION (not documented by Anthropic)
 	if color, ok := data["color"].(string); ok {
 		validColors := map[string]bool{
 			"red":     true,
@@ -206,7 +210,8 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Invalid color '%s'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan", color),
-				Severity: "error",
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
@@ -222,13 +227,14 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 	var suggestions []cue.ValidationError
 	fmEndLine := GetFrontmatterEndLine(contents)
 
-	// Count total lines
+	// Count total lines (±10% tolerance: 200 base + 20 = 220)
 	lines := strings.Count(contents, "\n")
-	if lines > 200 {
+	if lines > 220 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  fmt.Sprintf("Agent is %d lines. Best practice: keep agents under 200 lines - move methodology to skills instead.", lines),
+			Message:  fmt.Sprintf("Agent is %d lines. Best practice: keep agents under ~220 lines (200±10%%) - move methodology to skills instead.", lines),
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 			Line:     1,
 		})
 	}
@@ -250,6 +256,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 				File:     filePath,
 				Message:  bp.message,
 				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
@@ -271,21 +278,23 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 				File:     filePath,
 				Message:  ip.message,
 				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
 
-	// Check for missing model specification
+	// Check for missing model specification - OUR OBSERVATION (Anthropic docs say model is optional)
 	if _, hasModel := data["model"]; !hasModel {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Agent lacks 'model' specification. Consider adding 'model: sonnet' or appropriate model for optimal performance.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 			Line:     fmEndLine,
 		})
 	}
 
-	// Check for Skill loading pattern
+	// Check for Skill loading pattern - OUR OBSERVATION (thin agent -> fat skill pattern)
 	// Accept Skill() tool calls, Skill: references, and Skills: (plural) references
 	hasSkillRef := strings.Contains(contents, "Skill(") || strings.Contains(contents, "Skill:") || strings.Contains(contents, "Skills:")
 	if !hasSkillRef && (strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow")) {
@@ -294,17 +303,19 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			File:     filePath,
 			Message:  "No skill reference found. If methodology is reusable, consider extracting to a skill.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 			Line:     FindSectionLine(contents, "Foundation"),
 		})
 	}
 
-	// Check for Use PROACTIVELY pattern in description
+	// Check for Use PROACTIVELY pattern in description - Anthropic docs mention this as a tip
 	if desc, hasDesc := data["description"].(string); hasDesc {
 		if !strings.Contains(desc, "PROACTIVELY") {
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
 				Message:  "Description lacks 'Use PROACTIVELY when...' pattern. Add to clarify activation scenarios.",
 				Severity: "suggestion",
+				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "description"),
 			})
 		}

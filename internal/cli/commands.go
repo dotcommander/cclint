@@ -98,8 +98,8 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 func validateCommandSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Note: name is optional in frontmatter - it's derived from filename
-	// Check name format if present
+	// Note: name is optional in frontmatter - it's derived from filename (per Anthropic docs)
+	// Check name format if present - format rule from Anthropic docs
 	if name, ok := data["name"].(string); ok && name != "" {
 		valid := true
 		for _, c := range name {
@@ -113,6 +113,7 @@ func validateCommandSpecific(data map[string]interface{}, filePath string, conte
 				File:     filePath,
 				Message:  "Name must be lowercase alphanumeric with hyphens only",
 				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
 			})
 		}
 	}
@@ -124,31 +125,34 @@ func validateCommandSpecific(data map[string]interface{}, filePath string, conte
 func validateCommandBestPractices(filePath string, contents string) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
-	// Count total lines
+	// Count total lines (±10% tolerance: 50 base + 5 = 55) - OUR OBSERVATION
 	lines := strings.Count(contents, "\n")
-	if lines > 50 {
+	if lines > 55 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  fmt.Sprintf("Command is %d lines. Best practice: keep commands under 50 lines - delegate to specialist agents instead of implementing logic directly.", lines),
+			Message:  fmt.Sprintf("Command is %d lines. Best practice: keep commands under ~55 lines (50±10%%) - delegate to specialist agents instead of implementing logic directly.", lines),
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// Check for direct implementation patterns
+	// Check for direct implementation patterns - OUR OBSERVATION (thin command pattern)
 	if strings.Contains(contents, "## Implementation") || strings.Contains(contents, "### Steps") {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Command contains implementation steps. Consider delegating to a specialist agent instead.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// Check for missing allowed-tools when Task tool is mentioned
+	// Check for missing allowed-tools when Task tool is mentioned - OUR OBSERVATION
 	if strings.Contains(contents, "Task(") && !strings.Contains(contents, "allowed-tools:") {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Command uses Task() but lacks 'allowed-tools' permission. Add 'allowed-tools: Task' to frontmatter.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
@@ -173,22 +177,24 @@ func validateCommandBestPractices(filePath string, contents string) []cue.Valida
 					File:     filePath,
 					Message:  section.message,
 					Severity: "suggestion",
+					Source:   cue.SourceCClintObserve,
 				})
 			}
 		}
 	}
 
-	// === EXCESSIVE EXAMPLES DETECTOR ===
+	// === EXCESSIVE EXAMPLES DETECTOR === - OUR OBSERVATION
 	exampleCount := strings.Count(contents, "```bash") + strings.Count(contents, "```shell")
 	if exampleCount > 2 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Command has %d code examples. Best practice: max 2 examples.", exampleCount),
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// === SUCCESS CRITERIA FORMAT DETECTOR ===
+	// === SUCCESS CRITERIA FORMAT DETECTOR === - OUR OBSERVATION
 	// Success criteria should be checkboxes, not prose
 	hasSuccessSection := strings.Contains(contents, "## Success") || strings.Contains(contents, "Success criteria:")
 	hasCheckboxes := strings.Contains(contents, "- [ ]")
@@ -197,15 +203,17 @@ func validateCommandBestPractices(filePath string, contents string) []cue.Valida
 			File:     filePath,
 			Message:  "Success criteria should use checkbox format '- [ ]' not prose",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// Only suggest Usage section for FAT commands (>40 lines without Task delegation)
+	// Only suggest Usage section for FAT commands (>40 lines without Task delegation) - OUR OBSERVATION
 	if !hasTaskDelegation && lines > 40 && !strings.Contains(contents, "## Usage") && !strings.Contains(contents, "## Workflow") {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Fat command without Task delegation lacks '## Usage' section. Consider delegating to a specialist agent.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 

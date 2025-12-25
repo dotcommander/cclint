@@ -27,13 +27,28 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	fieldScore, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
 	details = append(details, fieldDetails...)
 
-	// Required sections (20 points)
-	// Patterns are inclusive to recognize equivalent sections
-	sectionSpecs := []SectionSpec{
-		{`(?i)## Quick Reference`, "Quick Reference", 8},
-		{`(?i)## Workflow`, "Workflow section", 6},
-		{`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`, "Anti-Patterns section", 4},
-		{`(?i)## Success Criteria`, "Success Criteria", 2},
+	// Detect skill type: Methodology vs Reference/Pattern Library
+	// Methodology skills have workflow phases; Reference skills have pattern tables
+	isMethodology := IsMethodologySkill(bodyContent)
+
+	// Required sections (20 points) - different for methodology vs reference skills
+	var sectionSpecs []SectionSpec
+	if isMethodology {
+		// Methodology skills: Workflow and Success Criteria are important
+		sectionSpecs = []SectionSpec{
+			{`(?i)## Quick Reference`, "Quick Reference", 8},
+			{`(?i)## Workflow`, "Workflow section", 6},
+			{`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`, "Anti-Patterns section", 4},
+			{`(?i)## Success Criteria`, "Success Criteria", 2}, // Required for methodology
+		}
+	} else {
+		// Reference/pattern library skills: Success Criteria optional, Patterns section valued
+		sectionSpecs = []SectionSpec{
+			{`(?i)## Quick Reference`, "Quick Reference", 10}, // Higher weight for discoverability
+			{`(?i)(## Patterns?|## Templates?|## Examples?)`, "Pattern/Template section", 6},
+			{`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`, "Anti-Patterns section", 4},
+			// Success Criteria optional for reference skills - no points allocated
+		}
 	}
 
 	// Special fallback for Anti-Patterns section: "Best Practices" with "Don't" subsection counts
@@ -146,16 +161,17 @@ func (s *SkillScorer) Score(content string, frontmatter map[string]interface{}, 
 	})
 
 	// === COMPOSITION (10 points max) ===
+	// ±10% tolerance: 500 base -> 550 OK threshold
 	skillThresholds := CompositionThresholds{
-		Excellent:     200,
-		ExcellentNote: "Excellent: ≤200 lines",
-		Good:          350,
-		GoodNote:      "Good: ≤350 lines",
-		OK:            500,
-		OKNote:        "OK: ≤500 lines",
-		OverLimit:     600,
-		OverLimitNote: "Over limit: >500 lines",
-		FatNote:       "Fat skill: >600 lines",
+		Excellent:     250,
+		ExcellentNote: "Excellent: ≤250 lines",
+		Good:          400,
+		GoodNote:      "Good: ≤400 lines",
+		OK:            550,
+		OKNote:        "OK: ≤550 lines (500±10%)",
+		OverLimit:     660,
+		OverLimitNote: "Over limit: >550 lines",
+		FatNote:       "Fat skill: >660 lines",
 	}
 	composition, compositionMetric := ScoreComposition(lines, skillThresholds)
 	details = append(details, compositionMetric)

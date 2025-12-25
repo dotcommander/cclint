@@ -31,12 +31,13 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 			Success: true,
 		}
 
-		// Check that file is named SKILL.md
+		// Check that file is named SKILL.md - FROM ANTHROPIC DOCS
 		if !strings.HasSuffix(file.RelPath, "/SKILL.md") && !strings.HasSuffix(file.RelPath, "\\SKILL.md") {
 			result.Errors = append(result.Errors, cue.ValidationError{
 				File:     file.RelPath,
 				Message:  "Skill file must be named SKILL.md",
 				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
 			})
 			result.Success = false
 			summary.FailedFiles++
@@ -49,24 +50,26 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 				File:     file.RelPath,
 				Message:  "Skill file is empty",
 				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
 			})
 			result.Success = false
 			summary.FailedFiles++
 			summary.TotalErrors++
 		}
 
-		// Check for markdown frontmatter (optional but recommended)
+		// Check for markdown frontmatter - Anthropic docs: "You can add frontmatter", description "critical for discovery"
 		if !strings.HasPrefix(file.Contents, "---") {
 			// Try to extract skill name from first heading
 			skillName := extractSkillName(file.Contents, file.RelPath)
-			suggestion := "Add YAML frontmatter with name and description"
+			suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
 			if skillName != "" {
-				suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n---", skillName)
+				suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
 			}
 			result.Suggestions = append(result.Suggestions, cue.ValidationError{
 				File:     file.RelPath,
 				Message:  suggestion,
 				Severity: "suggestion",
+				Source:   cue.SourceAnthropicDocs,
 			})
 			summary.TotalSuggestions++
 		}
@@ -129,7 +132,7 @@ func validateSkillBestPractices(filePath string, contents string) []cue.Validati
 	var suggestions []cue.ValidationError
 	lowerContents := strings.ToLower(contents)
 
-	// Check for Anti-Patterns section (or equivalent)
+	// Check for Anti-Patterns section (or equivalent) - OUR OBSERVATION
 	hasAntiPatterns := strings.Contains(contents, "## Anti-Pattern") ||
 		strings.Contains(contents, "## Anti-Patterns") ||
 		strings.Contains(contents, "### Anti-Pattern") ||
@@ -140,20 +143,22 @@ func validateSkillBestPractices(filePath string, contents string) []cue.Validati
 			File:     filePath,
 			Message:  "Consider adding '## Anti-Patterns' section to document common mistakes.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// Check skill size - recommend references for large skills
+	// Check skill size - recommend references for large skills (±10% tolerance: 500 base + 50 = 550) - OUR OBSERVATION
 	lines := strings.Count(contents, "\n")
-	if lines > 500 {
+	if lines > 550 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  fmt.Sprintf("Skill is %d lines. Consider moving heavy documentation to references/ subdirectory.", lines),
+			Message:  fmt.Sprintf("Skill is %d lines. Best practice: keep skills under ~550 lines (500±10%%) - move heavy docs to references/ subdirectory.", lines),
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 
-	// Check for Examples section (or equivalent)
+	// Check for Examples section (or equivalent) - OUR OBSERVATION
 	hasExamples := strings.Contains(contents, "## Example") ||
 		strings.Contains(contents, "## Examples") ||
 		strings.Contains(contents, "## Expected Output") ||
@@ -164,6 +169,7 @@ func validateSkillBestPractices(filePath string, contents string) []cue.Validati
 			File:     filePath,
 			Message:  "Consider adding '## Examples' section to illustrate skill usage.",
 			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 		})
 	}
 

@@ -59,6 +59,7 @@ func (f *JSONFormatter) Format(summary *cli.LintSummary) error {
 				File:     err.File,
 				Message:  err.Message,
 				Severity: err.Severity,
+				Source:   err.Source,
 				Line:     err.Line,
 				Column:   err.Column,
 			})
@@ -69,6 +70,7 @@ func (f *JSONFormatter) Format(summary *cli.LintSummary) error {
 				File:     warning.File,
 				Message:  warning.Message,
 				Severity: warning.Severity,
+				Source:   warning.Source,
 				Line:     warning.Line,
 				Column:   warning.Column,
 			})
@@ -166,6 +168,7 @@ type JSONValidationError struct {
 	File     string `json:"file"`
 	Message  string `json:"message"`
 	Severity string `json:"severity"`
+	Source   string `json:"source,omitempty"`
 	Line     int    `json:"line,omitempty"`
 	Column   int    `json:"column,omitempty"`
 }

@@ -82,6 +82,9 @@ func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
 					if err.Line > 0 {
 						builder.WriteString(fmt.Sprintf(" (line %d)", err.Line))
 					}
+					if err.Source != "" {
+						builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(err.Source)))
+					}
 					builder.WriteString("\n")
 				}
 				builder.WriteString("\n")
@@ -94,6 +97,9 @@ func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
 					builder.WriteString(fmt.Sprintf("- **%s** - %s", warning.File, warning.Message))
 					if warning.Line > 0 {
 						builder.WriteString(fmt.Sprintf(" (line %d)", warning.Line))
+					}
+					if warning.Source != "" {
+						builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(warning.Source)))
 					}
 					builder.WriteString("\n")
 				}
@@ -150,4 +156,16 @@ func createAnchor(text string) string {
 func detectProjectRootForMarkdown() string {
 	// This is a simplified version - in practice, would use the project detector
 	return "./"
+}
+
+// formatSourceTag formats the source tag for display
+func formatSourceTag(source string) string {
+	switch source {
+	case "anthropic-docs":
+		return "docs"
+	case "cclint-observation":
+		return "cclint"
+	default:
+		return source
+	}
 }

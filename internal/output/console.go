@@ -150,8 +150,10 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 // printValidationError prints a validation error with appropriate styling
 func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severity string) {
 	var style lipgloss.Style
+	var sourceStyle lipgloss.Style
 	if !f.colorize {
 		style = lipgloss.NewStyle()
+		sourceStyle = lipgloss.NewStyle()
 	} else {
 		switch severity {
 		case "error":
@@ -163,6 +165,7 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 		default:
 			style = lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // gray
 		}
+		sourceStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true) // dim
 	}
 
 	prefix := "    "
@@ -174,10 +177,20 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 		prefix = "    💡 "
 	}
 
+	// Format source tag (only show in verbose mode for suggestions)
+	sourceTag := ""
+	if f.verbose && err.Source != "" {
+		if err.Source == cue.SourceAnthropicDocs {
+			sourceTag = sourceStyle.Render(" [docs]")
+		} else if err.Source == cue.SourceCClintObserve {
+			sourceTag = sourceStyle.Render(" [cclint]")
+		}
+	}
+
 	if err.Line > 0 {
-		fmt.Printf("%s%s:%d: %s\n", prefix, style.Render(err.File), err.Line, err.Message)
+		fmt.Printf("%s%s:%d: %s%s\n", prefix, style.Render(err.File), err.Line, err.Message, sourceTag)
 	} else {
-		fmt.Printf("%s%s: %s\n", prefix, style.Render(err.File), err.Message)
+		fmt.Printf("%s%s: %s%s\n", prefix, style.Render(err.File), err.Message, sourceTag)
 	}
 }
 

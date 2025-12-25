@@ -88,16 +88,17 @@ func (s *CommandScorer) Score(content string, frontmatter map[string]interface{}
 	})
 
 	// === COMPOSITION (10 points max) ===
+	// ±10% tolerance: 50 base -> 55 OK threshold
 	commandThresholds := CompositionThresholds{
 		Excellent:     30,
 		ExcellentNote: "Excellent: ≤30 lines",
-		Good:          40,
-		GoodNote:      "Good: ≤40 lines",
-		OK:            50,
-		OKNote:        "OK: ≤50 lines",
-		OverLimit:     60,
-		OverLimitNote: "Over limit: >50 lines",
-		FatNote:       "Fat command: >60 lines",
+		Good:          45,
+		GoodNote:      "Good: ≤45 lines",
+		OK:            55,
+		OKNote:        "OK: ≤55 lines (50±10%)",
+		OverLimit:     65,
+		OverLimitNote: "Over limit: >55 lines",
+		FatNote:       "Fat command: >65 lines",
 	}
 	composition, compositionMetric := ScoreComposition(lines, commandThresholds)
 	details = append(details, compositionMetric)

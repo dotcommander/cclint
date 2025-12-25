@@ -29,7 +29,12 @@ var rootCmd = &cobra.Command{
 command files, settings, and documentation according to established patterns.
 
 By default, cclint scans the entire project and reports on all validation issues.
-Use specialized commands to focus on specific file types.`,
+Use specialized commands to focus on specific file types.
+
+⚠️  NOTE: cclint is a work in progress. Its suggestions should be validated:
+   • Cross-reference with official docs: docs.anthropic.com, docs.claude.com
+   • Clear violations (fake flags, >220 lines agents) are reliable
+   • Style suggestions should be verified against official documentation`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runLint(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -105,6 +110,11 @@ func runLint() error {
 		if err := outputter.Format(summary, cfg.Format); err != nil {
 			return fmt.Errorf("error formatting output: %w", err)
 		}
+	}
+
+	// Print validation reminder (unless quiet mode)
+	if !cfg.Quiet {
+		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
 	}
 
 	return nil

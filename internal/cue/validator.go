@@ -14,11 +14,18 @@ import (
 //go:embed schemas/*.cue
 var schemaFS embed.FS
 
+// Rule source constants
+const (
+	SourceAnthropicDocs   = "anthropic-docs"   // Official Anthropic documentation
+	SourceCClintObserve   = "cclint-observation" // Our best practice observations
+)
+
 // ValidationError represents a validation error
 type ValidationError struct {
 	File     string
 	Message  string
 	Severity string // error, warning, suggestion
+	Source   string // anthropic-docs or cclint-observation
 	Line     int
 	Column   int
 }
@@ -150,6 +157,7 @@ func (v *Validator) extractErrorsFromCUE(err error, schemaType string) []Validat
 		File:     "",
 		Message:  fmt.Sprintf("Schema validation failed: %v", err),
 		Severity: "error",
+		Source:   SourceAnthropicDocs,
 		Line:     0,
 		Column:   0,
 	})

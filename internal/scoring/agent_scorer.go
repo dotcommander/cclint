@@ -44,8 +44,20 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	// === PRACTICES (35 points max) ===
 	practices := 0
 
-	// Skill reference (10 points)
-	hasSkillRef, _ := regexp.MatchString(`(?i)Skill:\s*\S+`, bodyContent)
+	// Skill reference (10 points) - detect all formats: Skill:, **Skill**:, Skill(), Skills:
+	hasSkillRef := false
+	skillPatterns := []string{
+		`(?i)Skill:\s*\S+`,              // Skill: foo-bar
+		`(?i)\*\*Skill\*\*:\s*\S+`,       // **Skill**: foo-bar
+		`(?i)Skill\(\s*["']?[a-z0-9-]+`,  // Skill(foo-bar) or Skill("foo-bar")
+		`(?i)Skills:\s*\n`,               // Skills: (followed by list)
+	}
+	for _, pattern := range skillPatterns {
+		if matched, _ := regexp.MatchString(pattern, bodyContent); matched {
+			hasSkillRef = true
+			break
+		}
+	}
 	if hasSkillRef {
 		practices += 10
 	}
@@ -126,16 +138,17 @@ func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, 
 	})
 
 	// === COMPOSITION (10 points max) ===
+	// ±10% tolerance: 200 base -> 220 OK threshold
 	agentThresholds := CompositionThresholds{
-		Excellent:     100,
-		ExcellentNote: "Excellent: ≤100 lines",
-		Good:          150,
-		GoodNote:      "Good: ≤150 lines",
-		OK:            200,
-		OKNote:        "OK: ≤200 lines",
-		OverLimit:     250,
-		OverLimitNote: "Over limit: >200 lines",
-		FatNote:       "Fat agent: >250 lines",
+		Excellent:     120,
+		ExcellentNote: "Excellent: ≤120 lines",
+		Good:          180,
+		GoodNote:      "Good: ≤180 lines",
+		OK:            220,
+		OKNote:        "OK: ≤220 lines (200±10%)",
+		OverLimit:     275,
+		OverLimitNote: "Over limit: >220 lines",
+		FatNote:       "Fat agent: >275 lines",
 	}
 	composition, compositionMetric := ScoreComposition(lines, agentThresholds)
 	details = append(details, compositionMetric)

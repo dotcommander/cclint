@@ -72,13 +72,14 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 			continue
 		}
 
-		// Check if agent exists
+		// Check if agent exists - OUR OBSERVATION (consistency check)
 		if _, exists := v.agents[agentRef]; !exists {
 			seenAgentErrors[agentRef] = true
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Task(%s) references non-existent agent. Create agents/%s.md", agentRef, agentRef),
 				Severity: "error",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
@@ -148,6 +149,7 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 					File:     filePath,
 					Message:  fmt.Sprintf("Flag '--%s' documented but not found in agent '%s' or its skills - may be fake", flag, primaryAgent),
 					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
 				})
 			}
 		}
@@ -181,6 +183,7 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 					File:     filePath,
 					Message:  message,
 					Severity: "info",
+					Source:   cue.SourceCClintObserve,
 				})
 			}
 		}
@@ -194,24 +197,17 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string) []c
 	var errors []cue.ValidationError
 
 	// === MISSING SKILL REFERENCE ===
-	// Find Skill: X patterns (must be at start of line or after whitespace, not inside markdown bold)
-	// Match: "Skill: foo-bar" or "  Skill: foo-bar"
-	// Don't match: "**Skill**: foo-bar" or "*Skill*: foo-bar"
-	skillPattern := regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-	matches := skillPattern.FindAllStringSubmatch(contents, -1)
+	// Use comprehensive skill reference detection (Skill:, **Skill**:, Skill(), etc.)
+	skillRefs := findSkillReferences(contents)
 
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
-		}
-		skillRef := strings.TrimSpace(match[1])
-
-		// Check if skill exists
+	for _, skillRef := range skillRefs {
+		// Check if skill exists - OUR OBSERVATION (consistency check)
 		if _, exists := v.skills[skillRef]; !exists {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Skill: %s references non-existent skill. Create skills/%s/SKILL.md", skillRef, skillRef),
 				Severity: "error",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
@@ -254,12 +250,13 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string) []c
 			}
 			seenAgents[agentRef] = true
 
-			// Check if agent exists
+			// Check if agent exists - OUR OBSERVATION (consistency check)
 			if _, exists := v.agents[agentRef]; !exists {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Skill references '%s' but agent doesn't exist. Create agents/%s.md", agentRef, agentRef),
 					Severity: "error",
+					Source:   cue.SourceCClintObserve,
 				})
 			}
 		}
@@ -295,6 +292,42 @@ func crossExtractCommandName(path string) string {
 	parts := strings.Split(path, "/")
 	filename := parts[len(parts)-1]
 	return strings.TrimSuffix(filename, ".md")
+}
+
+// findSkillReferences finds all skill references in content using multiple patterns.
+// Matches: Skill: X, **Skill**: X, Skill(X), Skills: list, and code block declarations.
+func findSkillReferences(content string) []string {
+	var skills []string
+	seen := make(map[string]bool)
+
+	// Patterns to match skill references
+	skillPatterns := []*regexp.Regexp{
+		// Skill: foo-bar (plain format, not inside bold markers)
+		regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`),
+		// **Skill**: foo-bar (bold format)
+		regexp.MustCompile(`(?m)\*\*Skill\*\*:\s*([a-z0-9][a-z0-9-]*)`),
+		// Skill("foo-bar") or Skill(foo-bar) (function call format)
+		regexp.MustCompile(`(?m)Skill\(\s*["']?([a-z0-9][a-z0-9-]*)["']?\s*\)`),
+		// Skills: followed by list items
+		regexp.MustCompile(`(?m)Skills?:\s*\n\s*[-*]\s*([a-z0-9][a-z0-9-]*)`),
+		// Code block with Skill: declaration
+		regexp.MustCompile("(?m)```[^`]*Skill:\\s*([a-z0-9][a-z0-9-]*)"),
+	}
+
+	for _, pattern := range skillPatterns {
+		matches := pattern.FindAllStringSubmatch(content, -1)
+		for _, match := range matches {
+			if len(match) >= 2 {
+				skill := strings.TrimSpace(match[1])
+				if !seen[skill] && skill != "" {
+					skills = append(skills, skill)
+					seen[skill] = true
+				}
+			}
+		}
+	}
+
+	return skills
 }
 
 func parseAllowedTools(s string) []string {
@@ -423,15 +456,11 @@ func (v *CrossFileValidator) traceFromAgent(name string) *ChainLink {
 		Lines: strings.Count(file.Contents, "\n") + 1,
 	}
 
-	// Find Skill: references
-	skillPattern := regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-	matches := skillPattern.FindAllStringSubmatch(file.Contents, -1)
-	for _, match := range matches {
-		if len(match) >= 2 {
-			skillRef := strings.TrimSpace(match[1])
-			if child := v.traceFromSkill(skillRef); child != nil {
-				link.Children = append(link.Children, *child)
-			}
+	// Find Skill references using comprehensive pattern matching
+	skillRefs := findSkillReferences(file.Contents)
+	for _, skillRef := range skillRefs {
+		if child := v.traceFromSkill(skillRef); child != nil {
+			link.Children = append(link.Children, *child)
 		}
 	}
 
@@ -503,15 +532,11 @@ func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
 		}
 	}
 
-	// Check all agents for Skill: declarations
+	// Check all agents for skill declarations using comprehensive pattern matching
 	for _, agent := range v.agents {
-		skillPattern := regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-		matches := skillPattern.FindAllStringSubmatch(agent.Contents, -1)
-		for _, match := range matches {
-			if len(match) >= 2 {
-				skillRef := strings.TrimSpace(match[1])
-				referencedSkills[skillRef] = true
-			}
+		skillRefs := findSkillReferences(agent.Contents)
+		for _, skillRef := range skillRefs {
+			referencedSkills[skillRef] = true
 		}
 	}
 
@@ -529,13 +554,14 @@ func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
 		}
 	}
 
-	// Find orphaned skills
+	// Find orphaned skills - OUR OBSERVATION
 	for skillName, skillFile := range v.skills {
 		if !referencedSkills[skillName] {
 			orphans = append(orphans, cue.ValidationError{
 				File:     skillFile.RelPath,
 				Message:  fmt.Sprintf("Skill '%s' has no incoming references - consider adding crossrefs from commands/agents/skills", skillName),
 				Severity: "info",
+				Source:   cue.SourceCClintObserve,
 			})
 		}
 	}
