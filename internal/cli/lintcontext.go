@@ -2,7 +2,7 @@ package cli
 
 import (
 	"fmt"
-	"log"
+	"os"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
@@ -41,7 +41,7 @@ func NewLinterContext(rootPath string, quiet, verbose bool) (*LinterContext, err
 	// Load schemas (soft failure - continue with Go validation)
 	if err := validator.LoadSchemas(""); err != nil {
 		if !quiet {
-			log.Printf("Warning: CUE schemas not loaded, using Go validation")
+			fmt.Fprintf(os.Stderr, "Warning: CUE schemas not loaded, using Go validation\n")
 		}
 	}
 
@@ -87,16 +87,14 @@ func (ctx *LinterContext) NewSummary(totalFiles int) *LintSummary {
 	}
 }
 
-// LogProcessed logs file processing if verbose mode is enabled.
+// LogProcessed is a no-op - console formatter handles file status display.
+// Kept for API compatibility with callers.
 func (ctx *LinterContext) LogProcessed(filePath string, errorCount int) {
-	if ctx.Verbose {
-		log.Printf("Processed %s: %d errors", filePath, errorCount)
-	}
+	// No-op: console formatter shows ✓/✗ for each file
 }
 
-// LogProcessedWithSuggestions logs file processing with suggestions if verbose mode is enabled.
+// LogProcessedWithSuggestions is a no-op - console formatter handles file status display.
+// Kept for API compatibility with callers.
 func (ctx *LinterContext) LogProcessedWithSuggestions(filePath string, errorCount, suggestionCount int) {
-	if ctx.Verbose {
-		log.Printf("Processed %s: %d errors, %d suggestions", filePath, errorCount, suggestionCount)
-	}
+	// No-op: console formatter shows ✓/✗ for each file
 }
