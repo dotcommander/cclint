@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cli"
-	"github.com/dotcommander/cclint/internal/outputters"
+	"github.com/spf13/cobra"
 )
 
 var agentsCmd = &cobra.Command{
@@ -38,23 +36,5 @@ func init() {
 }
 
 func runAgentsLint() error {
-	// Load configuration
-	config, err := config.LoadConfig(rootPath)
-	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
-	}
-
-	// Run agents linter
-	summary, err := cli.LintAgents(config.Root, config.Quiet, config.Verbose)
-	if err != nil {
-		return fmt.Errorf("error running agents linter: %w", err)
-	}
-
-	// Format and output results
-	outputter := outputters.NewOutputter(config)
-	if err := outputter.Format(summary, config.Format); err != nil {
-		return fmt.Errorf("error formatting output: %w", err)
-	}
-
-	return nil
+	return runComponentLint("agents", cli.LintAgents)
 }

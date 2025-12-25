@@ -5,9 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cli"
-	"github.com/dotcommander/cclint/internal/outputters"
 )
 
 var commandsCmd = &cobra.Command{
@@ -36,23 +34,5 @@ func init() {
 }
 
 func runCommandsLint() error {
-	// Load configuration
-	config, err := config.LoadConfig(rootPath)
-	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
-	}
-
-	// Run commands linter
-	summary, err := cli.LintCommands(config.Root, config.Quiet, config.Verbose)
-	if err != nil {
-		return fmt.Errorf("error running commands linter: %w", err)
-	}
-
-	// Format and output results
-	outputter := outputters.NewOutputter(config)
-	if err := outputter.Format(summary, config.Format); err != nil {
-		return fmt.Errorf("error formatting output: %w", err)
-	}
-
-	return nil
+	return runComponentLint("commands", cli.LintCommands)
 }
