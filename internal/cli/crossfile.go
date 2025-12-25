@@ -303,15 +303,14 @@ func findSkillReferences(content string) []string {
 	// Patterns to match skill references
 	skillPatterns := []*regexp.Regexp{
 		// Skill: foo-bar (plain format, not inside bold markers)
-		regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`),
+		// Note: [^*\n]* prevents matching across newlines (Go regex quirk)
+		regexp.MustCompile(`(?m)^[^*\n]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`),
 		// **Skill**: foo-bar (bold format)
 		regexp.MustCompile(`(?m)\*\*Skill\*\*:\s*([a-z0-9][a-z0-9-]*)`),
 		// Skill("foo-bar") or Skill(foo-bar) (function call format)
 		regexp.MustCompile(`(?m)Skill\(\s*["']?([a-z0-9][a-z0-9-]*)["']?\s*\)`),
 		// Skills: followed by list items
 		regexp.MustCompile(`(?m)Skills?:\s*\n\s*[-*]\s*([a-z0-9][a-z0-9-]*)`),
-		// Code block with Skill: declaration
-		regexp.MustCompile("(?m)```[^`]*Skill:\\s*([a-z0-9][a-z0-9-]*)"),
 	}
 
 	for _, pattern := range skillPatterns {
