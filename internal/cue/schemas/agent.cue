@@ -28,8 +28,8 @@ import (
 // Agent frontmatter schema
 #Agent: {
 	// Required fields
-	name: string & =~("^[a-z0-9-]+$")  // lowercase, numbers, hyphens only
-	description: string & !=""         // non-empty description
+	name: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
+	description: string & !="" & strings.MaxRunes(1024)       // non-empty description, max 1024 chars
 
 	// Optional Claude Code fields
 	model?: #Model

@@ -1,5 +1,7 @@
 package schemas
 
+import "strings"
+
 // ============================================================================
 // Command Schema
 // ============================================================================
@@ -17,8 +19,8 @@ package schemas
 // Command frontmatter schema (all fields optional per Claude Code spec)
 #Command: {
 	// Optional Claude Code fields
-	name?: string & =~("^[a-z0-9-]+$")  // lowercase, numbers, hyphens only
-	description?: string                // command description
+	name?: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
+	description?: string & strings.MaxRunes(1024)              // command description, max 1024 chars
 	"allowed-tools"?: "*" | string | [...#KnownTool]
 	"argument-hint"?: string             // argument hint for help
 	model?: #Model
