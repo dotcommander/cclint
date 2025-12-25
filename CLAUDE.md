@@ -13,6 +13,7 @@ cclint                        # lint all component types
 cclint agents                 # lint only agents
 cclint commands               # lint only commands
 cclint skills                 # lint only skills
+cclint plugins                # lint only plugin manifests
 
 # Common flags
 cclint --root /path/to/project agents    # specify project root
@@ -44,7 +45,8 @@ internal/
 │   ├── types.go        # QualityScore, ScoringMetric interfaces
 │   ├── agent_scorer.go
 │   ├── command_scorer.go
-│   └── skill_scorer.go
+│   ├── skill_scorer.go
+│   └── plugin_scorer.go
 ├── cli/                # Lint orchestration per component type
 ├── output/             # Formatters (console, json, markdown)
 ├── outputters/         # Output coordination
@@ -61,7 +63,7 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 
 **Quality Scoring**: Four categories (structural 0-40, practices 0-40, composition 0-10, documentation 0-10) summed to 0-100. Tier grades: A≥85, B≥70, C≥50, D≥30, F<30.
 
-**Discovery Patterns**: Searches both `.claude/{agents,commands,skills}/**/*.md` and `{agents,commands,skills}/**/*.md` paths.
+**Discovery Patterns**: Searches `.claude/{agents,commands,skills}/**/*.md`, `{agents,commands,skills}/**/*.md`, and `**/.claude-plugin/plugin.json` paths.
 
 ## Lint Rules Enforced
 
@@ -70,6 +72,7 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 | Agent | 200 lines | name format, model, triggers, Foundation/Workflow sections, Skill() loading |
 | Command | 50 lines | delegation pattern, semantic routing table |
 | Skill | 500 lines | SKILL.md filename, Quick Reference table |
+| Plugin | 5KB | name format, semver version, author.name, required fields |
 
 ## Config
 

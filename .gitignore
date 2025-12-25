@@ -34,3 +34,7 @@ Thumbs.db
 *.log
 *.coverage
 node_modules/
+
+# Research artifacts
+research/
+ANTHROPIC_REQUIREMENTS.md

@@ -97,6 +97,7 @@ func runLint() error {
 	_ = commandsCmd
 	_ = settingsCmd
 	_ = contextCmd
+	_ = pluginsCmd
 
 	// For now, run all linters
 	{
