@@ -92,30 +92,59 @@ func runLint() error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
-	// Import specialized commands to register them
-	_ = agentsCmd
-	_ = commandsCmd
-	_ = settingsCmd
-	_ = contextCmd
-	_ = pluginsCmd
+	outputter := outputters.NewOutputter(cfg)
 
-	// For now, run all linters
-	{
-		summary, err := cli.LintAgents(cfg.Root, cfg.Quiet, cfg.Verbose)
+	// Define all linters to run
+	linters := []struct {
+		name   string
+		linter func(string, bool, bool) (*cli.LintSummary, error)
+	}{
+		{"agents", cli.LintAgents},
+		{"commands", cli.LintCommands},
+		{"skills", cli.LintSkills},
+		{"settings", cli.LintSettings},
+		{"context", cli.LintContext},
+		{"plugins", cli.LintPlugins},
+	}
+
+	// Track totals across all linters
+	var totalFiles, totalErrors, totalSuggestions int
+	var hasErrors bool
+
+	// Run all linters
+	for _, l := range linters {
+		summary, err := l.linter(cfg.Root, cfg.Quiet, cfg.Verbose)
 		if err != nil {
-			return fmt.Errorf("error running agents linter: %w", err)
+			return fmt.Errorf("error running %s linter: %w", l.name, err)
 		}
 
-		// Format and output results
-		outputter := outputters.NewOutputter(cfg)
+		// Skip empty results (no files of this type)
+		if summary.TotalFiles == 0 {
+			continue
+		}
+
+		// Format and output results for this component type
 		if err := outputter.Format(summary, cfg.Format); err != nil {
-			return fmt.Errorf("error formatting output: %w", err)
+			return fmt.Errorf("error formatting %s output: %w", l.name, err)
+		}
+
+		// Accumulate totals
+		totalFiles += summary.TotalFiles
+		totalErrors += summary.TotalErrors
+		totalSuggestions += summary.TotalSuggestions
+		if summary.TotalErrors > 0 {
+			hasErrors = true
 		}
 	}
 
 	// Print validation reminder (unless quiet mode)
 	if !cfg.Quiet {
 		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
+	}
+
+	// Exit with error if any linter found errors
+	if hasErrors {
+		os.Exit(1)
 	}
 
 	return nil
