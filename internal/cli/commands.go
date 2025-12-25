@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -61,15 +62,25 @@ func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, erro
 			result.Errors = append(result.Errors, errors...)
 			summary.TotalErrors += len(errors)
 
+			// Validate allowed-tools field
+			toolWarnings := ValidateAllowedTools(fm.Data, file.RelPath, file.Contents)
+			result.Warnings = append(result.Warnings, toolWarnings...)
+			summary.TotalWarnings += len(toolWarnings)
+
 			// Cross-file validation (missing agents, unused tools)
 			crossErrors := ctx.CrossValidator.ValidateCommand(file.RelPath, file.Contents, fm.Data)
 			result.Errors = append(result.Errors, crossErrors...)
 			summary.TotalErrors += len(crossErrors)
 
 			// Best practice checks
-			suggestions := validateCommandBestPractices(file.RelPath, file.Contents)
+			suggestions := validateCommandBestPractices(file.RelPath, file.Contents, fm.Data)
 			result.Suggestions = append(result.Suggestions, suggestions...)
 			summary.TotalSuggestions += len(suggestions)
+
+			// Secrets detection
+			secretWarnings := detectSecrets(file.Contents, file.RelPath)
+			result.Warnings = append(result.Warnings, secretWarnings...)
+			summary.TotalWarnings += len(secretWarnings)
 
 			if len(result.Errors) == 0 {
 				summary.SuccessfulFiles++
@@ -122,8 +133,22 @@ func validateCommandSpecific(data map[string]interface{}, filePath string, conte
 }
 
 // validateCommandBestPractices checks opinionated best practices
-func validateCommandBestPractices(filePath string, contents string) []cue.ValidationError {
+func validateCommandBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
 	var suggestions []cue.ValidationError
+
+	// XML tag detection in text fields - FROM ANTHROPIC DOCS
+	xmlTagPattern := regexp.MustCompile(`<[a-zA-Z][^>]*>`)
+	if description, ok := data["description"].(string); ok {
+		if xmlTagPattern.MatchString(description) {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "Description contains XML-like tags which are not allowed",
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "description"),
+			})
+		}
+	}
 
 	// Count total lines (±10% tolerance: 50 base + 5 = 55) - OUR OBSERVATION
 	lines := strings.Count(contents, "\n")

@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"fmt"
+	"regexp"
 	"strings"
+
+	"github.com/dotcommander/cclint/internal/cue"
 )
 
 // FindLineNumber finds the line number (1-based) where a pattern first appears
@@ -282,4 +286,122 @@ func GetSkillImprovements(content string, data map[string]interface{}) []Improve
 	}
 
 	return recs
+}
+
+// ValidateAllowedTools validates that allowed-tools and tools fields contain known tool names
+func ValidateAllowedTools(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+	var warnings []cue.ValidationError
+
+	// Known tools from Claude Code documentation
+	knownTools := map[string]bool{
+		// File operations
+		"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
+		"Glob": true, "Grep": true, "LS": true,
+		// Execution
+		"Bash": true, "Task": true,
+		// Web
+		"WebFetch": true, "WebSearch": true,
+		// Interactive
+		"AskUserQuestion": true, "TodoWrite": true,
+		// Special
+		"Skill": true, "LSP": true, "NotebookEdit": true,
+		"EnterPlanMode": true, "ExitPlanMode": true,
+		"KillShell": true, "TaskOutput": true,
+		// Wildcards
+		"*": true,
+	}
+
+	// Check both "tools" and "allowed-tools" fields
+	toolsFields := []string{"tools", "allowed-tools"}
+
+	for _, field := range toolsFields {
+		if tools, ok := data[field].(string); ok && tools != "" {
+			// Parse comma-separated tools
+			toolList := strings.Split(tools, ",")
+			for _, tool := range toolList {
+				tool = strings.TrimSpace(tool)
+				if tool == "" {
+					continue
+				}
+				// Handle patterns like "Task(specialist-name)"
+				baseTool := tool
+				if idx := strings.Index(tool, "("); idx > 0 {
+					baseTool = tool[:idx]
+				}
+				// Handle patterns like "Bash(npm:*)" - ignore suffix after colon
+				if colonIdx := strings.Index(baseTool, ":"); colonIdx > 0 {
+					baseTool = baseTool[:colonIdx]
+				}
+				// Validate base tool
+				if !knownTools[baseTool] {
+					warnings = append(warnings, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),
+						Severity: "warning",
+						Source:   cue.SourceCClintObserve,
+						Line:     FindFrontmatterFieldLine(contents, field),
+					})
+				}
+			}
+		}
+	}
+
+	return warnings
+}
+
+// detectSecrets checks for hardcoded secrets in content
+func detectSecrets(contents string, filePath string) []cue.ValidationError {
+	var warnings []cue.ValidationError
+
+	secretPatterns := []struct {
+		pattern *regexp.Regexp
+		message string
+	}{
+		{regexp.MustCompile(`(?i)(api[_-]?key|apikey)\s*[:=]\s*["'][^"']{10,}["']`),
+			"Possible hardcoded API key detected - use environment variables"},
+		{regexp.MustCompile(`(?i)(password|passwd|pwd)\s*[:=]\s*["'][^"']+["']`),
+			"Possible hardcoded password detected - use secrets management"},
+		{regexp.MustCompile(`(?i)(secret|token)\s*[:=]\s*["'][^"']{10,}["']`),
+			"Possible hardcoded secret/token detected - use environment variables"},
+		{regexp.MustCompile(`sk-[a-zA-Z0-9]{20,}`),
+			"OpenAI API key pattern detected - never commit API keys"},
+		{regexp.MustCompile(`xoxb-[a-zA-Z0-9-]+`),
+			"Slack bot token pattern detected - use environment variables"},
+		{regexp.MustCompile(`ghp_[a-zA-Z0-9]{36}`),
+			"GitHub personal access token pattern detected"},
+		{regexp.MustCompile(`AIza[0-9A-Za-z\-_]{35}`),
+			"Google API key pattern detected - use environment variables"},
+		{regexp.MustCompile(`[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com`),
+			"Google OAuth client ID pattern detected"},
+		{regexp.MustCompile(`-----BEGIN (RSA |DSA )?PRIVATE KEY-----`),
+			"Private key detected - never commit private keys"},
+		{regexp.MustCompile(`aws_access_key_id\s*[:=]\s*["']?[A-Z0-9]{20}["']?`),
+			"AWS access key ID detected - use environment variables"},
+		{regexp.MustCompile(`aws_secret_access_key\s*[:=]\s*["']?[A-Za-z0-9/+=]{40}["']?`),
+			"AWS secret access key detected - use environment variables"},
+	}
+
+	for _, sp := range secretPatterns {
+		if sp.pattern.MatchString(contents) {
+			// Find line number for better error reporting
+			lineNum := 0
+			lines := strings.Split(contents, "\n")
+			for i, line := range lines {
+				if sp.pattern.MatchString(line) {
+					lineNum = i + 1
+					break
+				}
+			}
+
+			warnings = append(warnings, cue.ValidationError{
+				File:     filePath,
+				Message:  sp.message,
+				Severity: "warning",
+				Source:   cue.SourceCClintObserve,
+				Line:     lineNum,
+			})
+		}
+	}
+
+	return warnings
 }

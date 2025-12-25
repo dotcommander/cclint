@@ -29,6 +29,7 @@ const (
 	FileTypeContext
 	FileTypeSkill
 	FileTypeConfig
+	FileTypePlugin
 )
 
 // FileDiscovery manages file discovery operations
@@ -96,6 +97,16 @@ func (fd *FileDiscovery) DiscoverFiles() ([]File, error) {
 	}
 	for _, f := range skillFiles {
 		f.Type = FileTypeSkill
+		files = append(files, f)
+	}
+
+	// Plugin files
+	pluginFiles, err := fd.findFilesByPattern([]string{"**/.claude-plugin/plugin.json"})
+	if err != nil {
+		return nil, fmt.Errorf("error discovering plugin files: %w", err)
+	}
+	for _, f := range pluginFiles {
+		f.Type = FileTypePlugin
 		files = append(files, f)
 	}
 
@@ -190,6 +201,9 @@ func (fd *FileDiscovery) determineFileType(path string) FileType {
 	}
 	if strings.HasSuffix(lowerPath, "claude.md") {
 		return FileTypeContext
+	}
+	if strings.Contains(lowerPath, ".claude-plugin") && strings.HasSuffix(lowerPath, "plugin.json") {
+		return FileTypePlugin
 	}
 
 	return FileTypeUnknown

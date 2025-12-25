@@ -97,10 +97,20 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 				}
 			}
 
+			// Validate allowed-tools field
+			toolWarnings := ValidateAllowedTools(fm.Data, file.RelPath, file.Contents)
+			result.Warnings = append(result.Warnings, toolWarnings...)
+			summary.TotalWarnings += len(toolWarnings)
+
 			// Cross-file validation (missing skills)
 			crossErrors := ctx.CrossValidator.ValidateAgent(file.RelPath, file.Contents)
 			result.Errors = append(result.Errors, crossErrors...)
 			summary.TotalErrors += len(crossErrors)
+
+			// Secrets detection
+			secretWarnings := detectSecrets(file.Contents, file.RelPath)
+			result.Warnings = append(result.Warnings, secretWarnings...)
+			summary.TotalWarnings += len(secretWarnings)
 
 			if len(result.Errors) == 0 {
 				summary.SuccessfulFiles++
@@ -169,6 +179,18 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			})
 		}
 
+		// Reserved word check - FROM ANTHROPIC DOCS
+		reservedWords := map[string]bool{"anthropic": true, "claude": true}
+		if reservedWords[strings.ToLower(name)] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "name"),
+			})
+		}
+
 		// Check if name matches filename - OUR OBSERVATION
 		// Extract filename from path (e.g., ".claude/agents/test-agent.md" -> "test-agent")
 		filename := filePath
@@ -226,6 +248,20 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 func validateAgentBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 	fmEndLine := GetFrontmatterEndLine(contents)
+
+	// XML tag detection in text fields - FROM ANTHROPIC DOCS
+	xmlTagPattern := regexp.MustCompile(`<[a-zA-Z][^>]*>`)
+	if description, ok := data["description"].(string); ok {
+		if xmlTagPattern.MatchString(description) {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "Description contains XML-like tags which are not allowed",
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "description"),
+			})
+		}
+	}
 
 	// Count total lines (±10% tolerance: 200 base + 20 = 220)
 	lines := strings.Count(contents, "\n")
