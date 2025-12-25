@@ -74,6 +74,23 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 | Skill | 500 lines | SKILL.md filename, Quick Reference table |
 | Plugin | 5KB | name format, semver version, author.name, required fields |
 
+## Cross-File Validation
+
+**Location**: `internal/cli/crossfile.go`
+
+Detects skill references using `findSkillReferences()`:
+
+```go
+// Pattern: ^[^*\n]*\bSkill:\s*([a-z0-9][a-z0-9-]*)
+// Key: [^*\n]* prevents matching across newlines
+```
+
+**Go Regex Quirk**: Character classes like `[^*]` match newlines by default in Go. Use `[^*\n]` to exclude newlines and prevent greedy cross-line matching.
+
+**Orphan Detection**: `FindOrphanedSkills()` builds a reference graph and reports skills with zero incoming edges as info-level suggestions.
+
+See: `docs/cross-file-validation.md`
+
 ## Config
 
 Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. Environment variables with `CCLINT_` prefix also supported.

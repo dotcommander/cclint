@@ -98,6 +98,24 @@ cclint --format markdown --output report.md
 
 ## What It Checks
 
+### Cross-File Validation
+
+cclint validates references between components:
+
+| Check | Description |
+|-------|-------------|
+| **Skill existence** | Agents referencing non-existent skills produce errors |
+| **Orphan detection** | Skills not referenced by any agent/command show as suggestions |
+| **Tool permissions** | Commands using undeclared tools produce warnings |
+
+Skill references are detected in multiple formats:
+- `Skill: name` - Plain format (including inside code blocks)
+- `**Skill**: name` - Bold format
+- `Skill(name)` - Function call format
+- `Skills:\n  - name` - List format
+
+See [Cross-File Validation](docs/cross-file-validation.md) for technical details.
+
 ### Agents
 
 | Type | Check |
