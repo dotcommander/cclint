@@ -1,0 +1,768 @@
+// Package cli provides single-file linting capabilities for cclint.
+//
+// This file implements the single-file linting mode, which allows users to
+// lint individual files directly (e.g., `cclint ./agents/my-agent.md`)
+// rather than running discovery across all component types.
+//
+// # Design Principles
+//
+//   - Unambiguous CLI: File paths clearly distinguished from subcommands
+//   - Pattern-based type detection: Uses glob matching for reliability
+//   - Fail-fast with clear errors: Every edge case has an actionable message
+//   - Cross-file aware: Validates outgoing refs, skips orphan detection
+//   - Reuses existing validation: Same logic as batch mode
+//
+// # Usage
+//
+//	// Lint a single file
+//	summary, err := LintSingleFile("./agents/my-agent.md", "", false, false)
+//
+//	// Lint multiple files
+//	summary, err := LintFiles([]string{"a.md", "b.md"}, "", "", false, false)
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/frontend"
+	"github.com/dotcommander/cclint/internal/project"
+	"github.com/dotcommander/cclint/internal/scoring"
+)
+
+// SingleFileLinterContext holds state for single-file linting operations.
+//
+// Unlike LinterContext which discovers all files upfront, this context
+// is optimized for linting individual files. Cross-file validation
+// is lazy-loaded only when needed.
+type SingleFileLinterContext struct {
+	RootPath  string
+	File      discovery.File
+	Quiet     bool
+	Verbose   bool
+	Validator *cue.Validator
+
+	// Lazy-loaded for cross-file validation
+	crossValidator *CrossFileValidator
+	crossLoaded    bool
+}
+
+// NewSingleFileLinterContext creates a context for linting a single file.
+//
+// This function performs comprehensive path validation and type detection:
+//   - Resolves absolute path
+//   - Validates file exists and is readable
+//   - Detects project root
+//   - Determines component type from path
+//   - Reads file contents
+//
+// Parameters:
+//   - filePath: Path to the file (absolute or relative)
+//   - rootPath: Project root (empty to auto-detect)
+//   - typeOverride: Force component type (empty to auto-detect)
+//   - quiet: Suppress non-essential output
+//   - verbose: Enable verbose output
+//
+// Returns an error with actionable message for any validation failure.
+func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, verbose bool) (*SingleFileLinterContext, error) {
+	// Validate file path (checks existence, not dir, not binary, etc.)
+	absPath, err := discovery.ValidateFilePath(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find project root if not provided
+	if rootPath == "" {
+		rootPath, err = findProjectRootForFile(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("cannot determine project root: %w", err)
+		}
+	} else {
+		// Resolve provided root to absolute
+		rootPath, err = filepath.Abs(rootPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid root path: %w", err)
+		}
+	}
+
+	// Determine file type
+	var fileType discovery.FileType
+	if typeOverride != "" {
+		fileType, err = discovery.ParseFileType(typeOverride)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fileType, err = discovery.DetectFileType(absPath, rootPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Read file contents
+	contents, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read file %s: %w", absPath, err)
+	}
+
+	// Compute relative path for display
+	relPath, err := filepath.Rel(rootPath, absPath)
+	if err != nil {
+		relPath = filepath.Base(absPath)
+	}
+	relPath = filepath.ToSlash(relPath) // Normalize for display
+
+	// Get file info for size
+	info, _ := os.Stat(absPath)
+	var size int64
+	if info != nil {
+		size = info.Size()
+	}
+
+	file := discovery.File{
+		Path:     absPath,
+		RelPath:  relPath,
+		Size:     size,
+		Type:     fileType,
+		Contents: string(contents),
+	}
+
+	// Initialize CUE validator
+	validator := cue.NewValidator()
+	_ = validator.LoadSchemas("") // Soft failure OK
+
+	return &SingleFileLinterContext{
+		RootPath:  rootPath,
+		File:      file,
+		Quiet:     quiet,
+		Verbose:   verbose,
+		Validator: validator,
+	}, nil
+}
+
+// EnsureCrossFileValidator lazy-loads the cross-file validator.
+//
+// This triggers full file discovery to build the reference indexes needed
+// for cross-file validation (agent→skill, command→agent, etc.).
+// The result is cached for subsequent calls.
+//
+// Returns nil if discovery fails (cross-file validation will be skipped).
+func (ctx *SingleFileLinterContext) EnsureCrossFileValidator() *CrossFileValidator {
+	if ctx.crossLoaded {
+		return ctx.crossValidator
+	}
+
+	// Discover all files for cross-file validation
+	discoverer := discovery.NewFileDiscovery(ctx.RootPath, false)
+	files, err := discoverer.DiscoverFiles()
+	if err == nil && len(files) > 0 {
+		ctx.crossValidator = NewCrossFileValidator(files)
+	}
+	ctx.crossLoaded = true
+
+	return ctx.crossValidator
+}
+
+// findProjectRootForFile attempts to find the project root for a given file.
+// Falls back to inferring from .claude directory structure.
+func findProjectRootForFile(absPath string) (string, error) {
+	// Try standard project root detection
+	dir := filepath.Dir(absPath)
+	root, err := project.FindProjectRoot(dir)
+	if err == nil {
+		return root, nil
+	}
+
+	// Fallback: infer from .claude directory structure
+	// e.g., /foo/.claude/agents/bar.md → /foo/.claude
+	// e.g., /foo/agents/bar.md → /foo
+	pathStr := absPath
+	if idx := strings.Index(pathStr, "/.claude/"); idx != -1 {
+		return pathStr[:idx+len("/.claude")], nil
+	}
+
+	// Check for component directories
+	for _, comp := range []string{"/agents/", "/commands/", "/skills/"} {
+		if idx := strings.Index(pathStr, comp); idx != -1 {
+			return pathStr[:idx], nil
+		}
+	}
+
+	// Last resort: use file's parent directory
+	return dir, nil
+}
+
+// LintSingleFile lints a single file and returns a summary.
+//
+// This is the main entry point for single-file linting. It:
+//  1. Creates a SingleFileLinterContext with full validation
+//  2. Routes to the appropriate type-specific linter
+//  3. Returns a LintSummary compatible with existing output formatters
+//
+// Parameters:
+//   - filePath: Path to the file (absolute or relative)
+//   - rootPath: Project root (empty to auto-detect)
+//   - typeOverride: Force component type (empty to auto-detect)
+//   - quiet: Suppress non-essential output
+//   - verbose: Enable verbose output
+//
+// Exit codes (for CLI):
+//   - 0: Success (no errors)
+//   - 1: Lint errors found
+//   - 2: Invalid invocation (returned as error)
+func LintSingleFile(filePath, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
+	ctx, err := NewSingleFileLinterContext(filePath, rootPath, typeOverride, quiet, verbose)
+	if err != nil {
+		return nil, err
+	}
+
+	summary := &LintSummary{
+		ProjectRoot: ctx.RootPath,
+		TotalFiles:  1,
+		StartTime:   time.Now(),
+	}
+
+	// Route to appropriate linter based on type
+	var result LintResult
+	switch ctx.File.Type {
+	case discovery.FileTypeAgent:
+		result = lintSingleAgent(ctx)
+	case discovery.FileTypeCommand:
+		result = lintSingleCommand(ctx)
+	case discovery.FileTypeSkill:
+		result = lintSingleSkill(ctx)
+	case discovery.FileTypeSettings:
+		result = lintSingleSettings(ctx)
+	case discovery.FileTypeContext:
+		result = lintSingleContext(ctx)
+	case discovery.FileTypePlugin:
+		result = lintSinglePlugin(ctx)
+	default:
+		return nil, fmt.Errorf("unsupported file type: %s", ctx.File.Type.String())
+	}
+
+	// Update summary
+	if result.Success {
+		summary.SuccessfulFiles = 1
+	} else {
+		summary.FailedFiles = 1
+	}
+	summary.TotalErrors = len(result.Errors)
+	summary.TotalWarnings = len(result.Warnings)
+	summary.TotalSuggestions = len(result.Suggestions)
+	summary.Results = []LintResult{result}
+	summary.Duration = time.Since(summary.StartTime).Milliseconds()
+
+	return summary, nil
+}
+
+// LintFiles lints multiple files and returns a combined summary.
+//
+// Each file is validated independently; failures for one file do not
+// prevent linting of other files. The summary aggregates all results.
+//
+// Parameters:
+//   - filePaths: Paths to files (absolute or relative)
+//   - rootPath: Project root (empty to auto-detect per file)
+//   - typeOverride: Force component type (empty to auto-detect)
+//   - quiet: Suppress non-essential output
+//   - verbose: Enable verbose output
+func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
+	if len(filePaths) == 0 {
+		return nil, fmt.Errorf("no files specified")
+	}
+
+	summary := &LintSummary{
+		StartTime: time.Now(),
+	}
+
+	var firstRoot string
+
+	for _, fp := range filePaths {
+		result, err := LintSingleFile(fp, rootPath, typeOverride, quiet, verbose)
+		if err != nil {
+			// Record as failed result with error message
+			summary.Results = append(summary.Results, LintResult{
+				File:    fp,
+				Type:    "unknown",
+				Success: false,
+				Errors: []cue.ValidationError{{
+					File:     fp,
+					Message:  err.Error(),
+					Severity: "error",
+				}},
+			})
+			summary.TotalFiles++
+			summary.FailedFiles++
+			summary.TotalErrors++
+			continue
+		}
+
+		// Capture first root for summary
+		if firstRoot == "" {
+			firstRoot = result.ProjectRoot
+		}
+
+		// Merge results
+		summary.TotalFiles += result.TotalFiles
+		summary.SuccessfulFiles += result.SuccessfulFiles
+		summary.FailedFiles += result.FailedFiles
+		summary.TotalErrors += result.TotalErrors
+		summary.TotalWarnings += result.TotalWarnings
+		summary.TotalSuggestions += result.TotalSuggestions
+		summary.Results = append(summary.Results, result.Results...)
+	}
+
+	summary.ProjectRoot = firstRoot
+	summary.Duration = time.Since(summary.StartTime).Milliseconds()
+
+	return summary, nil
+}
+
+// lintSingleAgent lints a single agent file.
+func lintSingleAgent(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "agent",
+		Success: true,
+	}
+
+	// Parse frontmatter
+	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
+	if err != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
+			Severity: "error",
+		})
+		result.Success = false
+		return result
+	}
+
+	// CUE validation
+	errors, _ := ctx.Validator.ValidateAgent(fm.Data)
+	result.Errors = append(result.Errors, errors...)
+
+	// Go-based validation rules
+	allIssues := validateAgentSpecific(fm.Data, ctx.File.RelPath, ctx.File.Contents)
+	for _, issue := range allIssues {
+		if issue.Severity == "suggestion" {
+			result.Suggestions = append(result.Suggestions, issue)
+		} else {
+			result.Errors = append(result.Errors, issue)
+		}
+	}
+
+	// Validate allowed-tools
+	toolWarnings := ValidateAllowedTools(fm.Data, ctx.File.RelPath, ctx.File.Contents)
+	result.Warnings = append(result.Warnings, toolWarnings...)
+
+	// Cross-file validation (outgoing refs)
+	crossValidator := ctx.EnsureCrossFileValidator()
+	if crossValidator != nil {
+		crossErrors := crossValidator.ValidateAgent(ctx.File.RelPath, ctx.File.Contents)
+		result.Errors = append(result.Errors, crossErrors...)
+	} else if ctx.Verbose {
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Cross-file validation skipped (could not discover project files)",
+			Severity: "info",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	// Quality scoring
+	scorer := scoring.NewAgentScorer()
+	score := scorer.Score(ctx.File.Contents, fm.Data, fm.Body)
+	result.Quality = &score
+
+	// Improvement recommendations
+	result.Improvements = GetAgentImprovements(ctx.File.Contents, fm.Data)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// lintSingleCommand lints a single command file.
+func lintSingleCommand(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "command",
+		Success: true,
+	}
+
+	// Parse frontmatter
+	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
+	if err != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
+			Severity: "error",
+		})
+		result.Success = false
+		return result
+	}
+
+	// CUE validation
+	errors, _ := ctx.Validator.ValidateCommand(fm.Data)
+	result.Errors = append(result.Errors, errors...)
+
+	// Go-based validation rules
+	allIssues := validateCommandSpecific(fm.Data, ctx.File.RelPath, ctx.File.Contents)
+	result.Errors = append(result.Errors, allIssues...)
+
+	// Validate allowed-tools
+	toolWarnings := ValidateAllowedTools(fm.Data, ctx.File.RelPath, ctx.File.Contents)
+	result.Warnings = append(result.Warnings, toolWarnings...)
+
+	// Cross-file validation (outgoing refs)
+	crossValidator := ctx.EnsureCrossFileValidator()
+	if crossValidator != nil {
+		crossErrors := crossValidator.ValidateCommand(ctx.File.RelPath, ctx.File.Contents, fm.Data)
+		result.Errors = append(result.Errors, crossErrors...)
+	} else if ctx.Verbose {
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Cross-file validation skipped (could not discover project files)",
+			Severity: "info",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Best practice checks
+	suggestions := validateCommandBestPractices(ctx.File.RelPath, ctx.File.Contents, fm.Data)
+	result.Suggestions = append(result.Suggestions, suggestions...)
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	// Quality scoring
+	scorer := scoring.NewCommandScorer()
+	score := scorer.Score(ctx.File.Contents, fm.Data, fm.Body)
+	result.Quality = &score
+
+	// Improvement recommendations
+	result.Improvements = GetCommandImprovements(ctx.File.Contents, fm.Data)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// lintSingleSkill lints a single skill file.
+func lintSingleSkill(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "skill",
+		Success: true,
+	}
+
+	// Check filename is SKILL.md
+	if !strings.HasSuffix(ctx.File.RelPath, "/SKILL.md") && !strings.HasSuffix(ctx.File.RelPath, "\\SKILL.md") && filepath.Base(ctx.File.RelPath) != "SKILL.md" {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Skill file must be named SKILL.md",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
+
+	// Check not empty
+	if len(strings.TrimSpace(ctx.File.Contents)) == 0 {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Skill file is empty",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+		result.Success = false
+		return result
+	}
+
+	// Parse frontmatter (optional for skills)
+	fm, _ := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
+	var fmData map[string]interface{}
+	var bodyContent string
+	if fm != nil {
+		fmData = fm.Data
+		bodyContent = fm.Body
+
+		// Reserved word check
+		if name, ok := fmData["name"].(string); ok {
+			reservedWords := map[string]bool{"anthropic": true, "claude": true}
+			if reservedWords[strings.ToLower(name)] {
+				result.Errors = append(result.Errors, cue.ValidationError{
+					File:     ctx.File.RelPath,
+					Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+					Severity: "error",
+					Source:   cue.SourceAnthropicDocs,
+					Line:     FindFrontmatterFieldLine(ctx.File.Contents, "name"),
+				})
+			}
+		}
+	} else {
+		fmData = make(map[string]interface{})
+		bodyContent = ctx.File.Contents
+	}
+
+	// Frontmatter suggestion
+	if !strings.HasPrefix(ctx.File.Contents, "---") {
+		skillName := extractSkillName(ctx.File.Contents, ctx.File.RelPath)
+		suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
+		if skillName != "" {
+			suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
+		}
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  suggestion,
+			Severity: "suggestion",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
+
+	// Best practice checks
+	suggestions := validateSkillBestPractices(ctx.File.RelPath, ctx.File.Contents, fmData)
+	result.Suggestions = append(result.Suggestions, suggestions...)
+
+	// Cross-file validation (outgoing refs)
+	crossValidator := ctx.EnsureCrossFileValidator()
+	if crossValidator != nil {
+		crossErrors := crossValidator.ValidateSkill(ctx.File.RelPath, ctx.File.Contents)
+		result.Errors = append(result.Errors, crossErrors...)
+	} else if ctx.Verbose {
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Cross-file validation skipped (could not discover project files)",
+			Severity: "info",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Note: Orphan detection skipped for single-file mode
+	if ctx.Verbose {
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Orphan detection skipped (single-file mode). Run full lint for complete analysis.",
+			Severity: "info",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	// Quality scoring
+	scorer := scoring.NewSkillScorer()
+	score := scorer.Score(ctx.File.Contents, fmData, bodyContent)
+	result.Quality = &score
+
+	// Improvement recommendations
+	result.Improvements = GetSkillImprovements(ctx.File.Contents, fmData)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// lintSingleSettings lints a single settings file.
+func lintSingleSettings(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "settings",
+		Success: true,
+	}
+
+	// Parse JSON
+	var data map[string]interface{}
+	if err := parseJSON(ctx.File.Contents, &data); err != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  fmt.Sprintf("Invalid JSON: %v", err),
+			Severity: "error",
+		})
+		result.Success = false
+		return result
+	}
+
+	// CUE validation
+	errors, _ := ctx.Validator.ValidateSettings(data)
+	result.Errors = append(result.Errors, errors...)
+
+	// Go-based validation
+	specificErrors := validateSettingsSpecific(data, ctx.File.RelPath)
+	result.Errors = append(result.Errors, specificErrors...)
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// lintSingleContext lints a single CLAUDE.md context file.
+func lintSingleContext(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "context",
+		Success: true,
+	}
+
+	// Parse frontmatter (optional for context)
+	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
+	if err != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
+			Severity: "error",
+		})
+	}
+
+	// Build data structure for CUE validation
+	var title, description interface{}
+	if fm != nil && fm.Data != nil {
+		title = fm.Data["title"]
+		description = fm.Data["description"]
+	}
+	data := map[string]interface{}{
+		"title":       title,
+		"description": description,
+		"sections":    parseMarkdownSections(ctx.File.Contents),
+	}
+
+	// CUE validation
+	errors, _ := ctx.Validator.ValidateClaudeMD(data)
+	result.Errors = append(result.Errors, errors...)
+
+	// Go-based validation
+	specificErrors := validateContextSpecific(data, ctx.File.RelPath)
+	result.Errors = append(result.Errors, specificErrors...)
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// lintSinglePlugin lints a single plugin.json file.
+func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
+	result := LintResult{
+		File:    ctx.File.RelPath,
+		Type:    "plugin",
+		Success: true,
+	}
+
+	// Parse JSON
+	var data map[string]interface{}
+	if err := parseJSON(ctx.File.Contents, &data); err != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  fmt.Sprintf("Invalid JSON: %v", err),
+			Severity: "error",
+		})
+		result.Success = false
+		return result
+	}
+
+	// Go-based validation (plugins don't use CUE)
+	allIssues := validatePluginSpecific(data, ctx.File.RelPath, ctx.File.Contents)
+	for _, issue := range allIssues {
+		switch issue.Severity {
+		case "suggestion":
+			result.Suggestions = append(result.Suggestions, issue)
+		case "warning":
+			result.Warnings = append(result.Warnings, issue)
+		default:
+			result.Errors = append(result.Errors, issue)
+		}
+	}
+
+	// Secrets detection
+	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	result.Warnings = append(result.Warnings, secretWarnings...)
+
+	// Quality scoring
+	scorer := scoring.NewPluginScorer()
+	score := scorer.Score(ctx.File.Contents, data, "")
+	result.Quality = &score
+
+	// Improvement recommendations
+	result.Improvements = GetPluginImprovements(ctx.File.Contents, data)
+
+	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// LooksLikePath determines if an argument looks like a file path rather than a subcommand.
+//
+// This is used to distinguish between:
+//   - cclint agents     (subcommand)
+//   - cclint ./agents   (file path)
+//
+// The detection is conservative to avoid false positives:
+//   - Absolute paths: /path, C:\path
+//   - Relative paths: ./path, ../path
+//   - Contains separator: path/to/file
+//   - Has known extension: .md, .json
+//
+// Known subcommands (agents, commands, etc.) are NOT treated as paths
+// even if they match these patterns, unless --file flag is used.
+func LooksLikePath(arg string) bool {
+	// Absolute Unix path
+	if strings.HasPrefix(arg, "/") {
+		return true
+	}
+
+	// Absolute Windows path (C:\, D:\, etc.)
+	if len(arg) > 2 && arg[1] == ':' && (arg[2] == '\\' || arg[2] == '/') {
+		return true
+	}
+
+	// Explicit relative paths
+	if strings.HasPrefix(arg, "./") || strings.HasPrefix(arg, "../") {
+		return true
+	}
+	if strings.HasPrefix(arg, ".\\") || strings.HasPrefix(arg, "..\\") {
+		return true
+	}
+
+	// Contains path separator (not just a bare word)
+	if strings.Contains(arg, "/") || strings.Contains(arg, "\\") {
+		return true
+	}
+
+	// Has known file extension
+	lower := strings.ToLower(arg)
+	if strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".json") {
+		return true
+	}
+
+	return false
+}
+
+// IsKnownSubcommand returns true if the argument is a known subcommand name.
+// These are protected from being interpreted as file paths.
+func IsKnownSubcommand(arg string) bool {
+	subcommands := map[string]bool{
+		"agents":   true,
+		"commands": true,
+		"skills":   true,
+		"settings": true,
+		"context":  true,
+		"plugins":  true,
+		"help":     true,
+		"version":  true,
+	}
+	return subcommands[strings.ToLower(arg)]
+}
