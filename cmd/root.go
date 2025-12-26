@@ -20,25 +20,64 @@ var (
 	outputFormat     string
 	outputFile       string
 	failOn           string
+	fileFlag         []string // Explicit file paths (--file flag)
+	typeFlag         string   // Force component type (--type flag)
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cclint",
+	Use:   "cclint [files...]",
 	Short: "Claude Code Lint - A comprehensive linting tool for Claude Code projects",
 	Long: `CCLint is a linting tool for Claude Code projects that validates agent files,
 command files, settings, and documentation according to established patterns.
 
-By default, cclint scans the entire project and reports on all validation issues.
-Use specialized commands to focus on specific file types.
+USAGE MODES:
+
+  Full scan (default):
+    cclint                    Lint all component types
+    cclint agents             Lint only agents
+    cclint commands           Lint only commands
+
+  Single-file mode:
+    cclint ./agents/foo.md    Lint a specific file
+    cclint path/to/file.md    Lint by path
+    cclint a.md b.md c.md     Lint multiple files
+
+  Explicit file mode (for edge cases):
+    cclint --file agents      Lint a file literally named "agents"
+    cclint --type agent x.md  Override type detection
+
+EXAMPLES:
+
+  # Lint a single agent
+  cclint ./agents/my-agent.md
+
+  # Lint multiple files
+  cclint ./agents/a.md ./commands/b.md
+
+  # Force type for file outside standard path
+  cclint --type skill ./custom/methodology.md
 
 ⚠️  NOTE: cclint is a work in progress. Its suggestions should be validated:
    • Cross-reference with official docs: docs.anthropic.com, docs.claude.com
    • Clear violations (fake flags, >220 lines agents) are reliable
    • Style suggestions should be verified against official documentation`,
+	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := runLint(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+		// Determine mode: single-file vs full scan
+		filesToLint := collectFilesToLint(args)
+
+		if len(filesToLint) > 0 {
+			// Single-file mode
+			if err := runSingleFileLint(filesToLint); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(2) // Exit 2 for invocation errors
+			}
+		} else {
+			// Full scan mode
+			if err := runLint(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	},
 }
@@ -52,6 +91,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	// Existing flags
 	rootCmd.PersistentFlags().StringVarP(&rootPath, "root", "r", "", "Project root directory (auto-detected if not specified)")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-essential output")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
@@ -61,6 +101,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&outputFile, "output", "o", "", "Output file for reports (requires --format)")
 	rootCmd.PersistentFlags().StringVarP(&failOn, "fail-on", "", "error", "Fail build on specified level (error|warning|suggestion)")
 
+	// Single-file mode flags
+	rootCmd.Flags().StringArrayVar(&fileFlag, "file", nil, "Explicit file path(s) to lint (use for files with subcommand names)")
+	rootCmd.Flags().StringVarP(&typeFlag, "type", "t", "", "Force component type (agent|command|skill|settings|context|plugin)")
+
+	// Viper bindings
 	_ = viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
 	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 	_ = viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
@@ -144,6 +189,81 @@ func runLint() error {
 
 	// Exit with error if any linter found errors
 	if hasErrors {
+		os.Exit(1)
+	}
+
+	return nil
+}
+
+// collectFilesToLint determines which files to lint based on args and flags.
+//
+// Priority:
+//  1. --file flag (explicit files, bypasses subcommand detection)
+//  2. Args that look like file paths
+//  3. Empty (full scan mode)
+//
+// Known subcommands (agents, commands, etc.) are NOT treated as file paths
+// unless --file flag is used.
+func collectFilesToLint(args []string) []string {
+	var files []string
+
+	// 1. --file flag takes precedence (explicit file mode)
+	if len(fileFlag) > 0 {
+		return fileFlag
+	}
+
+	// 2. Check args for file paths
+	for _, arg := range args {
+		// Skip known subcommands (they'll be handled by Cobra)
+		if cli.IsKnownSubcommand(arg) {
+			continue
+		}
+
+		// Check if it looks like a file path
+		if cli.LooksLikePath(arg) {
+			files = append(files, arg)
+		}
+	}
+
+	return files
+}
+
+// runSingleFileLint lints specific files and outputs results.
+//
+// Exit codes:
+//   - 0: All files passed (no errors)
+//   - 1: One or more files had lint errors
+//   - 2: Invocation error (file not found, invalid type, etc.)
+func runSingleFileLint(files []string) error {
+	// Load configuration for output settings
+	cfg, err := config.LoadConfig(rootPath)
+	if err != nil {
+		return fmt.Errorf("error loading configuration: %w", err)
+	}
+
+	// Override config with flag values
+	cfg.Quiet = quiet
+	cfg.Verbose = verbose
+
+	// Lint files
+	summary, err := cli.LintFiles(files, rootPath, typeFlag, cfg.Quiet, cfg.Verbose)
+	if err != nil {
+		return err
+	}
+
+	// Output results
+	outputter := outputters.NewOutputter(cfg)
+	if err := outputter.Format(summary, cfg.Format); err != nil {
+		return fmt.Errorf("error formatting output: %w", err)
+	}
+
+	// Print validation reminder (unless quiet mode)
+	if !cfg.Quiet {
+		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
+	}
+
+	// Exit with error if any file had errors
+	if summary.TotalErrors > 0 {
 		os.Exit(1)
 	}
 
