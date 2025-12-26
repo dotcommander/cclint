@@ -146,24 +146,24 @@ func validatePluginSpecific(data map[string]interface{}, filePath string, conten
 		}
 	}
 
-	// Version field - required and must be semver
+	// Version field - recommended (Anthropic's own plugins omit this, using marketplace.json instead)
 	if version, ok := data["version"].(string); !ok || version == "" {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
-			Message:  "Required field 'version' is missing or empty",
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
+			Message:  "Consider adding 'version' field in semver format (e.g., 1.0.0)",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 			Line:     FindJSONFieldLine(contents, "version"),
 		})
 	} else {
-		// Validate semver format
+		// Validate semver format if present
 		semverPattern := regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`)
 		if !semverPattern.MatchString(version) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Version '%s' must be in semver format (e.g., 1.0.0)", version),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
+				Message:  fmt.Sprintf("Version '%s' should be in semver format (e.g., 1.0.0)", version),
+				Severity: "warning",
+				Source:   cue.SourceCClintObserve,
 				Line:     FindJSONFieldLine(contents, "version"),
 			})
 		}
