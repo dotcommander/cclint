@@ -15,6 +15,13 @@ cclint commands               # lint only commands
 cclint skills                 # lint only skills
 cclint plugins                # lint only plugin manifests
 
+# Single-file mode
+cclint ./agents/my-agent.md            # lint one file (auto-detect type)
+cclint path/to/file.md                 # lint by path
+cclint a.md b.md c.md                  # lint multiple files
+cclint --type agent ./custom/file.md   # override type detection
+cclint --file agents                   # lint file literally named "agents"
+
 # Common flags
 cclint --root /path/to/project agents    # specify project root
 cclint --scores agents                    # show quality scores (0-100)
