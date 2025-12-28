@@ -12,9 +12,9 @@ import (
 )
 
 // LintSkills runs linting on skill files
-func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
+func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	// Initialize shared context
-	ctx, err := NewLinterContext(rootPath, quiet, verbose)
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}

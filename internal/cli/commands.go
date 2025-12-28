@@ -12,9 +12,9 @@ import (
 )
 
 // LintCommands runs linting on command files
-func LintCommands(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
+func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	// Initialize shared context
-	ctx, err := NewLinterContext(rootPath, quiet, verbose)
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}

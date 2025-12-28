@@ -60,21 +60,21 @@ func runSummary() error {
 	}
 
 	// Run all linters
-	agentSummary, err := cli.LintAgents(cfg.Root, true, false)
+	agentSummary, err := cli.LintAgents(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting agents: %w", err)
 	}
 	summary.AgentCount = agentSummary.TotalFiles
 	aggregateResults(summary, agentSummary.Results)
 
-	commandSummary, err := cli.LintCommands(cfg.Root, true, false)
+	commandSummary, err := cli.LintCommands(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting commands: %w", err)
 	}
 	summary.CommandCount = commandSummary.TotalFiles
 	aggregateResults(summary, commandSummary.Results)
 
-	skillSummary, err := cli.LintSkills(cfg.Root, true, false)
+	skillSummary, err := cli.LintSkills(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting skills: %w", err)
 	}

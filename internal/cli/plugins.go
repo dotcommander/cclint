@@ -12,9 +12,9 @@ import (
 )
 
 // LintPlugins runs linting on plugin manifest files
-func LintPlugins(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
+func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	// Initialize shared context
-	ctx, err := NewLinterContext(rootPath, quiet, verbose)
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}

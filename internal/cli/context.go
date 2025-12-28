@@ -10,9 +10,9 @@ import (
 )
 
 // LintContext runs linting on CLAUDE.md files
-func LintContext(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
+func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	// Initialize shared context
-	ctx, err := NewLinterContext(rootPath, quiet, verbose)
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
