@@ -349,6 +349,40 @@ func ValidateAllowedTools(data map[string]interface{}, filePath string, contents
 	return warnings
 }
 
+// ValidateToolFieldName ensures components use correct field name (tools vs allowed-tools)
+// - Agents MUST use 'tools:', not 'allowed-tools:'
+// - Commands and Skills MUST use 'allowed-tools:', not 'tools:'
+func ValidateToolFieldName(data map[string]interface{}, filePath string, contents string, componentType string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	switch componentType {
+	case "agent":
+		// Agents must use 'tools:', not 'allowed-tools:'
+		if _, hasAllowedTools := data["allowed-tools"]; hasAllowedTools {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "Agents must use 'tools:', not 'allowed-tools:'. Rename the field.",
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, "allowed-tools"),
+			})
+		}
+	case "command", "skill":
+		// Commands and skills must use 'allowed-tools:', not 'tools:'
+		if _, hasTools := data["tools"]; hasTools {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("%ss must use 'allowed-tools:', not 'tools:'. Rename the field.", strings.Title(componentType)),
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, "tools"),
+			})
+		}
+	}
+
+	return errors
+}
+
 // detectSecrets checks for hardcoded secrets in content
 func detectSecrets(contents string, filePath string) []cue.ValidationError {
 	var warnings []cue.ValidationError

@@ -109,6 +109,16 @@ func (v *Validator) ValidateSettings(data map[string]any) ([]ValidationError, er
 	return v.validateAgainstSchema(schema, data, "settings")
 }
 
+// ValidateSkill validates skill data against the skill schema
+func (v *Validator) ValidateSkill(data map[string]any) ([]ValidationError, error) {
+	schema, ok := v.schemas["skill"]
+	if !ok {
+		// Fallback to Go validation if CUE schema not loaded
+		return nil, nil
+	}
+	return v.validateAgainstSchema(schema, data, "skill")
+}
+
 // ValidateClaudeMD validates CLAUDE.md data against the schema
 func (v *Validator) ValidateClaudeMD(data map[string]any) ([]ValidationError, error) {
 	schema, ok := v.schemas["claude_md"]
@@ -213,6 +223,8 @@ func (v *Validator) ValidateFile(path string, content string, fileType string) (
 		return v.ValidateAgent(fm.Data)
 	case "command":
 		return v.ValidateCommand(fm.Data)
+	case "skill":
+		return v.ValidateSkill(fm.Data)
 	case "settings":
 		return v.ValidateSettings(fm.Data)
 	case "claude_md":
