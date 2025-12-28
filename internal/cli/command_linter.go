@@ -7,9 +7,20 @@ import (
 )
 
 // CommandLinter implements ComponentLinter for command files.
+// It also implements optional interfaces for best practices,
+// cross-file validation, scoring, and improvements.
 type CommandLinter struct {
 	BaseLinter
 }
+
+// Compile-time interface compliance checks
+var (
+	_ ComponentLinter       = (*CommandLinter)(nil)
+	_ BestPracticeValidator = (*CommandLinter)(nil)
+	_ CrossFileValidatable  = (*CommandLinter)(nil)
+	_ Scorable              = (*CommandLinter)(nil)
+	_ Improvable            = (*CommandLinter)(nil)
+)
 
 // NewCommandLinter creates a new CommandLinter.
 func NewCommandLinter() *CommandLinter {
@@ -44,10 +55,12 @@ func (l *CommandLinter) ValidateSpecific(data map[string]interface{}, filePath, 
 	return errors
 }
 
+// ValidateBestPractices implements BestPracticeValidator interface
 func (l *CommandLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
 	return validateCommandBestPractices(filePath, contents, data)
 }
 
+// ValidateCrossFile implements CrossFileValidatable interface
 func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
@@ -55,12 +68,14 @@ func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, fi
 	return crossValidator.ValidateCommand(filePath, contents, data)
 }
 
+// Score implements Scorable interface
 func (l *CommandLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
 	scorer := scoring.NewCommandScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
+// GetImprovements implements Improvable interface
 func (l *CommandLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
 	return GetCommandImprovements(contents, data)
 }

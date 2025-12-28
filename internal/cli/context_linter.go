@@ -4,13 +4,17 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
-	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // ContextLinter implements ComponentLinter for CLAUDE.md context files.
+// It implements only the core ComponentLinter interface - no optional capabilities.
+// Context files don't need scoring, improvements, or cross-file validation.
 type ContextLinter struct {
 	BaseLinter
 }
+
+// Compile-time interface compliance check
+var _ ComponentLinter = (*ContextLinter)(nil)
 
 // NewContextLinter creates a new ContextLinter.
 func NewContextLinter() *ContextLinter {
@@ -56,9 +60,4 @@ func (l *ContextLinter) ValidateCUE(validator *cue.Validator, data map[string]in
 
 func (l *ContextLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
 	return validateContextSpecific(data, filePath)
-}
-
-// Context files don't have scoring or improvements
-func (l *ContextLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
-	return nil
 }

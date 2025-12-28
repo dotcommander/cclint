@@ -12,9 +12,22 @@ import (
 )
 
 // SkillLinter implements ComponentLinter for skill files.
+// It also implements optional interfaces for pre-validation, best practices,
+// cross-file validation, scoring, improvements, and batch post-processing.
 type SkillLinter struct {
 	BaseLinter
 }
+
+// Compile-time interface compliance checks
+var (
+	_ ComponentLinter       = (*SkillLinter)(nil)
+	_ PreValidator          = (*SkillLinter)(nil)
+	_ BestPracticeValidator = (*SkillLinter)(nil)
+	_ CrossFileValidatable  = (*SkillLinter)(nil)
+	_ Scorable              = (*SkillLinter)(nil)
+	_ Improvable            = (*SkillLinter)(nil)
+	_ BatchPostProcessor    = (*SkillLinter)(nil)
+)
 
 // NewSkillLinter creates a new SkillLinter.
 func NewSkillLinter() *SkillLinter {
@@ -29,6 +42,7 @@ func (l *SkillLinter) FileType() discovery.FileType {
 	return discovery.FileTypeSkill
 }
 
+// PreValidate implements PreValidator interface
 func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -105,10 +119,12 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 	return errors
 }
 
+// ValidateBestPractices implements BestPracticeValidator interface
 func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
 	return validateSkillBestPractices(filePath, contents, data)
 }
 
+// ValidateCrossFile implements CrossFileValidatable interface
 func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
@@ -116,12 +132,14 @@ func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 	return crossValidator.ValidateSkill(filePath, contents)
 }
 
+// Score implements Scorable interface
 func (l *SkillLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
 	scorer := scoring.NewSkillScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
+// GetImprovements implements Improvable interface
 func (l *SkillLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
 	return GetSkillImprovements(contents, data)
 }

@@ -10,9 +10,20 @@ import (
 )
 
 // AgentLinter implements ComponentLinter for agent files.
+// It also implements optional interfaces for cross-file validation,
+// scoring, improvements, and batch post-processing (cycle detection).
 type AgentLinter struct {
 	BaseLinter
 }
+
+// Compile-time interface compliance checks
+var (
+	_ ComponentLinter      = (*AgentLinter)(nil)
+	_ CrossFileValidatable = (*AgentLinter)(nil)
+	_ Scorable             = (*AgentLinter)(nil)
+	_ Improvable           = (*AgentLinter)(nil)
+	_ BatchPostProcessor   = (*AgentLinter)(nil)
+)
 
 // NewAgentLinter creates a new AgentLinter.
 func NewAgentLinter() *AgentLinter {
@@ -47,11 +58,7 @@ func (l *AgentLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 	return errors
 }
 
-func (l *AgentLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
-	// Best practices are called within validateAgentSpecific
-	return nil
-}
-
+// ValidateCrossFile implements CrossFileValidatable interface
 func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
@@ -59,12 +66,14 @@ func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 	return crossValidator.ValidateAgent(filePath, contents)
 }
 
+// Score implements Scorable interface
 func (l *AgentLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
 	scorer := scoring.NewAgentScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
+// GetImprovements implements Improvable interface
 func (l *AgentLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
 	return GetAgentImprovements(contents, data)
 }

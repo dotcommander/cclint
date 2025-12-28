@@ -3,13 +3,17 @@ package cli
 import (
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // SettingsLinter implements ComponentLinter for settings files.
+// It implements only the core ComponentLinter interface - no optional capabilities.
+// Settings files don't need scoring, improvements, cross-file validation, etc.
 type SettingsLinter struct {
 	BaseLinter
 }
+
+// Compile-time interface compliance check
+var _ ComponentLinter = (*SettingsLinter)(nil)
 
 // NewSettingsLinter creates a new SettingsLinter.
 func NewSettingsLinter() *SettingsLinter {
@@ -34,9 +38,4 @@ func (l *SettingsLinter) ValidateCUE(validator *cue.Validator, data map[string]i
 
 func (l *SettingsLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
 	return validateSettingsSpecific(data, filePath)
-}
-
-// Settings don't have cross-file validation, scoring, or improvements
-func (l *SettingsLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
-	return nil
 }
