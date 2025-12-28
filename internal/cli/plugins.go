@@ -44,25 +44,24 @@ func LintPlugins(rootPath string, quiet bool, verbose bool) (*LintSummary, error
 			summary.TotalErrors++
 		} else {
 			// Validate plugin-specific rules
+			// NOTE: Only show errors for plugins until we can improve the suggestions
 			allIssues := validatePluginSpecific(data, file.RelPath, file.Contents)
 			for _, issue := range allIssues {
-				switch issue.Severity {
-				case "suggestion":
-					result.Suggestions = append(result.Suggestions, issue)
-					summary.TotalSuggestions++
-				case "warning":
-					result.Warnings = append(result.Warnings, issue)
-					summary.TotalWarnings++
-				default:
+				if issue.Severity == "error" {
 					result.Errors = append(result.Errors, issue)
 					summary.TotalErrors++
 				}
+				// Skip suggestions and warnings for plugins
 			}
 
-			// Secrets detection
+			// Secrets detection - keep as errors only for plugins
 			secretWarnings := detectSecrets(file.Contents, file.RelPath)
-			result.Warnings = append(result.Warnings, secretWarnings...)
-			summary.TotalWarnings += len(secretWarnings)
+			for _, w := range secretWarnings {
+				// Promote secrets to errors since they're important
+				w.Severity = "error"
+				result.Errors = append(result.Errors, w)
+				summary.TotalErrors++
+			}
 
 			if len(result.Errors) == 0 {
 				summary.SuccessfulFiles++
