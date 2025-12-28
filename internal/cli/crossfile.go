@@ -9,6 +9,16 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 )
 
+// builtInSubagentTypes are Task() targets that exist in Claude Code's runtime,
+// not as user-defined agent files. These should not trigger "missing agent" errors.
+var builtInSubagentTypes = map[string]bool{
+	"general-purpose":   true,
+	"statusline-setup":  true,
+	"Explore":           true,
+	"Plan":              true,
+	"claude-code-guide": true,
+}
+
 // CrossFileValidator validates references between components
 type CrossFileValidator struct {
 	agents   map[string]discovery.File
@@ -69,6 +79,11 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 
 		// Skip if already reported this agent
 		if seenAgentErrors[agentRef] {
+			continue
+		}
+
+		// Skip built-in subagent types (they exist in runtime, not as files)
+		if builtInSubagentTypes[agentRef] {
 			continue
 		}
 
