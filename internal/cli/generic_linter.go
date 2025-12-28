@@ -8,6 +8,7 @@
 //   - Interface-driven: ComponentLinter interface for type-specific logic
 //   - DRY: Common linting logic extracted to lintComponent()
 //   - Extensible: New component types only need to implement ComponentLinter
+//   - ISP-compliant: Core interface is minimal; optional behaviors via separate interfaces
 package cli
 
 import (
@@ -22,8 +23,15 @@ import (
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
-// ComponentLinter defines the interface for type-specific linting logic.
+// =============================================================================
+// Interface Segregation: Core interface + optional capability interfaces
+// =============================================================================
+
+// ComponentLinter defines the minimal interface for type-specific linting logic.
 // Each component type (agent, command, skill, etc.) implements this interface.
+//
+// For optional behaviors (scoring, improvements, cross-file validation), implement
+// the corresponding capability interface (Scorable, Improvable, CrossFileValidatable).
 type ComponentLinter interface {
 	// Type returns the component type name (e.g., "agent", "command")
 	Type() string
@@ -41,34 +49,49 @@ type ComponentLinter interface {
 
 	// ValidateSpecific runs component-specific validation rules.
 	ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError
+}
 
-	// ValidateBestPractices runs best practice checks.
-	// May return nil if no best practices are defined.
-	ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError
-
-	// ValidateCrossFile runs cross-file validation if applicable.
-	// May return nil if cross-file validation is not used.
-	ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError
-
-	// Score returns the quality score for the component.
-	// May return nil if scoring is not supported.
-	Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore
-
-	// GetImprovements returns improvement recommendations.
-	// May return nil if improvements are not supported.
-	GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation
-
+// PreValidator is an optional interface for linters that need pre-validation checks.
+// Implement this for components with special filename requirements or empty content checks.
+type PreValidator interface {
 	// PreValidate runs any pre-validation checks (e.g., filename, empty content).
 	// Returns errors that should abort further validation.
 	PreValidate(filePath, contents string) []cue.ValidationError
+}
 
+// BestPracticeValidator is an optional interface for linters with best practice checks.
+type BestPracticeValidator interface {
+	// ValidateBestPractices runs best practice checks beyond basic validation.
+	ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError
+}
+
+// CrossFileValidatable is an optional interface for linters that validate cross-file references.
+type CrossFileValidatable interface {
+	// ValidateCrossFile runs cross-file validation (e.g., agent→skill references).
+	ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError
+}
+
+// Scorable is an optional interface for linters that provide quality scores.
+type Scorable interface {
+	// Score returns the quality score for the component.
+	Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore
+}
+
+// Improvable is an optional interface for linters that provide improvement recommendations.
+type Improvable interface {
+	// GetImprovements returns improvement recommendations with point values.
+	GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation
+}
+
+// PostProcessable is an optional interface for linters needing result post-processing.
+type PostProcessable interface {
 	// PostProcess allows type-specific post-processing of results.
-	// Used for things like separating suggestions from errors.
 	PostProcess(result *LintResult)
 }
 
 // lintComponent is the generic single-file linting function.
 // It orchestrates the linting pipeline using a ComponentLinter.
+// Optional capabilities are checked via type assertions (ISP compliance).
 func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintResult {
 	result := LintResult{
 		File:    ctx.File.RelPath,
@@ -76,15 +99,17 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 		Success: true,
 	}
 
-	// Pre-validation checks (filename, empty content, etc.)
-	preErrors := linter.PreValidate(ctx.File.RelPath, ctx.File.Contents)
-	if len(preErrors) > 0 {
-		result.Errors = append(result.Errors, preErrors...)
-		// Check if any are fatal (should abort further validation)
-		for _, e := range preErrors {
-			if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
-				result.Success = len(result.Errors) == 0
-				return result
+	// Pre-validation checks (filename, empty content, etc.) - optional capability
+	if pv, ok := linter.(PreValidator); ok {
+		preErrors := pv.PreValidate(ctx.File.RelPath, ctx.File.Contents)
+		if len(preErrors) > 0 {
+			result.Errors = append(result.Errors, preErrors...)
+			// Check if any are fatal (should abort further validation)
+			for _, e := range preErrors {
+				if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
+					result.Success = len(result.Errors) == 0
+					return result
+				}
 			}
 		}
 	}
@@ -124,24 +149,28 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 		}
 	}
 
-	// Best practice checks
-	if bpIssues := linter.ValidateBestPractices(ctx.File.RelPath, ctx.File.Contents, data); bpIssues != nil {
-		for _, issue := range bpIssues {
-			if issue.Severity == "suggestion" {
-				result.Suggestions = append(result.Suggestions, issue)
-			} else if issue.Severity == "warning" {
-				result.Warnings = append(result.Warnings, issue)
-			} else {
-				result.Errors = append(result.Errors, issue)
+	// Best practice checks - optional capability
+	if bpv, ok := linter.(BestPracticeValidator); ok {
+		if bpIssues := bpv.ValidateBestPractices(ctx.File.RelPath, ctx.File.Contents, data); bpIssues != nil {
+			for _, issue := range bpIssues {
+				if issue.Severity == "suggestion" {
+					result.Suggestions = append(result.Suggestions, issue)
+				} else if issue.Severity == "warning" {
+					result.Warnings = append(result.Warnings, issue)
+				} else {
+					result.Errors = append(result.Errors, issue)
+				}
 			}
 		}
 	}
 
-	// Cross-file validation
+	// Cross-file validation - optional capability
 	crossValidator := ctx.EnsureCrossFileValidator()
 	if crossValidator != nil {
-		if crossErrors := linter.ValidateCrossFile(crossValidator, ctx.File.RelPath, ctx.File.Contents, data); crossErrors != nil {
-			result.Errors = append(result.Errors, crossErrors...)
+		if cfv, ok := linter.(CrossFileValidatable); ok {
+			if crossErrors := cfv.ValidateCrossFile(crossValidator, ctx.File.RelPath, ctx.File.Contents, data); crossErrors != nil {
+				result.Errors = append(result.Errors, crossErrors...)
+			}
 		}
 	} else if ctx.Verbose {
 		result.Suggestions = append(result.Suggestions, cue.ValidationError{
@@ -156,18 +185,24 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
 	result.Warnings = append(result.Warnings, secretWarnings...)
 
-	// Quality scoring
-	if score := linter.Score(ctx.File.Contents, data, body); score != nil {
-		result.Quality = score
+	// Quality scoring - optional capability
+	if sc, ok := linter.(Scorable); ok {
+		if score := sc.Score(ctx.File.Contents, data, body); score != nil {
+			result.Quality = score
+		}
 	}
 
-	// Improvement recommendations
-	if improvements := linter.GetImprovements(ctx.File.Contents, data); improvements != nil {
-		result.Improvements = improvements
+	// Improvement recommendations - optional capability
+	if imp, ok := linter.(Improvable); ok {
+		if improvements := imp.GetImprovements(ctx.File.Contents, data); improvements != nil {
+			result.Improvements = improvements
+		}
 	}
 
-	// Allow type-specific post-processing
-	linter.PostProcess(&result)
+	// Allow type-specific post-processing - optional capability
+	if pp, ok := linter.(PostProcessable); ok {
+		pp.PostProcess(&result)
+	}
 
 	result.Success = len(result.Errors) == 0
 	return result
@@ -211,6 +246,7 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 }
 
 // lintBatchFile lints a single file in batch mode.
+// Optional capabilities are checked via type assertions (ISP compliance).
 func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLinter) LintResult {
 	result := LintResult{
 		File:    file.RelPath,
@@ -218,14 +254,16 @@ func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLint
 		Success: true,
 	}
 
-	// Pre-validation checks
-	preErrors := linter.PreValidate(file.RelPath, file.Contents)
-	if len(preErrors) > 0 {
-		result.Errors = append(result.Errors, preErrors...)
-		for _, e := range preErrors {
-			if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
-				result.Success = len(result.Errors) == 0
-				return result
+	// Pre-validation checks - optional capability
+	if pv, ok := linter.(PreValidator); ok {
+		preErrors := pv.PreValidate(file.RelPath, file.Contents)
+		if len(preErrors) > 0 {
+			result.Errors = append(result.Errors, preErrors...)
+			for _, e := range preErrors {
+				if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
+					result.Success = len(result.Errors) == 0
+					return result
+				}
 			}
 		}
 	}
@@ -265,40 +303,50 @@ func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLint
 		}
 	}
 
-	// Best practice checks
-	if bpIssues := linter.ValidateBestPractices(file.RelPath, file.Contents, data); bpIssues != nil {
-		for _, issue := range bpIssues {
-			if issue.Severity == "suggestion" {
-				result.Suggestions = append(result.Suggestions, issue)
-			} else if issue.Severity == "warning" {
-				result.Warnings = append(result.Warnings, issue)
-			} else {
-				result.Errors = append(result.Errors, issue)
+	// Best practice checks - optional capability
+	if bpv, ok := linter.(BestPracticeValidator); ok {
+		if bpIssues := bpv.ValidateBestPractices(file.RelPath, file.Contents, data); bpIssues != nil {
+			for _, issue := range bpIssues {
+				if issue.Severity == "suggestion" {
+					result.Suggestions = append(result.Suggestions, issue)
+				} else if issue.Severity == "warning" {
+					result.Warnings = append(result.Warnings, issue)
+				} else {
+					result.Errors = append(result.Errors, issue)
+				}
 			}
 		}
 	}
 
-	// Cross-file validation
-	if crossErrors := linter.ValidateCrossFile(ctx.CrossValidator, file.RelPath, file.Contents, data); crossErrors != nil {
-		result.Errors = append(result.Errors, crossErrors...)
+	// Cross-file validation - optional capability
+	if cfv, ok := linter.(CrossFileValidatable); ok {
+		if crossErrors := cfv.ValidateCrossFile(ctx.CrossValidator, file.RelPath, file.Contents, data); crossErrors != nil {
+			result.Errors = append(result.Errors, crossErrors...)
+		}
 	}
 
 	// Secrets detection
 	secretWarnings := detectSecrets(file.Contents, file.RelPath)
 	result.Warnings = append(result.Warnings, secretWarnings...)
 
-	// Quality scoring
-	if score := linter.Score(file.Contents, data, body); score != nil {
-		result.Quality = score
+	// Quality scoring - optional capability
+	if sc, ok := linter.(Scorable); ok {
+		if score := sc.Score(file.Contents, data, body); score != nil {
+			result.Quality = score
+		}
 	}
 
-	// Improvement recommendations
-	if improvements := linter.GetImprovements(file.Contents, data); improvements != nil {
-		result.Improvements = improvements
+	// Improvement recommendations - optional capability
+	if imp, ok := linter.(Improvable); ok {
+		if improvements := imp.GetImprovements(file.Contents, data); improvements != nil {
+			result.Improvements = improvements
+		}
 	}
 
-	// Post-processing
-	linter.PostProcess(&result)
+	// Post-processing - optional capability
+	if pp, ok := linter.(PostProcessable); ok {
+		pp.PostProcess(&result)
+	}
 
 	result.Success = len(result.Errors) == 0
 	return result
@@ -382,33 +430,20 @@ func parseJSONContent(contents string) (map[string]interface{}, string, error) {
 // Base Linter Implementation
 // =============================================================================
 
-// BaseLinter provides default implementations for ComponentLinter methods.
-// Embed this in component-specific linters to inherit defaults.
+// BaseLinter is an empty struct that component-specific linters can embed.
+// With the ISP refactoring, optional capabilities are now separate interfaces
+// that linters implement only when needed. This struct remains for embedding
+// to signal "I'm a component linter" but provides no default methods.
+//
+// Optional interfaces a linter can implement:
+//   - PreValidator: for filename/empty content checks
+//   - BestPracticeValidator: for best practice checks
+//   - CrossFileValidatable: for cross-file reference validation
+//   - Scorable: for quality scoring
+//   - Improvable: for improvement recommendations
+//   - PostProcessable: for result post-processing
+//   - BatchPostProcessor: for batch-level post-processing (cycle detection)
 type BaseLinter struct{}
-
-func (b *BaseLinter) PreValidate(filePath, contents string) []cue.ValidationError {
-	return nil
-}
-
-func (b *BaseLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
-	return nil
-}
-
-func (b *BaseLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
-	return nil
-}
-
-func (b *BaseLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
-	return nil
-}
-
-func (b *BaseLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
-	return nil
-}
-
-func (b *BaseLinter) PostProcess(result *LintResult) {
-	// Default: no post-processing
-}
 
 // ValidateAllowedToolsShared is a shared helper for tool validation.
 func ValidateAllowedToolsShared(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
