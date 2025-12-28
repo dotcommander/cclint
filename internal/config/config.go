@@ -21,6 +21,7 @@ type Config struct {
 	Verbose          bool              `mapstructure:"verbose"`
 	ShowScores       bool              `mapstructure:"showScores"`
 	ShowImprovements bool              `mapstructure:"showImprovements"`
+	NoCycleCheck     bool              `mapstructure:"no-cycle-check"`
 	Rules            RulesConfig       `mapstructure:"rules"`
 	Schemas          SchemaConfig      `mapstructure:"schemas"`
 	Concurrency      int               `mapstructure:"concurrency"`
@@ -50,6 +51,7 @@ func LoadConfig(rootPath string) (*Config, error) {
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("showScores", false)
 	viper.SetDefault("showImprovements", false)
+	viper.SetDefault("no-cycle-check", false)
 	viper.SetDefault("concurrency", 10)
 	viper.SetDefault("parallel", true)
 	viper.SetDefault("rules.strict", true)
