@@ -567,3 +567,219 @@ func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
 
 	return orphans
 }
+
+// Cycle represents a circular dependency in the component graph
+type Cycle struct {
+	Path []string // Component names in cycle order (last element == first element)
+	Type string   // "command-agent-command", "agent-skill-agent", etc.
+}
+
+// DetectCycles finds circular dependencies using DFS with color marking.
+// Returns all cycles found in the component graph.
+//
+// Algorithm: DFS with three colors:
+//   - white (0): unvisited
+//   - gray (1): currently visiting (in recursion stack)
+//   - black (2): completely visited
+//
+// Back edges (gray -> gray) indicate cycles.
+func (v *CrossFileValidator) DetectCycles() []Cycle {
+	var cycles []Cycle
+
+	// Track visit state: 0=white, 1=gray, 2=black
+	visitState := make(map[string]int)
+
+	// Track current path for cycle reconstruction
+	path := []string{}
+	inPath := make(map[string]bool)
+
+	// DFS visit function
+	var visit func(componentType, name string)
+	visit = func(componentType, name string) {
+		nodeID := componentType + ":" + name
+
+		// Mark as gray (visiting)
+		visitState[nodeID] = 1
+		path = append(path, nodeID)
+		inPath[nodeID] = true
+
+		// Get neighbors based on component type
+		var neighbors []string
+		switch componentType {
+		case "command":
+			if cmd, exists := v.commands[name]; exists {
+				// Commands delegate to agents via Task()
+				taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
+				matches := taskPattern.FindAllStringSubmatch(cmd.Contents, -1)
+				for _, match := range matches {
+					if len(match) >= 2 {
+						agentRef := strings.TrimSpace(match[1])
+						agentRef = strings.Trim(agentRef, `"'`)
+						if !strings.Contains(agentRef, "subagent_type") {
+							if _, exists := v.agents[agentRef]; exists {
+								neighbors = append(neighbors, "agent:"+agentRef)
+							}
+						}
+					}
+				}
+			}
+		case "agent":
+			if agent, exists := v.agents[name]; exists {
+				// Agents reference skills
+				skillRefs := findSkillReferences(agent.Contents)
+				for _, skillRef := range skillRefs {
+					if _, exists := v.skills[skillRef]; exists {
+						neighbors = append(neighbors, "skill:"+skillRef)
+					}
+				}
+
+				// Agents might delegate to other agents
+				taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
+				matches := taskPattern.FindAllStringSubmatch(agent.Contents, -1)
+				for _, match := range matches {
+					if len(match) >= 2 {
+						agentRef := strings.TrimSpace(match[1])
+						agentRef = strings.Trim(agentRef, `"'`)
+						if !strings.Contains(agentRef, "subagent_type") && agentRef != name {
+							if _, exists := v.agents[agentRef]; exists {
+								neighbors = append(neighbors, "agent:"+agentRef)
+							}
+						}
+					}
+				}
+			}
+		case "skill":
+			if skill, exists := v.skills[name]; exists {
+				// Skills might mention delegate to agents
+				agentPatterns := []string{
+					`delegate to\s+([a-z0-9][a-z0-9-]+)`,
+					`use\s+([a-z0-9][a-z0-9-]+)`,
+					`Task\(([a-z0-9][a-z0-9-]+)`,
+				}
+				for _, pattern := range agentPatterns {
+					re := regexp.MustCompile(pattern)
+					matches := re.FindAllStringSubmatch(skill.Contents, -1)
+					for _, match := range matches {
+						if len(match) >= 2 {
+							agentRef := strings.TrimSpace(match[1])
+							if _, exists := v.agents[agentRef]; exists {
+								neighbors = append(neighbors, "agent:"+agentRef)
+							}
+						}
+					}
+				}
+
+				// Skills might reference other skills
+				skillRefs := findSkillReferences(skill.Contents)
+				for _, skillRef := range skillRefs {
+					if skillRef != name {
+						if _, exists := v.skills[skillRef]; exists {
+							neighbors = append(neighbors, "skill:"+skillRef)
+						}
+					}
+				}
+			}
+		}
+
+		// Visit neighbors
+		for _, neighbor := range neighbors {
+			state := visitState[neighbor]
+			if state == 0 {
+				// White: unvisited, recurse
+				parts := strings.SplitN(neighbor, ":", 2)
+				if len(parts) == 2 {
+					visit(parts[0], parts[1])
+				}
+			} else if state == 1 && inPath[neighbor] {
+				// Gray and in current path: back edge = cycle detected
+				// Reconstruct cycle from path
+				cycleStart := -1
+				for i, p := range path {
+					if p == neighbor {
+						cycleStart = i
+						break
+					}
+				}
+				if cycleStart >= 0 {
+					cyclePath := make([]string, len(path)-cycleStart+1)
+					copy(cyclePath, path[cycleStart:])
+					cyclePath[len(cyclePath)-1] = neighbor // Close the cycle
+
+					cycles = append(cycles, Cycle{
+						Path: cyclePath,
+						Type: determineCycleType(cyclePath),
+					})
+				}
+			}
+			// Black (2): already visited, skip
+		}
+
+		// Mark as black (visited)
+		visitState[nodeID] = 2
+		path = path[:len(path)-1]
+		delete(inPath, nodeID)
+	}
+
+	// Start DFS from all commands (typical entry points)
+	for cmdName := range v.commands {
+		nodeID := "command:" + cmdName
+		if visitState[nodeID] == 0 {
+			visit("command", cmdName)
+		}
+	}
+
+	// Also check agents not reachable from commands
+	for agentName := range v.agents {
+		nodeID := "agent:" + agentName
+		if visitState[nodeID] == 0 {
+			visit("agent", agentName)
+		}
+	}
+
+	// Also check skills not reachable from agents/commands
+	for skillName := range v.skills {
+		nodeID := "skill:" + skillName
+		if visitState[nodeID] == 0 {
+			visit("skill", skillName)
+		}
+	}
+
+	return cycles
+}
+
+// determineCycleType classifies the cycle based on component types involved
+func determineCycleType(path []string) string {
+	if len(path) == 0 {
+		return "unknown"
+	}
+
+	types := make([]string, 0, len(path))
+	for _, node := range path {
+		parts := strings.SplitN(node, ":", 2)
+		if len(parts) == 2 {
+			types = append(types, parts[0])
+		}
+	}
+
+	return strings.Join(types, " → ")
+}
+
+// FormatCycle formats a cycle for human-readable output
+func FormatCycle(cycle Cycle) string {
+	if len(cycle.Path) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	for i, node := range cycle.Path {
+		parts := strings.SplitN(node, ":", 2)
+		if len(parts) == 2 {
+			sb.WriteString(parts[1]) // Just the name
+			if i < len(cycle.Path)-1 {
+				sb.WriteString(" → ")
+			}
+		}
+	}
+
+	return sb.String()
+}

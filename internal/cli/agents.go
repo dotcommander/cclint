@@ -40,9 +40,9 @@ type LintSummary struct {
 }
 
 // LintAgents runs linting on agent files
-func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error) {
+func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	// Initialize shared context
-	ctx, err := NewLinterContext(rootPath, quiet, verbose)
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -130,6 +130,53 @@ func LintAgents(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 
 		summary.Results = append(summary.Results, result)
 		ctx.LogProcessed(file.RelPath, len(result.Errors))
+	}
+
+	// Detect circular dependencies (unless disabled)
+	if !ctx.NoCycleCheck {
+		cycles := ctx.CrossValidator.DetectCycles()
+		// Track which agents have been reported to avoid duplicates
+		cyclesReported := make(map[string]bool)
+		for _, cycle := range cycles {
+			cycleDesc := FormatCycle(cycle)
+			// Only report each unique cycle once
+			if cyclesReported[cycleDesc] {
+				continue
+			}
+			cyclesReported[cycleDesc] = true
+
+			// Add cycle error to all agent files involved in the cycle
+			agentsInCycle := make(map[string]bool)
+			for _, node := range cycle.Path {
+				parts := strings.SplitN(node, ":", 2)
+				if len(parts) == 2 && parts[0] == "agent" {
+					agentsInCycle[parts[1]] = true
+				}
+			}
+
+			// Report to each agent once
+			for agentName := range agentsInCycle {
+				for i, result := range summary.Results {
+					resultName := crossExtractAgentName(result.File)
+					if resultName == agentName {
+						summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
+							File:     result.File,
+							Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
+							Severity: "error",
+							Source:   cue.SourceCClintObserve,
+						})
+						summary.TotalErrors++
+						// Mark file as failed
+						if summary.Results[i].Success {
+							summary.Results[i].Success = false
+							summary.SuccessfulFiles--
+							summary.FailedFiles++
+						}
+						break
+					}
+				}
+			}
+		}
 	}
 
 	return summary, nil
