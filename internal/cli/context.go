@@ -5,83 +5,16 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
 )
 
-// LintContext runs linting on CLAUDE.md files
+// LintContext runs linting on CLAUDE.md files using the generic linter.
 func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	// Initialize shared context
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter context files
-	contextFiles := ctx.FilterFilesByType(discovery.FileTypeContext)
-	summary := ctx.NewSummary(len(contextFiles))
-
-	// Process each context file
-	for _, file := range contextFiles {
-		result := LintResult{
-			File:    file.RelPath,
-			Type:    "context",
-			Success: true,
-		}
-
-		// Parse frontmatter (CLAUDE.md may have frontmatter)
-		fm, err := frontend.ParseYAMLFrontmatter(file.Contents)
-		if err != nil {
-			result.Errors = append(result.Errors, cue.ValidationError{
-				File:     file.RelPath,
-				Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
-				Severity: "error",
-			})
-		}
-
-		// Parse markdown content - safely access frontmatter data
-		var title, description interface{}
-		if fm != nil && fm.Data != nil {
-			title = fm.Data["title"]
-			description = fm.Data["description"]
-		}
-		data := map[string]interface{}{
-			"title":       title,
-			"description": description,
-			"sections":    parseMarkdownSections(file.Contents),
-		}
-
-		// Validate with CUE
-		if true { // CUE schemas not loaded yet
-			errors, err := ctx.Validator.ValidateClaudeMD(data)
-			if err != nil {
-				result.Errors = append(result.Errors, cue.ValidationError{
-					File:     file.RelPath,
-					Message:  fmt.Sprintf("Validation error: %v", err),
-					Severity: "error",
-				})
-			}
-			result.Errors = append(result.Errors, errors...)
-			summary.TotalErrors += len(errors)
-		}
-
-		// Additional validation rules
-		errors := validateContextSpecific(data, file.RelPath)
-		result.Errors = append(result.Errors, errors...)
-		summary.TotalErrors += len(errors)
-
-		if len(result.Errors) == 0 {
-			summary.SuccessfulFiles++
-		} else {
-			result.Success = false
-			summary.FailedFiles++
-		}
-
-		summary.Results = append(summary.Results, result)
-		ctx.LogProcessed(file.RelPath, len(result.Errors))
-	}
-
-	return summary, nil
+	return lintBatch(ctx, NewContextLinter()), nil
 }
 
 // parseMarkdownSections parses markdown content into sections

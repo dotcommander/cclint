@@ -7,73 +7,15 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/dotcommander/cclint/internal/discovery"
 )
 
-// LintSettings runs linting on settings files
+// LintSettings runs linting on settings files using the generic linter.
 func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	// Initialize shared context
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter settings files
-	settingsFiles := ctx.FilterFilesByType(discovery.FileTypeSettings)
-	summary := ctx.NewSummary(len(settingsFiles))
-
-	// Process each settings file
-	for _, file := range settingsFiles {
-		result := LintResult{
-			File:    file.RelPath,
-			Type:    "settings",
-			Success: true,
-		}
-
-		// Parse JSON content
-		var data map[string]interface{}
-		if err := parseJSON(file.Contents, &data); err != nil {
-			result.Errors = append(result.Errors, cue.ValidationError{
-				File:     file.RelPath,
-				Message:  fmt.Sprintf("Error parsing JSON: %v", err),
-				Severity: "error",
-			})
-			result.Success = false
-			summary.FailedFiles++
-			summary.TotalErrors++
-		} else {
-			// Validate with CUE
-			if true { // CUE schemas not loaded yet
-				errors, err := ctx.Validator.ValidateSettings(data)
-				if err != nil {
-					result.Errors = append(result.Errors, cue.ValidationError{
-						File:     file.RelPath,
-						Message:  fmt.Sprintf("Validation error: %v", err),
-						Severity: "error",
-					})
-				}
-				result.Errors = append(result.Errors, errors...)
-				summary.TotalErrors += len(errors)
-			}
-
-			// Additional validation rules
-			errors := validateSettingsSpecific(data, file.RelPath)
-			result.Errors = append(result.Errors, errors...)
-			summary.TotalErrors += len(errors)
-
-			if len(result.Errors) == 0 {
-				summary.SuccessfulFiles++
-			} else {
-				result.Success = false
-				summary.FailedFiles++
-			}
-		}
-
-		summary.Results = append(summary.Results, result)
-		ctx.LogProcessed(file.RelPath, len(result.Errors))
-	}
-
-	return summary, nil
+	return lintBatch(ctx, NewSettingsLinter()), nil
 }
 
 // parseJSON parses JSON content into the provided interface

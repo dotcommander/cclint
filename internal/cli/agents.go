@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/frontend"
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
@@ -39,147 +37,13 @@ type LintSummary struct {
 	Results          []LintResult
 }
 
-// LintAgents runs linting on agent files
+// LintAgents runs linting on agent files using the generic linter.
 func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	// Initialize shared context
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter agent files
-	agentFiles := ctx.FilterFilesByType(discovery.FileTypeAgent)
-	summary := ctx.NewSummary(len(agentFiles))
-
-	// Process each agent file
-	for _, file := range agentFiles {
-		result := LintResult{
-			File:    file.RelPath,
-			Type:    "agent",
-			Success: true,
-		}
-
-		// Parse frontmatter
-		fm, err := frontend.ParseYAMLFrontmatter(file.Contents)
-		if err != nil {
-			result.Errors = append(result.Errors, cue.ValidationError{
-				File:     file.RelPath,
-				Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
-				Severity: "error",
-			})
-			result.Success = false
-			summary.FailedFiles++
-			summary.TotalErrors++
-		} else {
-			// Validate with CUE
-			if true { // CUE schemas not loaded yet
-				errors, err := ctx.Validator.ValidateAgent(fm.Data)
-				if err != nil {
-					result.Errors = append(result.Errors, cue.ValidationError{
-						File:     file.RelPath,
-						Message:  fmt.Sprintf("Validation error: %v", err),
-						Severity: "error",
-					})
-				}
-				result.Errors = append(result.Errors, errors...)
-				summary.TotalErrors += len(errors)
-			}
-
-			// Additional validation rules - separate errors and suggestions
-			allIssues := validateAgentSpecific(fm.Data, file.RelPath, file.Contents)
-			for _, issue := range allIssues {
-				if issue.Severity == "suggestion" {
-					result.Suggestions = append(result.Suggestions, issue)
-					summary.TotalSuggestions++
-				} else {
-					result.Errors = append(result.Errors, issue)
-					summary.TotalErrors++
-				}
-			}
-
-			// Validate allowed-tools field
-			toolWarnings := ValidateAllowedTools(fm.Data, file.RelPath, file.Contents)
-			result.Warnings = append(result.Warnings, toolWarnings...)
-			summary.TotalWarnings += len(toolWarnings)
-
-			// Cross-file validation (missing skills)
-			crossErrors := ctx.CrossValidator.ValidateAgent(file.RelPath, file.Contents)
-			result.Errors = append(result.Errors, crossErrors...)
-			summary.TotalErrors += len(crossErrors)
-
-			// Secrets detection
-			secretWarnings := detectSecrets(file.Contents, file.RelPath)
-			result.Warnings = append(result.Warnings, secretWarnings...)
-			summary.TotalWarnings += len(secretWarnings)
-
-			if len(result.Errors) == 0 {
-				summary.SuccessfulFiles++
-			} else {
-				result.Success = false
-				summary.FailedFiles++
-			}
-
-			// Score agent quality
-			scorer := scoring.NewAgentScorer()
-			score := scorer.Score(file.Contents, fm.Data, fm.Body)
-			result.Quality = &score
-
-			// Get improvement recommendations
-			result.Improvements = GetAgentImprovements(file.Contents, fm.Data)
-		}
-
-		summary.Results = append(summary.Results, result)
-		ctx.LogProcessed(file.RelPath, len(result.Errors))
-	}
-
-	// Detect circular dependencies (unless disabled)
-	if !ctx.NoCycleCheck {
-		cycles := ctx.CrossValidator.DetectCycles()
-		// Track which agents have been reported to avoid duplicates
-		cyclesReported := make(map[string]bool)
-		for _, cycle := range cycles {
-			cycleDesc := FormatCycle(cycle)
-			// Only report each unique cycle once
-			if cyclesReported[cycleDesc] {
-				continue
-			}
-			cyclesReported[cycleDesc] = true
-
-			// Add cycle error to all agent files involved in the cycle
-			agentsInCycle := make(map[string]bool)
-			for _, node := range cycle.Path {
-				parts := strings.SplitN(node, ":", 2)
-				if len(parts) == 2 && parts[0] == "agent" {
-					agentsInCycle[parts[1]] = true
-				}
-			}
-
-			// Report to each agent once
-			for agentName := range agentsInCycle {
-				for i, result := range summary.Results {
-					resultName := crossExtractAgentName(result.File)
-					if resultName == agentName {
-						summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
-							File:     result.File,
-							Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
-							Severity: "error",
-							Source:   cue.SourceCClintObserve,
-						})
-						summary.TotalErrors++
-						// Mark file as failed
-						if summary.Results[i].Success {
-							summary.Results[i].Success = false
-							summary.SuccessfulFiles--
-							summary.FailedFiles++
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-
-	return summary, nil
+	return lintBatch(ctx, NewAgentLinter()), nil
 }
 
 // validateAgentSpecific implements agent-specific validation rules
@@ -300,29 +164,15 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 	fmEndLine := GetFrontmatterEndLine(contents)
 
 	// XML tag detection in text fields - FROM ANTHROPIC DOCS
-	xmlTagPattern := regexp.MustCompile(`<[a-zA-Z][^>]*>`)
 	if description, ok := data["description"].(string); ok {
-		if xmlTagPattern.MatchString(description) {
-			suggestions = append(suggestions, cue.ValidationError{
-				File:     filePath,
-				Message:  "Description contains XML-like tags which are not allowed",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "description"),
-			})
+		if xmlErr := DetectXMLTags(description, "Description", filePath, contents); xmlErr != nil {
+			suggestions = append(suggestions, *xmlErr)
 		}
 	}
 
-	// Count total lines (±10% tolerance: 200 base + 20 = 220)
-	lines := strings.Count(contents, "\n")
-	if lines > 220 {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Agent is %d lines. Best practice: keep agents under ~220 lines (200±10%%) - move methodology to skills instead.", lines),
-			Severity: "suggestion",
-			Source:   cue.SourceCClintObserve,
-			Line:     1,
-		})
+	// Count total lines (±10% tolerance: 200 base)
+	if sizeErr := CheckSizeLimit(contents, 200, 0.10, "agent", filePath); sizeErr != nil {
+		suggestions = append(suggestions, *sizeErr)
 	}
 
 	// === BLOAT SECTIONS DETECTOR ===

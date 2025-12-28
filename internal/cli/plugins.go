@@ -1,89 +1,20 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/scoring"
 )
 
-// LintPlugins runs linting on plugin manifest files
+// LintPlugins runs linting on plugin manifest files using the generic linter.
 func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	// Initialize shared context
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
 	if err != nil {
 		return nil, err
 	}
-
-	// Filter plugin files
-	pluginFiles := ctx.FilterFilesByType(discovery.FileTypePlugin)
-	summary := ctx.NewSummary(len(pluginFiles))
-
-	// Process each plugin file
-	for _, file := range pluginFiles {
-		result := LintResult{
-			File:    file.RelPath,
-			Type:    "plugin",
-			Success: true,
-		}
-
-		// Parse JSON
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(file.Contents), &data); err != nil {
-			result.Errors = append(result.Errors, cue.ValidationError{
-				File:     file.RelPath,
-				Message:  fmt.Sprintf("Error parsing JSON: %v", err),
-				Severity: "error",
-			})
-			result.Success = false
-			summary.FailedFiles++
-			summary.TotalErrors++
-		} else {
-			// Validate plugin-specific rules
-			// NOTE: Only show errors for plugins until we can improve the suggestions
-			allIssues := validatePluginSpecific(data, file.RelPath, file.Contents)
-			for _, issue := range allIssues {
-				if issue.Severity == "error" {
-					result.Errors = append(result.Errors, issue)
-					summary.TotalErrors++
-				}
-				// Skip suggestions and warnings for plugins
-			}
-
-			// Secrets detection - keep as errors only for plugins
-			secretWarnings := detectSecrets(file.Contents, file.RelPath)
-			for _, w := range secretWarnings {
-				// Promote secrets to errors since they're important
-				w.Severity = "error"
-				result.Errors = append(result.Errors, w)
-				summary.TotalErrors++
-			}
-
-			if len(result.Errors) == 0 {
-				summary.SuccessfulFiles++
-			} else {
-				result.Success = false
-				summary.FailedFiles++
-			}
-
-			// Score plugin quality
-			scorer := scoring.NewPluginScorer()
-			score := scorer.Score(file.Contents, data, "")
-			result.Quality = &score
-
-			// Get improvement recommendations
-			result.Improvements = GetPluginImprovements(file.Contents, data)
-		}
-
-		summary.Results = append(summary.Results, result)
-		ctx.LogProcessed(file.RelPath, len(result.Errors))
-	}
-
-	return summary, nil
+	return lintBatch(ctx, NewPluginLinter()), nil
 }
 
 // validatePluginSpecific implements plugin-specific validation rules

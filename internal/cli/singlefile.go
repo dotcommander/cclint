@@ -30,9 +30,7 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/frontend"
 	"github.com/dotcommander/cclint/internal/project"
-	"github.com/dotcommander/cclint/internal/scoring"
 )
 
 // SingleFileLinterContext holds state for single-file linting operations.
@@ -324,391 +322,34 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 	return summary, nil
 }
 
-// lintSingleAgent lints a single agent file.
+// lintSingleAgent lints a single agent file using the generic linter.
 func lintSingleAgent(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "agent",
-		Success: true,
-	}
-
-	// Parse frontmatter
-	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
-	if err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
-			Severity: "error",
-		})
-		result.Success = false
-		return result
-	}
-
-	// CUE validation
-	errors, _ := ctx.Validator.ValidateAgent(fm.Data)
-	result.Errors = append(result.Errors, errors...)
-
-	// Go-based validation rules
-	allIssues := validateAgentSpecific(fm.Data, ctx.File.RelPath, ctx.File.Contents)
-	for _, issue := range allIssues {
-		if issue.Severity == "suggestion" {
-			result.Suggestions = append(result.Suggestions, issue)
-		} else {
-			result.Errors = append(result.Errors, issue)
-		}
-	}
-
-	// Validate allowed-tools
-	toolWarnings := ValidateAllowedTools(fm.Data, ctx.File.RelPath, ctx.File.Contents)
-	result.Warnings = append(result.Warnings, toolWarnings...)
-
-	// Cross-file validation (outgoing refs)
-	crossValidator := ctx.EnsureCrossFileValidator()
-	if crossValidator != nil {
-		crossErrors := crossValidator.ValidateAgent(ctx.File.RelPath, ctx.File.Contents)
-		result.Errors = append(result.Errors, crossErrors...)
-	} else if ctx.Verbose {
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Cross-file validation skipped (could not discover project files)",
-			Severity: "info",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	// Quality scoring
-	scorer := scoring.NewAgentScorer()
-	score := scorer.Score(ctx.File.Contents, fm.Data, fm.Body)
-	result.Quality = &score
-
-	// Improvement recommendations
-	result.Improvements = GetAgentImprovements(ctx.File.Contents, fm.Data)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewAgentLinter())
 }
 
-// lintSingleCommand lints a single command file.
+// lintSingleCommand lints a single command file using the generic linter.
 func lintSingleCommand(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "command",
-		Success: true,
-	}
-
-	// Parse frontmatter
-	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
-	if err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
-			Severity: "error",
-		})
-		result.Success = false
-		return result
-	}
-
-	// CUE validation
-	errors, _ := ctx.Validator.ValidateCommand(fm.Data)
-	result.Errors = append(result.Errors, errors...)
-
-	// Go-based validation rules
-	allIssues := validateCommandSpecific(fm.Data, ctx.File.RelPath, ctx.File.Contents)
-	result.Errors = append(result.Errors, allIssues...)
-
-	// Validate allowed-tools
-	toolWarnings := ValidateAllowedTools(fm.Data, ctx.File.RelPath, ctx.File.Contents)
-	result.Warnings = append(result.Warnings, toolWarnings...)
-
-	// Cross-file validation (outgoing refs)
-	crossValidator := ctx.EnsureCrossFileValidator()
-	if crossValidator != nil {
-		crossErrors := crossValidator.ValidateCommand(ctx.File.RelPath, ctx.File.Contents, fm.Data)
-		result.Errors = append(result.Errors, crossErrors...)
-	} else if ctx.Verbose {
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Cross-file validation skipped (could not discover project files)",
-			Severity: "info",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Best practice checks
-	suggestions := validateCommandBestPractices(ctx.File.RelPath, ctx.File.Contents, fm.Data)
-	result.Suggestions = append(result.Suggestions, suggestions...)
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	// Quality scoring
-	scorer := scoring.NewCommandScorer()
-	score := scorer.Score(ctx.File.Contents, fm.Data, fm.Body)
-	result.Quality = &score
-
-	// Improvement recommendations
-	result.Improvements = GetCommandImprovements(ctx.File.Contents, fm.Data)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewCommandLinter())
 }
 
-// lintSingleSkill lints a single skill file.
+// lintSingleSkill lints a single skill file using the generic linter.
 func lintSingleSkill(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "skill",
-		Success: true,
-	}
-
-	// Check filename is SKILL.md
-	if !strings.HasSuffix(ctx.File.RelPath, "/SKILL.md") && !strings.HasSuffix(ctx.File.RelPath, "\\SKILL.md") && filepath.Base(ctx.File.RelPath) != "SKILL.md" {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Skill file must be named SKILL.md",
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
-		})
-	}
-
-	// Check not empty
-	if len(strings.TrimSpace(ctx.File.Contents)) == 0 {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Skill file is empty",
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
-		})
-		result.Success = false
-		return result
-	}
-
-	// Parse frontmatter (optional for skills)
-	fm, _ := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
-	var fmData map[string]interface{}
-	var bodyContent string
-	if fm != nil {
-		fmData = fm.Data
-		bodyContent = fm.Body
-
-		// Reserved word check
-		if name, ok := fmData["name"].(string); ok {
-			reservedWords := map[string]bool{"anthropic": true, "claude": true}
-			if reservedWords[strings.ToLower(name)] {
-				result.Errors = append(result.Errors, cue.ValidationError{
-					File:     ctx.File.RelPath,
-					Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-					Line:     FindFrontmatterFieldLine(ctx.File.Contents, "name"),
-				})
-			}
-		}
-	} else {
-		fmData = make(map[string]interface{})
-		bodyContent = ctx.File.Contents
-	}
-
-	// Frontmatter suggestion
-	if !strings.HasPrefix(ctx.File.Contents, "---") {
-		skillName := extractSkillName(ctx.File.Contents, ctx.File.RelPath)
-		suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
-		if skillName != "" {
-			suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
-		}
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  suggestion,
-			Severity: "suggestion",
-			Source:   cue.SourceAnthropicDocs,
-		})
-	}
-
-	// Best practice checks
-	allResults := validateSkillBestPractices(ctx.File.RelPath, ctx.File.Contents, fmData)
-	// Separate errors from suggestions based on severity
-	for _, r := range allResults {
-		if r.Severity == "error" {
-			result.Errors = append(result.Errors, r)
-		} else {
-			result.Suggestions = append(result.Suggestions, r)
-		}
-	}
-
-	// Cross-file validation (outgoing refs)
-	crossValidator := ctx.EnsureCrossFileValidator()
-	if crossValidator != nil {
-		crossErrors := crossValidator.ValidateSkill(ctx.File.RelPath, ctx.File.Contents)
-		result.Errors = append(result.Errors, crossErrors...)
-	} else if ctx.Verbose {
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Cross-file validation skipped (could not discover project files)",
-			Severity: "info",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Note: Orphan detection skipped for single-file mode
-	if ctx.Verbose {
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Orphan detection skipped (single-file mode). Run full lint for complete analysis.",
-			Severity: "info",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	// Quality scoring
-	scorer := scoring.NewSkillScorer()
-	score := scorer.Score(ctx.File.Contents, fmData, bodyContent)
-	result.Quality = &score
-
-	// Improvement recommendations
-	result.Improvements = GetSkillImprovements(ctx.File.Contents, fmData)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewSkillLinter())
 }
 
-// lintSingleSettings lints a single settings file.
+// lintSingleSettings lints a single settings file using the generic linter.
 func lintSingleSettings(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "settings",
-		Success: true,
-	}
-
-	// Parse JSON
-	var data map[string]interface{}
-	if err := parseJSON(ctx.File.Contents, &data); err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Invalid JSON: %v", err),
-			Severity: "error",
-		})
-		result.Success = false
-		return result
-	}
-
-	// CUE validation
-	errors, _ := ctx.Validator.ValidateSettings(data)
-	result.Errors = append(result.Errors, errors...)
-
-	// Go-based validation
-	specificErrors := validateSettingsSpecific(data, ctx.File.RelPath)
-	result.Errors = append(result.Errors, specificErrors...)
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewSettingsLinter())
 }
 
-// lintSingleContext lints a single CLAUDE.md context file.
+// lintSingleContext lints a single CLAUDE.md context file using the generic linter.
 func lintSingleContext(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "context",
-		Success: true,
-	}
-
-	// Parse frontmatter (optional for context)
-	fm, err := frontend.ParseYAMLFrontmatter(ctx.File.Contents)
-	if err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Error parsing frontmatter: %v", err),
-			Severity: "error",
-		})
-	}
-
-	// Build data structure for CUE validation
-	var title, description interface{}
-	if fm != nil && fm.Data != nil {
-		title = fm.Data["title"]
-		description = fm.Data["description"]
-	}
-	data := map[string]interface{}{
-		"title":       title,
-		"description": description,
-		"sections":    parseMarkdownSections(ctx.File.Contents),
-	}
-
-	// CUE validation
-	errors, _ := ctx.Validator.ValidateClaudeMD(data)
-	result.Errors = append(result.Errors, errors...)
-
-	// Go-based validation
-	specificErrors := validateContextSpecific(data, ctx.File.RelPath)
-	result.Errors = append(result.Errors, specificErrors...)
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewContextLinter())
 }
 
-// lintSinglePlugin lints a single plugin.json file.
+// lintSinglePlugin lints a single plugin.json file using the generic linter.
 func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
-	result := LintResult{
-		File:    ctx.File.RelPath,
-		Type:    "plugin",
-		Success: true,
-	}
-
-	// Parse JSON
-	var data map[string]interface{}
-	if err := parseJSON(ctx.File.Contents, &data); err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Invalid JSON: %v", err),
-			Severity: "error",
-		})
-		result.Success = false
-		return result
-	}
-
-	// Go-based validation (plugins don't use CUE)
-	allIssues := validatePluginSpecific(data, ctx.File.RelPath, ctx.File.Contents)
-	for _, issue := range allIssues {
-		switch issue.Severity {
-		case "suggestion":
-			result.Suggestions = append(result.Suggestions, issue)
-		case "warning":
-			result.Warnings = append(result.Warnings, issue)
-		default:
-			result.Errors = append(result.Errors, issue)
-		}
-	}
-
-	// Secrets detection
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	// Quality scoring
-	scorer := scoring.NewPluginScorer()
-	score := scorer.Score(ctx.File.Contents, data, "")
-	result.Quality = &score
-
-	// Improvement recommendations
-	result.Improvements = GetPluginImprovements(ctx.File.Contents, data)
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintComponent(ctx, NewPluginLinter())
 }
 
 // LooksLikePath determines if an argument looks like a file path rather than a subcommand.
