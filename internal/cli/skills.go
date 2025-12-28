@@ -102,9 +102,17 @@ func LintSkills(rootPath string, quiet bool, verbose bool) (*LintSummary, error)
 		if fmData == nil {
 			fmData = make(map[string]interface{})
 		}
-		suggestions := validateSkillBestPractices(file.RelPath, file.Contents, fmData)
-		result.Suggestions = append(result.Suggestions, suggestions...)
-		summary.TotalSuggestions += len(suggestions)
+		allResults := validateSkillBestPractices(file.RelPath, file.Contents, fmData)
+		// Separate errors from suggestions based on severity
+		for _, r := range allResults {
+			if r.Severity == "error" {
+				result.Errors = append(result.Errors, r)
+				summary.TotalErrors++
+			} else {
+				result.Suggestions = append(result.Suggestions, r)
+				summary.TotalSuggestions++
+			}
+		}
 
 		// Cross-file validation (missing agents)
 		crossErrors := ctx.CrossValidator.ValidateSkill(file.RelPath, file.Contents)
@@ -283,6 +291,9 @@ func validateSkillBestPractices(filePath string, contents string, fmData map[str
 			Source:   cue.SourceCClintObserve,
 		})
 	}
+
+	// Validate tool field naming (skills use 'allowed-tools:', not 'tools:')
+	suggestions = append(suggestions, ValidateToolFieldName(fmData, filePath, contents, "skill")...)
 
 	// Merge warnings into suggestions for return
 	suggestions = append(suggestions, warnings...)

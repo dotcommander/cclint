@@ -530,8 +530,15 @@ func lintSingleSkill(ctx *SingleFileLinterContext) LintResult {
 	}
 
 	// Best practice checks
-	suggestions := validateSkillBestPractices(ctx.File.RelPath, ctx.File.Contents, fmData)
-	result.Suggestions = append(result.Suggestions, suggestions...)
+	allResults := validateSkillBestPractices(ctx.File.RelPath, ctx.File.Contents, fmData)
+	// Separate errors from suggestions based on severity
+	for _, r := range allResults {
+		if r.Severity == "error" {
+			result.Errors = append(result.Errors, r)
+		} else {
+			result.Suggestions = append(result.Suggestions, r)
+		}
+	}
 
 	// Cross-file validation (outgoing refs)
 	crossValidator := ctx.EnsureCrossFileValidator()

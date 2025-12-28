@@ -129,6 +129,9 @@ func validateCommandSpecific(data map[string]interface{}, filePath string, conte
 		}
 	}
 
+	// Validate tool field naming (commands use 'allowed-tools:', not 'tools:')
+	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "command")...)
+
 	return errors
 }
 

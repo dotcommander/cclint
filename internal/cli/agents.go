@@ -238,6 +238,9 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 		}
 	}
 
+	// Validate tool field naming (agents use 'tools:', not 'allowed-tools:')
+	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "agent")...)
+
 	// Best practice checks
 	errors = append(errors, validateAgentBestPractices(filePath, contents, data)...)
 
