@@ -17,13 +17,15 @@ import "strings"
 	"LSP" | "Skill" | "DBClient"
 
 // Command frontmatter schema (all fields optional per Claude Code spec)
+// Source: https://code.claude.com/docs/en/slash-commands
 #Command: {
 	// Optional Claude Code fields
 	name?: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
 	description?: string & strings.MaxRunes(1024)              // command description, max 1024 chars
-	"allowed-tools"?: "*" | string | [...#KnownTool]
-	"argument-hint"?: string             // argument hint for help
+	"allowed-tools"?: "*" | string | [...#KnownTool]           // commands use 'allowed-tools:', NOT 'tools:'
+	"argument-hint"?: string                                   // argument hint for help
 	model?: #Model
+	"disable-model-invocation"?: bool                          // prevent SlashCommand tool from calling this
 
 	// Allow additional fields
 	...

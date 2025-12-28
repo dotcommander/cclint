@@ -26,6 +26,7 @@ import (
 #Tools: "*" | string | [...#KnownTool]
 
 // Agent frontmatter schema
+// Source: https://code.claude.com/docs/en/sub-agents
 #Agent: {
 	// Required fields
 	name: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
@@ -34,8 +35,9 @@ import (
 	// Optional Claude Code fields
 	model?: #Model
 	color?: #Color
-	tools?: #Tools
-	"allowed-tools"?: #Tools          // alternative name for tools field
+	tools?: #Tools                                            // agents use 'tools:', NOT 'allowed-tools:'
+	permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "ignore"
+	skills?: string                                           // comma-separated skill names to auto-load
 
 	// Allow additional fields
 	...
