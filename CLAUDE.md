@@ -22,6 +22,15 @@ cclint a.md b.md c.md                  # lint multiple files
 cclint --type agent ./custom/file.md   # override type detection
 cclint --file agents                   # lint file literally named "agents"
 
+# Git integration (pre-commit hooks)
+cclint --staged                        # lint only staged files
+cclint --diff                          # lint all uncommitted changes
+
+# Baseline mode (gradual adoption)
+cclint --baseline-create                  # create baseline from current issues
+cclint --baseline                         # lint with baseline filtering (only new issues fail)
+cclint --baseline-path custom.json        # use custom baseline file path
+
 # Common flags
 cclint --root /path/to/project agents    # specify project root
 cclint --scores agents                    # show quality scores (0-100)
@@ -48,6 +57,9 @@ internal/
 ├── cue/
 │   ├── validator.go    # CUE-based schema validation
 │   └── schemas/        # Embedded CUE schemas (agent, command, settings, claude_md)
+├── baseline/           # Baseline support for gradual adoption
+│   ├── baseline.go     # Baseline creation, loading, filtering
+│   └── baseline_test.go
 ├── scoring/            # Quality scoring (0-100) with tier grading (A-F)
 │   ├── types.go        # QualityScore, ScoringMetric interfaces
 │   ├── agent_scorer.go
@@ -55,6 +67,7 @@ internal/
 │   ├── skill_scorer.go
 │   └── plugin_scorer.go
 ├── cli/                # Lint orchestration per component type
+│   └── baseline_filter.go  # Baseline filtering logic
 ├── output/             # Formatters (console, json, markdown)
 ├── outputters/         # Output coordination
 ├── config/             # Viper-based config (.cclintrc.json/.yaml)
@@ -97,6 +110,38 @@ Detects skill references using `findSkillReferences()`:
 **Orphan Detection**: `FindOrphanedSkills()` builds a reference graph and reports skills with zero incoming edges as info-level suggestions.
 
 See: `docs/cross-file-validation.md`
+
+## Baseline Support (Gradual Adoption)
+
+Baseline allows teams to adopt cclint incrementally by accepting the current state and only failing on new issues.
+
+**Workflow**:
+1. Run `cclint --baseline-create` to snapshot all current issues into `.cclintbaseline.json`
+2. Commit the baseline file to version control
+3. Run `cclint --baseline` in CI/CD - only new issues will fail the build
+4. Fix issues incrementally, update baseline as needed
+
+**Fingerprinting**: Issues are fingerprinted using SHA256 hash of (file + source + normalized message pattern). Line numbers are ignored so issues remain stable when code shifts.
+
+**Example**:
+```bash
+# Legacy project with 100 existing issues
+cclint agents
+# 0/70 passed, 100 errors
+
+# Create baseline to accept current state
+cclint --baseline-create
+# Baseline created: .cclintbaseline.json (100 issues)
+
+# Now only new issues fail
+cclint --baseline agents
+# ✓ All passed
+# 100 baseline issues ignored (100 errors, 0 suggestions)
+
+# New issue added
+cclint --baseline agents
+# 69/70 passed, 1 error (new issue not in baseline)
+```
 
 ## Config
 
