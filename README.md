@@ -10,7 +10,10 @@ cclint validates YAML frontmatter, checks structural patterns, and suggests impr
 - **YAML frontmatter parsing**: Validates required fields and data types
 - **CUE schema validation**: Embedded schemas for type-safe validation
 - **Quality scoring**: 0-100 scores with tier grading (A-F)
-- **Cross-file validation**: Detects missing skill references
+- **Cross-file validation**: Detects missing skill references and circular dependencies
+- **Diff-aware linting**: Lint only staged/changed files for fast pre-commit hooks
+- **Baseline support**: Gradual adoption for legacy projects with existing issues
+- **Canonical formatting**: `cclint fmt` for consistent component style
 - **Multiple output formats**: Console, JSON, Markdown
 - **CI/CD ready**: Exit codes and JSON output for automation
 
@@ -89,6 +92,66 @@ cclint --format json --output report.json
 cclint --format markdown --output report.md
 ```
 
+### Git Integration (Diff-aware Linting)
+
+Lint only changed files for fast pre-commit hooks:
+
+```bash
+# Lint only staged files (perfect for pre-commit)
+cclint --staged
+
+# Lint all uncommitted changes (staged + unstaged)
+cclint --diff
+```
+
+If not in a git repository, falls back to full lint with a warning.
+
+### Baseline Support (Gradual Adoption)
+
+For legacy projects with existing issues, use baseline mode to adopt cclint incrementally:
+
+```bash
+# Create baseline from current issues (accepts current state)
+cclint --baseline-create
+
+# Lint with baseline - only NEW issues fail the build
+cclint --baseline
+
+# Use custom baseline file
+cclint --baseline --baseline-path .baseline-legacy.json
+```
+
+**Workflow:**
+1. Run `cclint --baseline-create` to snapshot current issues into `.cclintbaseline.json`
+2. Commit the baseline file to version control
+3. Run `cclint --baseline` in CI/CD — only new issues fail
+4. Fix issues incrementally, update baseline as needed
+
+### Canonical Formatting
+
+Format components with consistent style using `cclint fmt`:
+
+```bash
+# Preview formatting (stdout)
+cclint fmt agents/my-agent.md
+
+# Format in place
+cclint fmt --write agents/my-agent.md
+cclint fmt -w agents/
+
+# Show diff of changes
+cclint fmt --diff agents/
+
+# CI mode: exit 1 if formatting needed
+cclint fmt --check
+```
+
+**Formatting rules:**
+- Frontmatter field order: `name`, `description`, `model`, `tools`/`allowed-tools`, then alphabetically
+- Exactly one blank line after frontmatter
+- Trailing whitespace removed
+- File ends with single newline
+
 ### Exit Codes
 
 | Code | Meaning |
@@ -105,8 +168,11 @@ cclint validates references between components:
 | Check | Description |
 |-------|-------------|
 | **Skill existence** | Agents referencing non-existent skills produce errors |
+| **Circular dependencies** | Detects cycles in agent → skill → agent delegation chains |
 | **Orphan detection** | Skills not referenced by any agent/command show as suggestions |
 | **Tool permissions** | Commands using undeclared tools produce warnings |
+
+To disable circular dependency detection: `cclint --no-cycle-check`
 
 Skill references are detected in multiple formats:
 - `Skill: name` - Plain format (including inside code blocks)
@@ -311,13 +377,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
       - name: Install cclint
-        run: |
-          go install github.com/dotcommander/cclint@latest
+        run: go install github.com/dotcommander/cclint@latest
 
       - name: Run cclint
-        run: |
-          cclint --format json --output cclint-report.json
+        run: cclint --format json --output cclint-report.json
 
       - name: Upload results
         if: always()
@@ -325,6 +394,13 @@ jobs:
         with:
           name: cclint-report
           path: cclint-report.json
+```
+
+**With baseline support (gradual adoption):**
+
+```yaml
+      - name: Run cclint with baseline
+        run: cclint --baseline --format json --output cclint-report.json
 ```
 
 ### GitLab CI
@@ -349,16 +425,18 @@ Create `.git/hooks/pre-commit`:
 
 ```bash
 #!/bin/bash
-# Run cclint on commit
-cclint || exit 1
+# Run cclint on staged files only (fast!)
+cclint --staged || exit 1
 ```
 
 Or with [husky](https://github.com/typicode/husky):
 
 ```bash
 npm install --save-dev husky
-npx husky set .husky/pre-commit "cclint"
+npx husky set .husky/pre-commit "cclint --staged"
 ```
+
+Using `--staged` makes pre-commit hooks fast by only linting changed files.
 
 ## File Discovery
 

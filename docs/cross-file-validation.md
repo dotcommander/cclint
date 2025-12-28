@@ -9,8 +9,9 @@ How cclint detects and validates references between components.
 cclint performs cross-file validation to ensure components reference each other correctly. This includes:
 
 1. **Skill Reference Validation** - Agents referencing skills that don't exist
-2. **Orphan Detection** - Skills not referenced by any agent/command
-3. **Tool Validation** - Commands using tools they haven't declared
+2. **Circular Dependency Detection** - Cycles in agent → skill → agent delegation chains
+3. **Orphan Detection** - Skills not referenced by any agent/command
+4. **Tool Validation** - Commands using tools they haven't declared
 
 ## Skill Reference Detection
 
@@ -57,6 +58,50 @@ Key components:
 - `([a-z0-9][a-z0-9-]*)` - Capture skill name (lowercase, hyphens)
 
 **Important:** The `\n` exclusion is critical. Without it, Go's regex engine would greedily match across newlines, causing only the last skill in a block to be detected.
+
+## Circular Dependency Detection
+
+### What It Checks
+
+Circular dependencies occur when components form a loop in their reference chain:
+
+```
+agent-a → skill-b → agent-c → skill-d → agent-a  (cycle!)
+```
+
+These cycles can cause infinite loops in Claude Code when agents delegate to each other.
+
+### How It Works
+
+cclint uses DFS (Depth-First Search) with color marking to detect back edges in the component graph:
+
+1. **White (unvisited)** - Node not yet processed
+2. **Gray (in progress)** - Node is in current DFS path
+3. **Black (complete)** - Node fully processed
+
+A cycle is detected when we encounter a gray node while exploring.
+
+### Output
+
+Cycles are reported as errors on all involved agents:
+
+```bash
+$ cclint agents
+
+✗ agents/agent-a.md
+    ✘ Circular dependency detected: agent:agent-a → skill:shared-skill → agent:agent-a
+
+✗ agents/agent-c.md
+    ✘ Circular dependency detected: agent:agent-a → skill:shared-skill → agent:agent-a
+```
+
+### Disabling
+
+To disable circular dependency detection (not recommended):
+
+```bash
+cclint --no-cycle-check agents
+```
 
 ## Orphan Detection
 
