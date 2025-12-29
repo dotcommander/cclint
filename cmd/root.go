@@ -16,6 +16,11 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Version is set at build time via ldflags:
+//
+//	go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0"
+var Version = "dev"
+
 var (
 	rootPath         string
 	quiet            bool
@@ -36,8 +41,9 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cclint [files...]",
-	Short: "Claude Code Lint - A comprehensive linting tool for Claude Code projects",
+	Use:     "cclint [files...]",
+	Short:   "Claude Code Lint - A comprehensive linting tool for Claude Code projects",
+	Version: Version,
 	Long: `CCLint is a linting tool for Claude Code projects that validates agent files,
 command files, settings, and documentation according to established patterns.
 
@@ -127,6 +133,9 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	// Use -V for version since -v is already used for verbose
+	rootCmd.Flags().BoolP("version", "V", false, "Print version information")
 
 	// Existing flags
 	rootCmd.PersistentFlags().StringVarP(&rootPath, "root", "r", "", "Project root directory (auto-detected if not specified)")
