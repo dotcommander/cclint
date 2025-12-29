@@ -37,6 +37,9 @@ export PATH=$PATH:~/go/bin
 git clone https://github.com/dotcommander/cclint.git && cd cclint
 go build -o cclint .
 ln -sf $(pwd)/cclint ~/go/bin/cclint
+
+# Or build with a specific version
+go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0" -o cclint .
 ```
 
 ## Quick Start
@@ -70,6 +73,10 @@ cclint context                   # Lint CLAUDE.md files
 ### Common Options
 
 ```bash
+# Show version
+cclint --version
+cclint -V
+
 # Project root (auto-detected by default)
 cclint --root ~/my-project agents
 
