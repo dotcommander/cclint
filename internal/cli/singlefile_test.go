@@ -326,7 +326,7 @@ No name or description.
 		wantErr     bool // Expect error to be returned (not in results)
 	}{
 		{"valid agent", validAgent, "", true, 0, false},
-		{"invalid agent", invalidAgent, "", false, 2, false}, // Missing name and description
+		{"invalid agent", invalidAgent, "", false, 3, false}, // Missing name and description (CUE + Go checks)
 		{"nonexistent", filepath.Join(tmpDir, "nope.md"), "", false, 0, true},
 	}
 
