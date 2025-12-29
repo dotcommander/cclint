@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -16,11 +15,6 @@ func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool) 
 		return nil, err
 	}
 	return lintBatch(ctx, NewSettingsLinter()), nil
-}
-
-// parseJSON parses JSON content into the provided interface
-func parseJSON(content string, out interface{}) error {
-	return json.Unmarshal([]byte(content), out)
 }
 
 // Valid hook events according to Anthropic documentation

@@ -48,9 +48,7 @@ func (l *CommandLinter) ValidateSpecific(data map[string]interface{}, filePath, 
 
 	// Validate allowed-tools
 	toolWarnings := ValidateAllowedTools(data, filePath, contents)
-	for _, w := range toolWarnings {
-		errors = append(errors, w)
-	}
+	errors = append(errors, toolWarnings...)
 
 	return errors
 }

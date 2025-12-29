@@ -215,8 +215,8 @@ func TestGitIntegration(t *testing.T) {
 	}
 
 	// Configure git user (required for commits)
-	exec.Command("git", "config", "user.email", "test@test.com").Run()
-	exec.Command("git", "config", "user.name", "Test User").Run()
+	_ = exec.Command("git", "config", "user.email", "test@test.com").Run()
+	_ = exec.Command("git", "config", "user.name", "Test User").Run()
 
 	// Create test files
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.md")

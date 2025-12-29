@@ -3,7 +3,6 @@ package format
 import (
 	"bytes"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -19,9 +18,7 @@ type Formatter interface {
 }
 
 // ComponentFormatter provides base formatting for all component types.
-type ComponentFormatter struct {
-	componentType string
-}
+type ComponentFormatter struct{}
 
 // NewComponentFormatter creates a formatter for a specific component type.
 func NewComponentFormatter(componentType string) Formatter {
@@ -283,18 +280,4 @@ func Diff(original, formatted, filename string) string {
 	}
 
 	return buf.String()
-}
-
-// normalizeHeadings ensures consistent heading levels.
-// This is a placeholder for more sophisticated heading normalization.
-func normalizeHeadings(content string) string {
-	// For now, just return as-is. Future: normalize ## to consistent levels.
-	return content
-}
-
-// trimTrailingWhitespace removes trailing whitespace from lines.
-var trailingWhitespaceRegex = regexp.MustCompile(`[ \t]+$`)
-
-func trimTrailingWhitespace(line string) string {
-	return trailingWhitespaceRegex.ReplaceAllString(line, "")
 }

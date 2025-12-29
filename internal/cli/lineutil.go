@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // FindLineNumber finds the line number (1-based) where a pattern first appears
@@ -372,7 +374,7 @@ func ValidateToolFieldName(data map[string]interface{}, filePath string, content
 		if _, hasTools := data["tools"]; hasTools {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("%ss must use 'allowed-tools:', not 'tools:'. Rename the field.", strings.Title(componentType)),
+				Message:  fmt.Sprintf("%ss must use 'allowed-tools:', not 'tools:'. Rename the field.", cases.Title(language.English).String(componentType)),
 				Severity: "error",
 				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, "tools"),
