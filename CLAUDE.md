@@ -8,6 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build and symlink to ~/go/bin
 go build -o cclint . && ln -sf $(pwd)/cclint ~/go/bin/cclint
 
+# Build with version override
+go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0" -o cclint .
+
+# Version
+cclint --version              # show version (defaults to "dev")
+cclint -V                     # short form
+
 # Run linter (defaults to ~/.claude)
 cclint                        # lint all component types
 cclint agents                 # lint only agents
