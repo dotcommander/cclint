@@ -153,6 +153,11 @@ func (v *Validator) validateAgainstSchema(schema cue.Value, data map[string]any,
 		return v.extractErrorsFromCUE(err, schemaType), nil
 	}
 
+	// Validate concreteness - ensures required fields are present
+	if err := unified.Validate(cue.Concrete(true)); err != nil {
+		return v.extractErrorsFromCUE(err, schemaType), nil
+	}
+
 	// Data validates successfully
 	return nil, nil
 }
