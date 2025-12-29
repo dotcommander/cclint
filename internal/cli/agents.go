@@ -46,9 +46,34 @@ func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*
 	return lintBatch(ctx, NewAgentLinter()), nil
 }
 
+// knownAgentFields lists valid frontmatter fields per Anthropic docs
+// Source: https://docs.anthropic.com/en/docs/claude-code/sub-agents
+var knownAgentFields = map[string]bool{
+	"name":           true, // Required: unique identifier
+	"description":    true, // Required: what the agent does
+	"model":          true, // Optional: sonnet, opus, haiku, etc.
+	"color":          true, // Optional: display color in UI
+	"tools":          true, // Optional: tool access
+	"permissionMode": true, // Optional: permission handling
+	"skills":         true, // Optional: comma-separated skill names
+}
+
 // validateAgentSpecific implements agent-specific validation rules
 func validateAgentSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
+
+	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	for key := range data {
+		if !knownAgentFields[key] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, permissionMode, skills", key),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, key),
+			})
+		}
+	}
 
 	// Check required fields - FROM ANTHROPIC DOCS: "name" and "description" are Required
 	if name, ok := data["name"].(string); !ok || name == "" {

@@ -8,6 +8,15 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
+// knownSkillFields lists valid frontmatter fields per Anthropic docs
+// Source: https://docs.anthropic.com/en/docs/claude-code/skills
+var knownSkillFields = map[string]bool{
+	"name":          true, // Required: skill identifier
+	"description":   true, // Required: what the skill does (critical for discovery)
+	"allowed-tools": true, // Optional: tool access permissions
+	"model":         true, // Optional: model to use when skill is active
+}
+
 // LintSkills runs linting on skill files using the generic linter.
 func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)

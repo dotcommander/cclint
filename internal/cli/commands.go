@@ -16,9 +16,33 @@ func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool) 
 	return lintBatch(ctx, NewCommandLinter()), nil
 }
 
+// knownCommandFields lists valid frontmatter fields per Anthropic docs
+// Source: https://docs.anthropic.com/en/docs/claude-code/slash-commands
+var knownCommandFields = map[string]bool{
+	"name":                     true, // Optional: derived from filename if not set
+	"description":              true, // Optional: command description
+	"allowed-tools":            true, // Optional: tool access permissions
+	"argument-hint":            true, // Optional: hint for command arguments
+	"model":                    true, // Optional: model to use
+	"disable-model-invocation": true, // Optional: prevent SlashCommand tool from calling
+}
+
 // validateCommandSpecific implements command-specific validation rules
 func validateCommandSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
+
+	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	for key := range data {
+		if !knownCommandFields[key] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, argument-hint, model, disable-model-invocation", key),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, key),
+			})
+		}
+	}
 
 	// Note: name is optional in frontmatter - it's derived from filename (per Anthropic docs)
 	// Check name format if present - format rule from Anthropic docs

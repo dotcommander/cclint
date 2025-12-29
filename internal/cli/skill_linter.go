@@ -87,6 +87,19 @@ func (l *SkillLinter) ValidateCUE(validator *cue.Validator, data map[string]inte
 func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
+	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	for key := range data {
+		if !knownSkillFields[key] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, model", key),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, key),
+			})
+		}
+	}
+
 	// Reserved word check
 	if name, ok := data["name"].(string); ok {
 		reservedWords := map[string]bool{"anthropic": true, "claude": true}
