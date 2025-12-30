@@ -183,6 +183,35 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 	return errors
 }
 
+// hasEditingTools checks if the tools field includes editing capabilities
+func hasEditingTools(tools interface{}) bool {
+	editingTools := []string{"Edit", "Write", "MultiEdit"}
+
+	switch v := tools.(type) {
+	case string:
+		if v == "*" {
+			return true
+		}
+		// Check comma-separated string
+		for _, tool := range editingTools {
+			if strings.Contains(v, tool) {
+				return true
+			}
+		}
+	case []interface{}:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				for _, tool := range editingTools {
+					if s == tool {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // validateAgentBestPractices checks opinionated best practices for agents
 func validateAgentBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
 	var suggestions []cue.ValidationError
@@ -278,6 +307,19 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 				Severity: "suggestion",
 				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "description"),
+			})
+		}
+	}
+
+	// Check for permissionMode when agent has editing tools - OUR OBSERVATION
+	if _, hasPermMode := data["permissionMode"]; !hasPermMode {
+		if hasEditingTools(data["tools"]) {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "Agent has editing tools but no permissionMode. Consider 'permissionMode: acceptEdits' for seamless file edits.",
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, "tools"),
 			})
 		}
 	}
