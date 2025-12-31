@@ -33,6 +33,11 @@ Thumbs.db
 *.tmp
 *.log
 *.coverage
+
+# Coverage output
+*.out
+coverage.html
+
 node_modules/
 
 # Research artifacts
