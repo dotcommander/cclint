@@ -3,15 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"time"
 
-	"github.com/dotcommander/cclint/internal/baseline"
 	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/config"
-	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/git"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/outputters"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -197,132 +193,21 @@ func runLint() error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
-	// Determine baseline path (relative to project root)
-	baselineFile := baselinePath
-	if !filepath.IsAbs(baselineFile) {
-		baselineFile = filepath.Join(cfg.Root, baselineFile)
-	}
+	// Create and run the orchestrator
+	orchestrator := lint.NewOrchestrator(cfg, lint.OrchestratorConfig{
+		RootPath:       rootPath,
+		UseBaseline:    useBaseline,
+		CreateBaseline: createBaseline,
+		BaselinePath:   baselinePath,
+	})
 
-	// Load baseline if requested
-	var b *baseline.Baseline
-	if useBaseline || createBaseline {
-		if _, err := os.Stat(baselineFile); err == nil {
-			b, err = baseline.LoadBaseline(baselineFile)
-			if err != nil && !cfg.Quiet {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", err)
-				b = nil
-			}
-		}
-	}
-
-	outputter := outputters.NewOutputter(cfg)
-
-	// Define all linters to run
-	linters := []struct {
-		name   string
-		linter func(string, bool, bool, bool) (*cli.LintSummary, error)
-	}{
-		{"agents", cli.LintAgents},
-		{"commands", cli.LintCommands},
-		{"skills", cli.LintSkills},
-		{"settings", cli.LintSettings},
-		{"context", cli.LintContext},
-		{"rules", cli.LintRules},
-		// {"plugins", cli.LintPlugins}, // TODO: re-enable when output is less overwhelming
-	}
-
-	// Track totals across all linters
-	var totalFiles, totalErrors, totalSuggestions int
-	var hasErrors bool
-	var totalIgnored, errorsIgnored, suggestionsIgnored int
-	var allIssues []cue.ValidationError // For baseline creation
-
-	// Run all linters
-	for _, l := range linters {
-		summary, err := l.linter(cfg.Root, cfg.Quiet, cfg.Verbose, cfg.NoCycleCheck)
-		if err != nil {
-			return fmt.Errorf("error running %s linter: %w", l.name, err)
-		}
-
-		// Skip empty results (no files of this type)
-		if summary.TotalFiles == 0 {
-			continue
-		}
-
-		// Collect issues for baseline creation
-		if createBaseline {
-			allIssues = append(allIssues, cli.CollectAllIssues(summary)...)
-		}
-
-		// Filter with baseline if active
-		if useBaseline && b != nil {
-			ignored, errIgnored, suggIgnored := cli.FilterResults(summary, b)
-			totalIgnored += ignored
-			errorsIgnored += errIgnored
-			suggestionsIgnored += suggIgnored
-		}
-
-		// Format and output results for this component type
-		if err := outputter.Format(summary, cfg.Format); err != nil {
-			return fmt.Errorf("error formatting %s output: %w", l.name, err)
-		}
-
-		// Accumulate totals
-		totalFiles += summary.TotalFiles
-		totalErrors += summary.TotalErrors
-		totalSuggestions += summary.TotalSuggestions
-		if summary.TotalErrors > 0 {
-			hasErrors = true
-		}
-	}
-
-	// Run project-wide memory checks
-	if !cfg.Quiet {
-		// Check CLAUDE.local.md gitignore
-		gitignoreWarnings := cli.CheckClaudeLocalGitignore(cfg.Root)
-		for _, w := range gitignoreWarnings {
-			fmt.Printf("warning: %s: %s\n", w.File, w.Message)
-		}
-
-		// Check combined memory size
-		fd := discovery.NewFileDiscovery(cfg.Root, false)
-		allFiles, _ := fd.DiscoverFiles()
-		sizeWarnings := cli.CheckCombinedMemorySize(cfg.Root, allFiles)
-		for _, w := range sizeWarnings {
-			fmt.Printf("warning: %s\n", w.Message)
-		}
-	}
-
-	// Create/update baseline if requested (do this BEFORE exiting on errors)
-	if createBaseline {
-		b = baseline.CreateBaseline(allIssues)
-		b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-
-		if err := b.SaveBaseline(baselineFile); err != nil {
-			return fmt.Errorf("failed to save baseline: %w", err)
-		}
-
-		if !cfg.Quiet {
-			fmt.Printf("\nBaseline created: %s (%d issues)\n", baselineFile, len(b.Fingerprints))
-		}
-
-		// When creating baseline, exit 0 (success) to accept current state
-		return nil
-	}
-
-	// Print baseline filtering summary
-	if useBaseline && b != nil && totalIgnored > 0 && !cfg.Quiet {
-		fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-			totalIgnored, errorsIgnored, suggestionsIgnored)
-	}
-
-	// Print validation reminder (unless quiet mode)
-	if !cfg.Quiet {
-		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
+	result, err := orchestrator.Run()
+	if err != nil {
+		return err
 	}
 
 	// Exit with error if any linter found errors
-	if hasErrors {
+	if result.HasErrors {
 		os.Exit(1)
 	}
 
