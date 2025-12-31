@@ -216,7 +216,7 @@ func runFmt(args []string) error {
 
 	// Check mode: exit 1 if files need formatting
 	if fmtCheck && len(needsFormatting) > 0 {
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	return nil

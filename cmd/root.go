@@ -35,6 +35,10 @@ var (
 	useBaseline      bool     // Use baseline filtering
 	createBaseline   bool     // Create/update baseline file
 	baselinePath     string   // Custom baseline file path
+
+	// exitFunc is the function called to exit the program.
+	// It can be overridden in tests to prevent actual process termination.
+	exitFunc = os.Exit
 )
 
 var rootCmd = &cobra.Command{
@@ -124,7 +128,7 @@ EXAMPLES:
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
+		exitFunc(1)
 	}
 }
 
