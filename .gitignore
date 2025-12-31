@@ -38,3 +38,6 @@ node_modules/
 # Research artifacts
 research/
 ANTHROPIC_REQUIREMENTS.md
+
+# Repomix output (codebase snapshot)
+repomix-output.md
