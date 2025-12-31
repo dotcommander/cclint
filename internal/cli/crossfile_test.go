@@ -477,3 +477,405 @@ func TestBuiltInSubagentTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestTraceChainEdgeCases(t *testing.T) {
+	files := []discovery.File{
+		{
+			RelPath:  "agents/agent-a.md",
+			Type:     discovery.FileTypeAgent,
+			Contents: "Skill: skill-a\nSkill: skill-b",
+		},
+		{
+			RelPath:  "skills/skill-a/SKILL.md",
+			Type:     discovery.FileTypeSkill,
+			Contents: "Skill methodology",
+		},
+		{
+			RelPath:  "skills/skill-b/SKILL.md",
+			Type:     discovery.FileTypeSkill,
+			Contents: "Another skill",
+		},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name          string
+		componentType string
+		componentName string
+		wantNil       bool
+		wantChildren  int
+	}{
+		{
+			name:          "agent with multiple skills",
+			componentType: "agent",
+			componentName: "agent-a",
+			wantNil:       false,
+			wantChildren:  2,
+		},
+		{
+			name:          "nonexistent component",
+			componentType: "command",
+			componentName: "nonexistent",
+			wantNil:       true,
+		},
+		{
+			name:          "skill trace",
+			componentType: "skill",
+			componentName: "skill-a",
+			wantNil:       false,
+			wantChildren:  0,
+		},
+		{
+			name:          "invalid component type",
+			componentType: "invalid",
+			componentName: "test",
+			wantNil:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			chain := v.TraceChain(tt.componentType, tt.componentName)
+			if tt.wantNil && chain != nil {
+				t.Errorf("TraceChain() = %v, want nil", chain)
+			}
+			if !tt.wantNil && chain == nil {
+				t.Fatal("TraceChain() = nil, want non-nil")
+			}
+			if !tt.wantNil && len(chain.Children) != tt.wantChildren {
+				t.Errorf("TraceChain() children = %d, want %d", len(chain.Children), tt.wantChildren)
+			}
+		})
+	}
+}
+
+func TestFindOrphanedSkillsEdgeCases(t *testing.T) {
+	tests := []struct {
+		name         string
+		files        []discovery.File
+		wantOrphans  int
+		wantContains []string
+	}{
+		{
+			name: "skill referenced by command Task()",
+			files: []discovery.File{
+				{
+					RelPath:  "commands/test.md",
+					Type:     discovery.FileTypeCommand,
+					Contents: "Task(my-skill)",
+				},
+				{
+					RelPath:  "skills/my-skill/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "Skill content",
+				},
+			},
+			wantOrphans: 0,
+		},
+		{
+			name: "skill referenced by another skill",
+			files: []discovery.File{
+				{
+					RelPath:  "skills/skill-a/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "See skill-b for details",
+				},
+				{
+					RelPath:  "skills/skill-b/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "Skill B content",
+				},
+			},
+			wantOrphans:  1, // skill-a is orphaned
+			wantContains: []string{"skill-a"},
+		},
+		{
+			name: "all skills orphaned",
+			files: []discovery.File{
+				{
+					RelPath:  "skills/orphan-1/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "Orphan 1",
+				},
+				{
+					RelPath:  "skills/orphan-2/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "Orphan 2",
+				},
+			},
+			wantOrphans:  2,
+			wantContains: []string{"orphan-1", "orphan-2"},
+		},
+		{
+			name: "self-reference doesn't count",
+			files: []discovery.File{
+				{
+					RelPath:  "skills/self-ref/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "This is skill self-ref doing self-ref things",
+				},
+			},
+			wantOrphans:  1,
+			wantContains: []string{"self-ref"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := NewCrossFileValidator(tt.files)
+			orphans := v.FindOrphanedSkills()
+
+			if len(orphans) != tt.wantOrphans {
+				t.Errorf("FindOrphanedSkills() = %d orphans, want %d", len(orphans), tt.wantOrphans)
+				for _, o := range orphans {
+					t.Logf("  Orphan: %s", o.File)
+				}
+			}
+
+			// Check that expected orphans are present
+			orphanMap := make(map[string]bool)
+			for _, o := range orphans {
+				for _, want := range tt.wantContains {
+					if strings.Contains(o.File, want) {
+						orphanMap[want] = true
+					}
+				}
+			}
+			for _, want := range tt.wantContains {
+				if !orphanMap[want] {
+					t.Errorf("FindOrphanedSkills() missing expected orphan %q", want)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectCyclesEdgeCases(t *testing.T) {
+	tests := []struct {
+		name       string
+		files      []discovery.File
+		wantCycles int
+	}{
+		{
+			name: "no cycles",
+			files: []discovery.File{
+				{
+					RelPath:  "commands/cmd.md",
+					Type:     discovery.FileTypeCommand,
+					Contents: "Task(agent-a)",
+				},
+				{
+					RelPath:  "agents/agent-a.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Skill: skill-a",
+				},
+				{
+					RelPath:  "skills/skill-a/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "No cycles here",
+				},
+			},
+			wantCycles: 0,
+		},
+		{
+			name: "skill to skill cycle",
+			files: []discovery.File{
+				{
+					RelPath:  "skills/skill-a/SKILL.md",
+					Type:     discovery.FileTypeSkill,
+					Contents: "delegate to skill-b-specialist",
+				},
+				{
+					RelPath:  "agents/skill-b-specialist.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Skill: skill-a",
+				},
+			},
+			wantCycles: 1,
+		},
+		{
+			name: "agent self-reference filtered",
+			files: []discovery.File{
+				{
+					RelPath:  "agents/agent-a.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Task(agent-a)", // Self-reference should be filtered
+				},
+			},
+			wantCycles: 0,
+		},
+		{
+			name: "three-way cycle",
+			files: []discovery.File{
+				{
+					RelPath:  "agents/agent-a.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Task(agent-b)",
+				},
+				{
+					RelPath:  "agents/agent-b.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Task(agent-c)",
+				},
+				{
+					RelPath:  "agents/agent-c.md",
+					Type:     discovery.FileTypeAgent,
+					Contents: "Task(agent-a)",
+				},
+			},
+			wantCycles: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := NewCrossFileValidator(tt.files)
+			cycles := v.DetectCycles()
+
+			if len(cycles) < tt.wantCycles {
+				t.Errorf("DetectCycles() found %d cycles, want at least %d", len(cycles), tt.wantCycles)
+			}
+		})
+	}
+}
+
+func TestValidateCommandEdgeCases(t *testing.T) {
+	files := []discovery.File{
+		{
+			RelPath:  "agents/primary-agent.md",
+			Type:     discovery.FileTypeAgent,
+			Contents: "Skill: skill-a\n--verbose flag support",
+		},
+		{
+			RelPath:  "skills/skill-a/SKILL.md",
+			Type:     discovery.FileTypeSkill,
+			Contents: "Supports --verbose flag",
+		},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name         string
+		contents     string
+		frontmatter  map[string]interface{}
+		wantErrCount int
+		wantWarnings int
+	}{
+		{
+			name:     "flag in agent",
+			contents: "Task(primary-agent): do --verbose processing",
+			frontmatter: map[string]interface{}{
+				"allowed-tools": "Task(primary-agent)",
+			},
+			wantErrCount: 0,
+			wantWarnings: 0,
+		},
+		{
+			name:     "flag in skill",
+			contents: "Task(primary-agent): use --verbose",
+			frontmatter: map[string]interface{}{
+				"allowed-tools": "Task(primary-agent)",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name:     "fake flag not in agent or skill",
+			contents: "Task(primary-agent): use --fake-flag",
+			frontmatter: map[string]interface{}{
+				"allowed-tools": "Task(primary-agent)",
+			},
+			wantWarnings: 1, // Should warn about fake flag
+		},
+		{
+			name:     "declarative command with Write",
+			contents: "This command will save to output.md",
+			frontmatter: map[string]interface{}{
+				"allowed-tools": "Write",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name:     "unused tool non-declarative",
+			contents: "Just a command",
+			frontmatter: map[string]interface{}{
+				"allowed-tools": "Grep",
+			},
+			wantWarnings: 1, // Should have info about unused tool
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.ValidateCommand("commands/test.md", tt.contents, tt.frontmatter)
+			errCount := 0
+			warnCount := 0
+			infoCount := 0
+
+			for _, e := range errors {
+				switch e.Severity {
+				case "error":
+					errCount++
+				case "warning":
+					warnCount++
+				case "info":
+					infoCount++
+				}
+			}
+
+			if tt.wantErrCount > 0 && errCount < tt.wantErrCount {
+				t.Errorf("ValidateCommand() errors = %d, want at least %d", errCount, tt.wantErrCount)
+			}
+			if tt.wantWarnings > 0 && (warnCount+infoCount) < tt.wantWarnings {
+				t.Errorf("ValidateCommand() warnings+info = %d, want at least %d", warnCount+infoCount, tt.wantWarnings)
+			}
+		})
+	}
+}
+
+func TestFormatChainNil(t *testing.T) {
+	output := FormatChain(nil, "")
+	if output != "" {
+		t.Errorf("FormatChain(nil) = %q, want empty string", output)
+	}
+}
+
+func TestFormatCycleEmpty(t *testing.T) {
+	cycle := Cycle{Path: []string{}}
+	output := FormatCycle(cycle)
+	if output != "" {
+		t.Errorf("FormatCycle(empty) = %q, want empty string", output)
+	}
+}
+
+func TestDetermineCycleType(t *testing.T) {
+	tests := []struct {
+		name string
+		path []string
+		want string
+	}{
+		{
+			name: "empty path",
+			path: []string{},
+			want: "unknown",
+		},
+		{
+			name: "agent to agent",
+			path: []string{"agent:a", "agent:b", "agent:a"},
+			want: "agent → agent → agent",
+		},
+		{
+			name: "mixed types",
+			path: []string{"command:c", "agent:a", "skill:s", "command:c"},
+			want: "command → agent → skill → command",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := determineCycleType(tt.path)
+			if got != tt.want {
+				t.Errorf("determineCycleType() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

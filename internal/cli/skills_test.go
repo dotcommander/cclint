@@ -160,3 +160,200 @@ func TestKnownSkillFields(t *testing.T) {
 		}
 	}
 }
+
+func TestSkillLinterPreValidate(t *testing.T) {
+	linter := NewSkillLinter()
+
+	tests := []struct {
+		name         string
+		filePath     string
+		contents     string
+		wantErrCount int
+	}{
+		{
+			name:         "valid SKILL.md",
+			filePath:     "skills/test/SKILL.md",
+			contents:     "content",
+			wantErrCount: 0,
+		},
+		{
+			name:         "wrong filename",
+			filePath:     "skills/test/readme.md",
+			contents:     "content",
+			wantErrCount: 1,
+		},
+		{
+			name:         "empty file",
+			filePath:     "skills/test/SKILL.md",
+			contents:     "   \n  ",
+			wantErrCount: 1,
+		},
+		{
+			name:         "windows path SKILL.md",
+			filePath:     "skills\\test\\SKILL.md",
+			contents:     "content",
+			wantErrCount: 0,
+		},
+		{
+			name:         "just SKILL.md",
+			filePath:     "SKILL.md",
+			contents:     "content",
+			wantErrCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := linter.PreValidate(tt.filePath, tt.contents)
+
+			errCount := 0
+			for _, e := range errors {
+				if e.Severity == "error" {
+					errCount++
+				}
+			}
+
+			if errCount != tt.wantErrCount {
+				t.Errorf("PreValidate() errors = %d, want %d", errCount, tt.wantErrCount)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestSkillLinterValidateSpecific(t *testing.T) {
+	linter := NewSkillLinter()
+
+	tests := []struct {
+		name             string
+		data             map[string]interface{}
+		contents         string
+		wantErrCount     int
+		wantSuggestions  int
+	}{
+		{
+			name: "unknown frontmatter field",
+			data: map[string]interface{}{
+				"unknown-field": "value",
+			},
+			contents:        "---\nunknown-field: value\n---\n",
+			wantSuggestions: 1,
+		},
+		{
+			name: "reserved word name",
+			data: map[string]interface{}{
+				"name": "claude",
+			},
+			contents:     "---\nname: claude\n---\n",
+			wantErrCount: 1,
+		},
+		{
+			name: "reserved word anthropic",
+			data: map[string]interface{}{
+				"name": "anthropic",
+			},
+			contents:     "---\nname: anthropic\n---\n",
+			wantErrCount: 1,
+		},
+		{
+			name:            "no frontmatter suggestion",
+			data:            map[string]interface{}{},
+			contents:        "Just content without frontmatter",
+			wantSuggestions: 1,
+		},
+		{
+			name: "with frontmatter",
+			data: map[string]interface{}{
+				"name": "valid-name",
+			},
+			contents:     "---\nname: valid-name\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "multiple unknown fields",
+			data: map[string]interface{}{
+				"unknown1": "val1",
+				"unknown2": "val2",
+			},
+			contents:        "---\nunknown1: val1\nunknown2: val2\n---\n",
+			wantSuggestions: 2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := linter.ValidateSpecific(tt.data, "skills/test/SKILL.md", tt.contents)
+
+			errCount := 0
+			suggCount := 0
+			for _, e := range errors {
+				if e.Severity == "error" {
+					errCount++
+				} else if e.Severity == "suggestion" {
+					suggCount++
+				}
+			}
+
+			if errCount != tt.wantErrCount {
+				t.Errorf("ValidateSpecific() errors = %d, want %d", errCount, tt.wantErrCount)
+				for _, e := range errors {
+					if e.Severity == "error" {
+						t.Logf("  Error: %s", e.Message)
+					}
+				}
+			}
+
+			if suggCount < tt.wantSuggestions {
+				t.Errorf("ValidateSpecific() suggestions = %d, want at least %d", suggCount, tt.wantSuggestions)
+			}
+		})
+	}
+}
+
+func TestSkillLinterType(t *testing.T) {
+	linter := NewSkillLinter()
+	if linter.Type() != "skill" {
+		t.Errorf("SkillLinter.Type() = %q, want %q", linter.Type(), "skill")
+	}
+}
+
+func TestSkillLinterParseContent(t *testing.T) {
+	linter := NewSkillLinter()
+
+	tests := []struct {
+		name        string
+		contents    string
+		wantDataNil bool
+	}{
+		{
+			name:        "with frontmatter",
+			contents:    "---\nname: test\n---\nBody",
+			wantDataNil: false,
+		},
+		{
+			name:        "without frontmatter",
+			contents:    "Just content",
+			wantDataNil: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, body, err := linter.ParseContent(tt.contents)
+
+			if err != nil {
+				t.Errorf("ParseContent() unexpected error: %v", err)
+			}
+
+			if (data == nil) != tt.wantDataNil {
+				t.Errorf("ParseContent() data nil = %v, want %v", data == nil, tt.wantDataNil)
+			}
+
+			if body == "" {
+				t.Error("ParseContent() body is empty")
+			}
+		})
+	}
+}

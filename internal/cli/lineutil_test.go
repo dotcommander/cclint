@@ -275,3 +275,316 @@ func TestSeverityConstants(t *testing.T) {
 		t.Errorf("SeverityLow = %q, want %q", SeverityLow, "low")
 	}
 }
+
+func TestIsPlaceholderSecret(t *testing.T) {
+	tests := []struct {
+		name         string
+		line         string
+		isPlaceholder bool
+	}{
+		// Should be detected as placeholders
+		{"example keyword", `api_key: "your-example-key-here"`, true},
+		{"placeholder keyword", `secret: "placeholder-value"`, true},
+		{"your-prefix", `api_key: "your-api-key"`, true},
+		{"your_prefix", `api_key: "your_api_key"`, true},
+		{"angle bracket placeholder", `api_key: "<YOUR_API_KEY>"`, true},
+		{"square bracket placeholder", `api_key: "[your-key-here]"`, true},
+		{"curly bracket placeholder", `api_key: "{your-key-here}"`, true},
+		{"replace keyword", `token: "replace-with-real-token"`, true},
+		{"insert keyword", `password: "insert-password"`, true},
+		{"changeme keyword", `secret: "changeme"`, true},
+		{"change-me keyword", `secret: "change-me-later"`, true},
+		{"xxx pattern", `api_key: "sk-xxxxxxxxxxxxxxxxxxxxxx"`, true},
+		{"multiple x's", `token: "xxxxxxxxxxxx"`, true},
+		{"asterisks", `password: "***hidden***"`, true},
+		{"dummy keyword", `api_key: "dummy-key-for-testing"`, true},
+		{"sample keyword", `token: "sample-token-value"`, true},
+		{"fake keyword", `secret: "fake-secret-value"`, true},
+		{"test-key", `api_key: "test-key-12345"`, true},
+		{"testkey", `api_key: "testkey12345678"`, true},
+		{"test_key", `api_key: "test_key_value"`, true},
+		{"my-key", `api_key: "my-key-goes-here"`, true},
+		{"mykey", `api_key: "mykey12345"`, true},
+		{"ending with here>", `api_key: "put-your-key-here>"`, true},
+		{"ending with -here", `token: "api-key-here"`, true},
+		{"zeros pattern", `api_key: "sk-0000000000000000000000"`, true},
+		{"AWS example access key", "AKIAIOSFODNN7EXAMPLE", true},
+		{"AWS example secret key", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", true},
+		{"angle bracket with key", `<api_key>`, true},
+		{"angle bracket with token", `<token>`, true},
+		{"angle bracket with secret", `<secret>`, true},
+		{"file-value example", `apiKey: "file-value"`, true},
+		{"env-value example", `api_key: "env-value"`, true},
+		{"some-value example", `secret: "some-value"`, true},
+		{"value-here example", `token: "value-here"`, true},
+		{"Go comment example", `// config.yaml: apiKey: "real-looking-key-here"`, true},
+		{"hash comment example", `# api_key: "actual-secret-value"`, true},
+
+		// Should NOT be detected as placeholders (real-looking secrets)
+		{"real-looking API key", `api_key: "sk-AbCdEfGhIjKlMnOpQrStUvWxYz"`, false},
+		{"real-looking password", `password: "MyP@ssw0rd!2024"`, false},
+		{"real-looking token", `token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"`, false},
+		{"real-looking AWS key", `aws_access_key_id: "AKIAZ7VRSQHFPT9ABCDE"`, false},
+		{"GitHub PAT", `ghp_AbCdEfGhIjKlMnOpQrStUvWxYz123456`, false},
+		{"random string", `secret: "f8a7b2c3d4e5f6g7h8i9j0"`, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPlaceholderSecret(tt.line)
+			if result != tt.isPlaceholder {
+				t.Errorf("isPlaceholderSecret(%q) = %v, want %v", tt.line, result, tt.isPlaceholder)
+			}
+		})
+	}
+}
+
+func TestDetectSecretsComprehensive(t *testing.T) {
+	tests := []struct {
+		name     string
+		contents string
+		filePath string
+		wantMin  int // minimum number of warnings expected
+	}{
+		{
+			name:     "no secrets",
+			contents: "Just regular content with no secrets",
+			filePath: "test.md",
+			wantMin:  0,
+		},
+		{
+			name:     "API key pattern",
+			contents: `api_key: "sk-1234567890abcdefghijklmnop"`,
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "password pattern",
+			contents: `password: "my_secret_password"`,
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "secret token pattern",
+			contents: `secret: "super_secret_token_value"`,
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "OpenAI API key",
+			contents: "sk-abcdefghijklmnopqrstuvwxyz",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "Slack bot token",
+			contents: "xoxb-TESTABC12345-TESTABC12345TEST",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "GitHub PAT exact length",
+			contents: "ghp_123456789012345678901234567890123456",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "Google API key exact",
+			contents: "AIzaSyAbCdEfGhIjKlMnOpQrStUvWxYz1234567890",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "RSA private key",
+			contents: "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCA",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "DSA private key",
+			contents: "-----BEGIN DSA PRIVATE KEY-----\nMIIEowIBAAKCA",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "AWS access key (real pattern)",
+			contents: "aws_access_key_id: AKIAZ7VRSQHFPT9ABCDE",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "AWS secret key (real pattern)",
+			contents: "aws_secret_access_key: AbCdEfGhIjKlMnOpQrStUvWxYz1234567890+/AB",
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "AWS example access key - should be ignored",
+			contents: "aws_access_key_id: AKIAIOSFODNN7EXAMPLE",
+			filePath: "test.md",
+			wantMin:  0, // Example keys should not trigger warnings
+		},
+		{
+			name:     "AWS example secret key - should be ignored",
+			contents: "aws_secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			filePath: "test.md",
+			wantMin:  0, // Example keys should not trigger warnings
+		},
+		{
+			name:     "multiple secrets",
+			contents: "api_key: \"sk-123456789012345678901234\"\npassword: \"secret123\"",
+			filePath: "test.md",
+			wantMin:  2,
+		},
+		{
+			name:     "apikey without underscore",
+			contents: `apikey: "1234567890abcdefghij"`,
+			filePath: "test.md",
+			wantMin:  1,
+		},
+		{
+			name:     "token with equals",
+			contents: `token="abcdefghijklmnopqrstuvwxyz"`,
+			filePath: "test.md",
+			wantMin:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warnings := detectSecrets(tt.contents, tt.filePath)
+			if len(warnings) < tt.wantMin {
+				t.Errorf("detectSecrets() found %d warnings, want at least %d", len(warnings), tt.wantMin)
+				for _, w := range warnings {
+					t.Logf("  Warning: %s (line %d)", w.Message, w.Line)
+				}
+			}
+
+			// Verify all warnings have severity "warning"
+			for _, w := range warnings {
+				if w.Severity != "warning" {
+					t.Errorf("detectSecrets() warning has severity %q, want 'warning'", w.Severity)
+				}
+			}
+
+			// Verify line numbers are set
+			if len(warnings) > 0 {
+				for _, w := range warnings {
+					if w.Line == 0 {
+						t.Errorf("detectSecrets() warning missing line number: %s", w.Message)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestValidateAllowedToolsUnknownTool(t *testing.T) {
+	tests := []struct {
+		name         string
+		data         map[string]interface{}
+		wantWarnings int
+	}{
+		{
+			name: "unknown tool",
+			data: map[string]interface{}{
+				"allowed-tools": "UnknownTool",
+			},
+			wantWarnings: 1,
+		},
+		{
+			name: "multiple unknown tools",
+			data: map[string]interface{}{
+				"allowed-tools": "UnknownTool1, UnknownTool2",
+			},
+			wantWarnings: 2,
+		},
+		{
+			name: "Task with npm prefix",
+			data: map[string]interface{}{
+				"tools": "Bash(npm:*)",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "Task pattern valid",
+			data: map[string]interface{}{
+				"allowed-tools": "Task(foo-specialist)",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "valid tools mixed",
+			data: map[string]interface{}{
+				"allowed-tools": "Read, Write, Edit",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "empty tools",
+			data: map[string]interface{}{
+				"allowed-tools": "",
+			},
+			wantWarnings: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warnings := ValidateAllowedTools(tt.data, "test.md", "---\nallowed-tools: test\n---\n")
+			if len(warnings) != tt.wantWarnings {
+				t.Errorf("ValidateAllowedTools() warnings = %d, want %d", len(warnings), tt.wantWarnings)
+				for _, w := range warnings {
+					t.Logf("  Warning: %s", w.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateToolFieldNameEdgeCases(t *testing.T) {
+	tests := []struct {
+		name          string
+		data          map[string]interface{}
+		componentType string
+		wantErrors    int
+	}{
+		{
+			name: "command with tools field",
+			data: map[string]interface{}{
+				"tools": "Read",
+			},
+			componentType: "command",
+			wantErrors:    1,
+		},
+		{
+			name: "skill with tools field",
+			data: map[string]interface{}{
+				"tools": "Read",
+			},
+			componentType: "skill",
+			wantErrors:    1,
+		},
+		{
+			name:          "no tool fields",
+			data:          map[string]interface{}{},
+			componentType: "agent",
+			wantErrors:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := ValidateToolFieldName(tt.data, "test.md", "---\ntools: test\n---\n", tt.componentType)
+			errCount := 0
+			for _, e := range errors {
+				if e.Severity == "error" {
+					errCount++
+				}
+			}
+			if errCount != tt.wantErrors {
+				t.Errorf("ValidateToolFieldName() errors = %d, want %d", errCount, tt.wantErrors)
+			}
+		})
+	}
+}

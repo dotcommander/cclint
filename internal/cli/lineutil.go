@@ -385,6 +385,86 @@ func ValidateToolFieldName(data map[string]interface{}, filePath string, content
 	return errors
 }
 
+// isPlaceholderSecret checks if a matched "secret" is actually a placeholder/example.
+// Returns true if the value should be ignored (not flagged as a real secret).
+func isPlaceholderSecret(line string) bool {
+	lowerLine := strings.ToLower(line)
+
+	// Common placeholder patterns in the value
+	placeholderPatterns := []string{
+		"example",
+		"placeholder",
+		"your-",
+		"your_",
+		"<your",
+		"[your",
+		"{your",
+		"replace",
+		"insert",
+		"change-me",
+		"changeme",
+		"xxx",
+		"***",
+		"dummy",
+		"sample",
+		"fake",
+		"test-key",
+		"testkey",
+		"test_key",
+		"my-key",
+		"mykey",
+		"my_key",
+		"here>",
+		"here]",
+		"here}",
+		"-here",
+		"_here",
+		"file-value",  // Documentation example
+		"env-value",   // Documentation example
+		"some-value",  // Generic example
+		"value-here",  // Generic example
+	}
+
+	// Skip lines that are clearly documentation/comments showing examples
+	trimmedLine := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmedLine, "//") || strings.HasPrefix(trimmedLine, "#") {
+		// Comment lines showing examples are not real secrets
+		return true
+	}
+
+	for _, p := range placeholderPatterns {
+		if strings.Contains(lowerLine, p) {
+			return true
+		}
+	}
+
+	// AWS example keys (from AWS documentation)
+	awsExamplePatterns := []string{
+		"akiaiosfodnn7example",           // AWS example access key
+		"wjalrxutnfemi/k7mdeng",          // AWS example secret key prefix
+		"examplekey",                      // Generic example
+	}
+
+	for _, p := range awsExamplePatterns {
+		if strings.Contains(lowerLine, p) {
+			return true
+		}
+	}
+
+	// Check for obviously fake patterns like repeated x's or zeros
+	// sk-xxxxxxxx or sk-00000000
+	if regexp.MustCompile(`(?i)(x{4,}|0{6,})`).MatchString(line) {
+		return true
+	}
+
+	// Check for angle bracket placeholders: <API_KEY>, <token>, etc.
+	if regexp.MustCompile(`<[^>]*(?:key|token|secret|password|api)[^>]*>`).MatchString(lowerLine) {
+		return true
+	}
+
+	return false
+}
+
 // detectSecrets checks for hardcoded secrets in content
 func detectSecrets(contents string, filePath string) []cue.ValidationError {
 	var warnings []cue.ValidationError
@@ -424,9 +504,18 @@ func detectSecrets(contents string, filePath string) []cue.ValidationError {
 			lines := strings.Split(contents, "\n")
 			for i, line := range lines {
 				if sp.pattern.MatchString(line) {
+					// Skip placeholder/example secrets
+					if isPlaceholderSecret(line) {
+						continue
+					}
 					lineNum = i + 1
 					break
 				}
+			}
+
+			// If lineNum is still 0, all matches were placeholders
+			if lineNum == 0 {
+				continue
 			}
 
 			warnings = append(warnings, cue.ValidationError{

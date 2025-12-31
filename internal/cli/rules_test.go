@@ -376,3 +376,175 @@ func TestRuleLinterValidateSpecific(t *testing.T) {
 		})
 	}
 }
+
+func TestRuleLinterPreValidateSymlinks(t *testing.T) {
+	linter := NewRuleLinter()
+	tmpDir := t.TempDir()
+
+	// Create a target file
+	targetFile := filepath.Join(tmpDir, "target.md")
+	if err := os.WriteFile(targetFile, []byte("target content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a symlink to the target
+	symlinkFile := filepath.Join(tmpDir, "symlink.md")
+	if err := os.Symlink(targetFile, symlinkFile); err != nil {
+		t.Skip("Symlink creation not supported on this platform")
+	}
+
+	// Create a broken symlink
+	brokenSymlink := filepath.Join(tmpDir, "broken.md")
+	if err := os.Symlink("/nonexistent/path", brokenSymlink); err != nil {
+		t.Skip("Symlink creation not supported on this platform")
+	}
+
+	tests := []struct {
+		name         string
+		filePath     string
+		contents     string
+		wantWarnings int
+	}{
+		{
+			name:         "valid symlink",
+			filePath:     symlinkFile,
+			contents:     "content",
+			wantWarnings: 0,
+		},
+		{
+			name:         "broken symlink",
+			filePath:     brokenSymlink,
+			contents:     "content",
+			wantWarnings: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := linter.PreValidate(tt.filePath, tt.contents)
+
+			warnCount := 0
+			for _, e := range errors {
+				if e.Severity == "warning" {
+					warnCount++
+				}
+			}
+
+			if warnCount < tt.wantWarnings {
+				t.Errorf("PreValidate() warnings = %d, want at least %d", warnCount, tt.wantWarnings)
+			}
+		})
+	}
+}
+
+func TestValidateImportsEdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test files
+	testFile := filepath.Join(tmpDir, "test.md")
+	importedFile := filepath.Join(tmpDir, "imported.md")
+	if err := os.WriteFile(importedFile, []byte("imported"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name         string
+		contents     string
+		wantWarnings int
+	}{
+		{
+			name:         "import with tilde",
+			contents:     "@~/nonexistent.md",
+			wantWarnings: 1,
+		},
+		{
+			name:         "multiple imports",
+			contents:     "@./imported.md and @./nonexistent.md",
+			wantWarnings: 1, // Only nonexistent should warn
+		},
+		{
+			name: "import in multiline code block",
+			contents: "```go\n" +
+				"// @./imported.md\n" +
+				"```",
+			wantWarnings: 0, // Should be ignored in code block
+		},
+		{
+			name:         "possible self-import",
+			contents:     "@./test.md",
+			wantWarnings: 1, // Self-import warning
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := validateImports(tt.contents, testFile)
+
+			warnCount := 0
+			for _, e := range errors {
+				if e.Severity == "warning" {
+					warnCount++
+				}
+			}
+
+			if warnCount < tt.wantWarnings {
+				t.Errorf("validateImports() warnings = %d, want at least %d", warnCount, tt.wantWarnings)
+				for _, e := range errors {
+					t.Logf("  %s (line %d): %s", e.Severity, e.Line, e.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestRuleLinterValidateBestPractices(t *testing.T) {
+	linter := NewRuleLinter()
+	tmpDir := t.TempDir()
+
+	// Create a valid import target
+	importFile := filepath.Join(tmpDir, "import.md")
+	if err := os.WriteFile(importFile, []byte("imported"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	testFile := filepath.Join(tmpDir, "test.md")
+
+	tests := []struct {
+		name         string
+		contents     string
+		wantWarnings int
+	}{
+		{
+			name:         "no imports",
+			contents:     "Just content",
+			wantWarnings: 0,
+		},
+		{
+			name:         "valid import",
+			contents:     "@./import.md",
+			wantWarnings: 0,
+		},
+		{
+			name:         "invalid import",
+			contents:     "@./nonexistent.md",
+			wantWarnings: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := linter.ValidateBestPractices(testFile, tt.contents, nil)
+
+			warnCount := 0
+			for _, e := range errors {
+				if e.Severity == "warning" {
+					warnCount++
+				}
+			}
+
+			if warnCount < tt.wantWarnings {
+				t.Errorf("ValidateBestPractices() warnings = %d, want at least %d", warnCount, tt.wantWarnings)
+			}
+		})
+	}
+}
