@@ -219,6 +219,7 @@ type BatchPostProcessor interface {
 func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 	files := ctx.FilterFilesByType(linter.FileType())
 	summary := ctx.NewSummary(len(files))
+	summary.ComponentType = linter.Type()
 
 	for _, file := range files {
 		result := lintBatchFile(ctx, file, linter)

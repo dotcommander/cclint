@@ -241,7 +241,11 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 	}
 
 	if allPassed {
-		msg := fmt.Sprintf("✓ All %d passed", summary.TotalFiles)
+		componentType := summary.ComponentType + "s" // pluralize: agent -> agents
+		if summary.ComponentType == "" {
+			componentType = "files"
+		}
+		msg := fmt.Sprintf("✓ All %d %s passed", summary.TotalFiles, componentType)
 		if f.colorize {
 			style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
 			fmt.Printf("%s\n", style.Render(msg))

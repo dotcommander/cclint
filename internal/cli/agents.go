@@ -26,6 +26,7 @@ type LintResult struct {
 // LintSummary summarizes all linting results
 type LintSummary struct {
 	ProjectRoot      string
+	ComponentType    string // e.g., "agents", "commands", "skills"
 	StartTime        time.Time
 	TotalFiles       int
 	SuccessfulFiles  int

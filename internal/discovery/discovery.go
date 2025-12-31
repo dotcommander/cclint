@@ -49,6 +49,25 @@ var typePatterns = []TypePattern{
 	{"commands/**/*.md", FileTypeCommand},
 }
 
+// FileTypeEntry defines the discovery configuration for a file type.
+// This enables adding new component types without modifying DiscoverFiles().
+type FileTypeEntry struct {
+	Type     FileType
+	Patterns []string
+}
+
+// DefaultFileTypes is the registry of file types and their discovery patterns.
+// To add a new component type, simply add an entry here - no code changes needed.
+var DefaultFileTypes = []FileTypeEntry{
+	{Type: FileTypeAgent, Patterns: []string{".claude/agents/**/*.md", "agents/**/*.md"}},
+	{Type: FileTypeCommand, Patterns: []string{".claude/commands/**/*.md", "commands/**/*.md"}},
+	{Type: FileTypeSettings, Patterns: []string{".claude/settings.json", "claude/settings.json"}},
+	{Type: FileTypeContext, Patterns: []string{".claude/CLAUDE.md", "CLAUDE.md"}},
+	{Type: FileTypeSkill, Patterns: []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md"}},
+	{Type: FileTypePlugin, Patterns: []string{"**/.claude-plugin/plugin.json"}},
+	{Type: FileTypeRule, Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md"}},
+}
+
 // DetectFileType determines the component type from a file path using glob pattern matching.
 //
 // This function uses the same patterns as DiscoverFiles() to ensure consistency
@@ -297,78 +316,27 @@ func NewFileDiscovery(rootPath string, followSymlinks bool) *FileDiscovery {
 	}
 }
 
-// DiscoverFiles finds all relevant files in the project
+// DiscoverFiles finds all relevant files in the project.
+// It iterates over the DefaultFileTypes registry, making it easy to add
+// new component types without modifying this method.
 func (fd *FileDiscovery) DiscoverFiles() ([]File, error) {
+	return fd.DiscoverFilesWithRegistry(DefaultFileTypes)
+}
+
+// DiscoverFilesWithRegistry finds files using a custom registry.
+// This allows filtering or extending the default file types.
+func (fd *FileDiscovery) DiscoverFilesWithRegistry(registry []FileTypeEntry) ([]File, error) {
 	var files []File
 
-	// Agent files
-	agentFiles, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md", "agents/**/*.md"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering agent files: %w", err)
-	}
-	for _, f := range agentFiles {
-		f.Type = FileTypeAgent
-		files = append(files, f)
-	}
-
-	// Command files
-	commandFiles, err := fd.findFilesByPattern([]string{".claude/commands/**/*.md", "commands/**/*.md"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering command files: %w", err)
-	}
-	for _, f := range commandFiles {
-		f.Type = FileTypeCommand
-		files = append(files, f)
-	}
-
-	// Settings files
-	settingsFiles, err := fd.findFilesByPattern([]string{".claude/settings.json", "claude/settings.json"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering settings files: %w", err)
-	}
-	for _, f := range settingsFiles {
-		f.Type = FileTypeSettings
-		files = append(files, f)
-	}
-
-	// Context files
-	contextFiles, err := fd.findFilesByPattern([]string{".claude/CLAUDE.md", "CLAUDE.md"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering context files: %w", err)
-	}
-	for _, f := range contextFiles {
-		f.Type = FileTypeContext
-		files = append(files, f)
-	}
-
-	// Skill files
-	skillFiles, err := fd.findFilesByPattern([]string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering skill files: %w", err)
-	}
-	for _, f := range skillFiles {
-		f.Type = FileTypeSkill
-		files = append(files, f)
-	}
-
-	// Plugin files
-	pluginFiles, err := fd.findFilesByPattern([]string{"**/.claude-plugin/plugin.json"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering plugin files: %w", err)
-	}
-	for _, f := range pluginFiles {
-		f.Type = FileTypePlugin
-		files = append(files, f)
-	}
-
-	// Rule files
-	ruleFiles, err := fd.findFilesByPattern([]string{".claude/rules/**/*.md", "rules/**/*.md"})
-	if err != nil {
-		return nil, fmt.Errorf("error discovering rule files: %w", err)
-	}
-	for _, f := range ruleFiles {
-		f.Type = FileTypeRule
-		files = append(files, f)
+	for _, ftc := range registry {
+		discovered, err := fd.findFilesByPattern(ftc.Patterns)
+		if err != nil {
+			return nil, fmt.Errorf("error discovering %s files: %w", ftc.Type.String(), err)
+		}
+		for _, f := range discovered {
+			f.Type = ftc.Type
+			files = append(files, f)
+		}
 	}
 
 	return files, nil

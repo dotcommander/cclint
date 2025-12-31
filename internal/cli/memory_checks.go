@@ -9,6 +9,7 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/frontend"
 )
 
 const (
@@ -99,38 +100,44 @@ func isInGitignore(gitignorePath, filename string) bool {
 	return false
 }
 
-// CheckCombinedMemorySize checks if total CLAUDE.md + rules size exceeds threshold
+// CheckCombinedMemorySize checks if total CLAUDE.md + always-loaded rules size exceeds threshold.
+// Rules with paths: frontmatter are conditionally loaded and don't count toward the threshold.
 func CheckCombinedMemorySize(rootPath string, files []discovery.File) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	var totalSize int64
+	var alwaysLoadedSize int64
+	var conditionalSize int64
 
-	// Sum up context files (CLAUDE.md)
+	// Sum up context files (CLAUDE.md) - always loaded
 	for _, f := range files {
 		if f.Type == discovery.FileTypeContext {
-			totalSize += int64(len(f.Contents))
+			alwaysLoadedSize += int64(len(f.Contents))
 		}
 	}
 
-	// Sum up rule files
+	// Sum up rule files, separating always-loaded from conditional
 	for _, f := range files {
 		if f.Type == discovery.FileTypeRule {
-			totalSize += int64(len(f.Contents))
+			if ruleHasPathsConstraint(f.Contents) {
+				conditionalSize += int64(len(f.Contents))
+			} else {
+				alwaysLoadedSize += int64(len(f.Contents))
+			}
 		}
 	}
 
 	// Also check for CLAUDE.local.md which might not be in discovery
 	localMdPath := filepath.Join(rootPath, "CLAUDE.local.md")
 	if info, err := os.Stat(localMdPath); err == nil {
-		totalSize += info.Size()
+		alwaysLoadedSize += info.Size()
 	}
 
-	// Check threshold (20KB)
+	// Check threshold (20KB) - only for always-loaded content
 	thresholdBytes := int64(CombinedMemorySizeWarningKB * 1024)
-	if totalSize > thresholdBytes {
+	if alwaysLoadedSize > thresholdBytes {
 		errors = append(errors, cue.ValidationError{
 			File:     ".claude/",
-			Message:  formatSizeWarning(totalSize, thresholdBytes),
+			Message:  formatSizeWarning(alwaysLoadedSize, conditionalSize, thresholdBytes),
 			Severity: "warning",
 			Source:   cue.SourceCClintObserve,
 		})
@@ -139,12 +146,31 @@ func CheckCombinedMemorySize(rootPath string, files []discovery.File) []cue.Vali
 	return errors
 }
 
-func formatSizeWarning(actual, threshold int64) string {
-	actualKB := float64(actual) / 1024
+// ruleHasPathsConstraint checks if a rule file has paths: frontmatter,
+// meaning it's only loaded conditionally when working on matching files.
+func ruleHasPathsConstraint(contents string) bool {
+	fm, err := frontend.ParseYAMLFrontmatter(contents)
+	if err != nil {
+		return false
+	}
+	_, hasPaths := fm.Data["paths"]
+	return hasPaths
+}
+
+func formatSizeWarning(alwaysLoaded, conditional, threshold int64) string {
+	alwaysKB := float64(alwaysLoaded) / 1024
 	thresholdKB := float64(threshold) / 1024
-	return fmt.Sprintf(
-		"Combined memory size (CLAUDE.md + rules) is %.1fKB, exceeds %.0fKB threshold. "+
+
+	msg := fmt.Sprintf(
+		"Always-loaded memory (CLAUDE.md + global rules) is %.1fKB, exceeds %.0fKB threshold. "+
 			"Large memory files increase token usage and may slow down Claude Code startup. "+
-			"Consider: moving detailed docs to @imports, splitting into conditional rules with paths: frontmatter.",
-		actualKB, thresholdKB)
+			"Consider: moving detailed docs to @imports, or adding paths: frontmatter to make rules conditional.",
+		alwaysKB, thresholdKB)
+
+	if conditional > 0 {
+		conditionalKB := float64(conditional) / 1024
+		msg += fmt.Sprintf(" (%.1fKB in conditional rules excluded from threshold)", conditionalKB)
+	}
+
+	return msg
 }

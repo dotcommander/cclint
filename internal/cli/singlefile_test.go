@@ -432,3 +432,32 @@ func containsSubstring(s, substr string) bool {
 	}
 	return false
 }
+
+// TestLintSingleSkill tests skill file linting
+func TestLintSingleSkill(t *testing.T) {
+	tmpDir := t.TempDir()
+	createDirs(t, tmpDir, ".claude/skills/test-skill")
+
+	skillFile := filepath.Join(tmpDir, ".claude/skills/test-skill/SKILL.md")
+	content := `---
+name: test-skill
+---
+
+## Quick Reference
+
+Test skill content.
+`
+	if err := os.WriteFile(skillFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := LintSingleFile(skillFile, tmpDir, "", true, false)
+	if err != nil {
+		t.Fatalf("LintSingleFile(skill) error: %v", err)
+	}
+
+	if len(summary.Results) != 1 {
+		t.Errorf("Expected 1 result, got %d", len(summary.Results))
+	}
+}
+
