@@ -409,6 +409,7 @@ func IsKnownSubcommand(arg string) bool {
 		"settings": true,
 		"context":  true,
 		"plugins":  true,
+		"rules":    true,
 		"help":     true,
 		"version":  true,
 	}

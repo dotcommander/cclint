@@ -288,6 +288,7 @@ func isComponentType(arg string) bool {
 		"settings": true,
 		"context":  true,
 		"plugins":  true,
+		"rules":    true,
 	}
 	return types[strings.ToLower(arg)]
 }
@@ -331,6 +332,8 @@ func discoverFilesByType(rootPath, componentType string) ([]string, error) {
 		targetType = discovery.FileTypeContext
 	case "plugins":
 		targetType = discovery.FileTypePlugin
+	case "rules":
+		targetType = discovery.FileTypeRule
 	default:
 		return nil, fmt.Errorf("unknown component type: %s", componentType)
 	}

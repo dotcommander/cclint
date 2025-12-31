@@ -36,6 +36,10 @@ var typePatterns = []TypePattern{
 	// Plugins - specific directory structure
 	{"**/.claude-plugin/plugin.json", FileTypePlugin},
 
+	// Rules - .claude/rules/**/*.md (before agents/commands to avoid misdetection)
+	{".claude/rules/**/*.md", FileTypeRule},
+	{"rules/**/*.md", FileTypeRule},
+
 	// Agents - directory-based (after more specific patterns)
 	{".claude/agents/**/*.md", FileTypeAgent},
 	{"agents/**/*.md", FileTypeAgent},
@@ -229,6 +233,7 @@ const (
 	FileTypeSkill
 	FileTypeConfig
 	FileTypePlugin
+	FileTypeRule
 )
 
 // String returns the human-readable name of the file type.
@@ -246,13 +251,15 @@ func (ft FileType) String() string {
 		return "skill"
 	case FileTypePlugin:
 		return "plugin"
+	case FileTypeRule:
+		return "rule"
 	default:
 		return "unknown"
 	}
 }
 
 // ParseFileType converts a string to a FileType.
-// Valid values: agent, command, skill, settings, context, plugin.
+// Valid values: agent, command, skill, settings, context, plugin, rule.
 // Returns FileTypeUnknown and an error for invalid input.
 func ParseFileType(s string) (FileType, error) {
 	switch strings.ToLower(strings.TrimSpace(s)) {
@@ -268,9 +275,11 @@ func ParseFileType(s string) (FileType, error) {
 		return FileTypeContext, nil
 	case "plugin", "plugins":
 		return FileTypePlugin, nil
+	case "rule", "rules":
+		return FileTypeRule, nil
 	default:
 		return FileTypeUnknown, fmt.Errorf(
-			"invalid type %q: valid types are agent, command, skill, settings, context, plugin", s)
+			"invalid type %q: valid types are agent, command, skill, settings, context, plugin, rule", s)
 	}
 }
 
@@ -349,6 +358,16 @@ func (fd *FileDiscovery) DiscoverFiles() ([]File, error) {
 	}
 	for _, f := range pluginFiles {
 		f.Type = FileTypePlugin
+		files = append(files, f)
+	}
+
+	// Rule files
+	ruleFiles, err := fd.findFilesByPattern([]string{".claude/rules/**/*.md", "rules/**/*.md"})
+	if err != nil {
+		return nil, fmt.Errorf("error discovering rule files: %w", err)
+	}
+	for _, f := range ruleFiles {
+		f.Type = FileTypeRule
 		files = append(files, f)
 	}
 
@@ -432,6 +451,10 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 func (fd *FileDiscovery) determineFileType(path string) FileType {
 	lowerPath := strings.ToLower(path)
 
+	// Rules must be checked before agents/commands (rules/ is inside .claude/)
+	if strings.Contains(lowerPath, ".claude/rules") && strings.HasSuffix(lowerPath, ".md") {
+		return FileTypeRule
+	}
 	if strings.Contains(lowerPath, "agents") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeAgent
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/git"
 	"github.com/dotcommander/cclint/internal/outputters"
 	"github.com/spf13/cobra"
@@ -149,7 +150,7 @@ func init() {
 
 	// Single-file mode flags
 	rootCmd.Flags().StringArrayVar(&fileFlag, "file", nil, "Explicit file path(s) to lint (use for files with subcommand names)")
-	rootCmd.Flags().StringVarP(&typeFlag, "type", "t", "", "Force component type (agent|command|skill|settings|context|plugin)")
+	rootCmd.Flags().StringVarP(&typeFlag, "type", "t", "", "Force component type (agent|command|skill|settings|context|plugin|rule)")
 
 	// Git integration flags
 	rootCmd.Flags().BoolVar(&diffMode, "diff", false, "Lint only uncommitted changes (staged + unstaged)")
@@ -226,7 +227,8 @@ func runLint() error {
 		{"skills", cli.LintSkills},
 		{"settings", cli.LintSettings},
 		{"context", cli.LintContext},
-		{"plugins", cli.LintPlugins},
+		{"rules", cli.LintRules},
+		// {"plugins", cli.LintPlugins}, // TODO: re-enable when output is less overwhelming
 	}
 
 	// Track totals across all linters
@@ -271,6 +273,23 @@ func runLint() error {
 		totalSuggestions += summary.TotalSuggestions
 		if summary.TotalErrors > 0 {
 			hasErrors = true
+		}
+	}
+
+	// Run project-wide memory checks
+	if !cfg.Quiet {
+		// Check CLAUDE.local.md gitignore
+		gitignoreWarnings := cli.CheckClaudeLocalGitignore(cfg.Root)
+		for _, w := range gitignoreWarnings {
+			fmt.Printf("warning: %s: %s\n", w.File, w.Message)
+		}
+
+		// Check combined memory size
+		fd := discovery.NewFileDiscovery(cfg.Root, false)
+		allFiles, _ := fd.DiscoverFiles()
+		sizeWarnings := cli.CheckCombinedMemorySize(cfg.Root, allFiles)
+		for _, w := range sizeWarnings {
+			fmt.Printf("warning: %s\n", w.Message)
 		}
 	}
 
