@@ -473,7 +473,7 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 			name: "file in .claude/agents",
 			setup: func() string {
 				claudeDir := filepath.Join(tmpDir, ".claude", "agents")
-				os.MkdirAll(claudeDir, 0755)
+				_ = os.MkdirAll(claudeDir, 0755)
 				return filepath.Join(claudeDir, "test.md")
 			},
 			wantContain: ".claude",
@@ -482,7 +482,7 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 			name: "file in agents/",
 			setup: func() string {
 				agentsDir := filepath.Join(tmpDir, "subproject", "agents")
-				os.MkdirAll(agentsDir, 0755)
+				_ = os.MkdirAll(agentsDir, 0755)
 				return filepath.Join(agentsDir, "test.md")
 			},
 			wantContain: "subproject",
@@ -491,7 +491,7 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 			name: "file in commands/",
 			setup: func() string {
 				commandsDir := filepath.Join(tmpDir, "proj", "commands")
-				os.MkdirAll(commandsDir, 0755)
+				_ = os.MkdirAll(commandsDir, 0755)
 				return filepath.Join(commandsDir, "test.md")
 			},
 			wantContain: "proj",
@@ -500,7 +500,7 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 			name: "file in skills/",
 			setup: func() string {
 				skillsDir := filepath.Join(tmpDir, "myproject", "skills", "test")
-				os.MkdirAll(skillsDir, 0755)
+				_ = os.MkdirAll(skillsDir, 0755)
 				return filepath.Join(skillsDir, "SKILL.md")
 			},
 			wantContain: "myproject",
@@ -509,7 +509,7 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 			name: "fallback to parent directory",
 			setup: func() string {
 				randomDir := filepath.Join(tmpDir, "random")
-				os.MkdirAll(randomDir, 0755)
+				_ = os.MkdirAll(randomDir, 0755)
 				return filepath.Join(randomDir, "test.md")
 			},
 			wantContain: "random",

@@ -470,7 +470,7 @@ func TestMarkdownFormatter_VerboseMode(t *testing.T) {
 	t.Run("verbose mode includes all files", func(t *testing.T) {
 		output := captureStdout(t, func() {
 			formatter := NewMarkdownFormatter(false, true, "")
-			formatter.Format(summary)
+			_ = formatter.Format(summary)
 		})
 
 		if !strings.Contains(output, "### test1.md") {
@@ -484,7 +484,7 @@ func TestMarkdownFormatter_VerboseMode(t *testing.T) {
 	t.Run("non-verbose mode hides successful files", func(t *testing.T) {
 		output := captureStdout(t, func() {
 			formatter := NewMarkdownFormatter(false, false, "")
-			formatter.Format(summary)
+			_ = formatter.Format(summary)
 		})
 
 		if strings.Contains(output, "### test1.md") {
@@ -517,7 +517,7 @@ func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 
 		output := captureStdout(t, func() {
 			formatter := NewMarkdownFormatter(false, false, "")
-			formatter.Format(summary)
+			_ = formatter.Format(summary)
 		})
 
 		if strings.Contains(output, "### Files") {
@@ -553,7 +553,7 @@ func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 
 		output := captureStdout(t, func() {
 			formatter := NewMarkdownFormatter(false, false, "")
-			formatter.Format(summary)
+			_ = formatter.Format(summary)
 		})
 
 		if !strings.Contains(output, "### Files") {
@@ -608,7 +608,7 @@ func TestMarkdownFormatter_SourceTags(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		formatter := NewMarkdownFormatter(false, false, "")
-		formatter.Format(summary)
+		_ = formatter.Format(summary)
 	})
 
 	if !strings.Contains(output, "`[docs]`") {
@@ -695,7 +695,7 @@ func TestMarkdownFormatter_Separators(t *testing.T) {
 
 	output := captureStdout(t, func() {
 		formatter := NewMarkdownFormatter(false, false, "")
-		formatter.Format(summary)
+		_ = formatter.Format(summary)
 	})
 
 	// In non-verbose mode, files should have separator

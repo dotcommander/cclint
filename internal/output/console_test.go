@@ -400,7 +400,7 @@ func TestConsoleFormatter_Format(t *testing.T) {
 			}
 
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, _ = io.Copy(&buf, r)
 			output := buf.String()
 
 			for _, want := range tt.wantContains {
@@ -460,13 +460,13 @@ func TestConsoleFormatter_Colorization(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			formatter.Format(summary)
+			_ = formatter.Format(summary)
 
 			w.Close()
 			os.Stdout = old
 
 			var buf bytes.Buffer
-			io.Copy(&buf, r)
+			_, _ = io.Copy(&buf, r)
 			output := buf.String()
 
 			// Just verify it doesn't crash with colorization off
@@ -500,13 +500,13 @@ func TestConsoleFormatter_NoColorsInConclusion(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	formatter.Format(summary)
+	_ = formatter.Format(summary)
 
 	w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	if !strings.Contains(output, "✓ All 1 agents passed") {
@@ -530,13 +530,13 @@ func TestConsoleFormatter_EmptyResultsNoNewline(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	formatter.Format(summary)
+	_ = formatter.Format(summary)
 
 	w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Should still print conclusion
@@ -582,7 +582,7 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 		}
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 
 		if strings.Contains(output, "[A") || strings.Contains(output, "[B") {
@@ -617,13 +617,13 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		formatter.Format(summary)
+		_ = formatter.Format(summary)
 
 		w.Close()
 		os.Stdout = old
 
 		var buf bytes.Buffer
-		io.Copy(&buf, r)
+		_, _ = io.Copy(&buf, r)
 		output := buf.String()
 
 		if strings.Contains(output, "(line 0)") {
@@ -672,13 +672,13 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 				r, w, _ := os.Pipe()
 				os.Stdout = w
 
-				formatter.Format(summary)
+				_ = formatter.Format(summary)
 
 				w.Close()
 				os.Stdout = old
 
 				var buf bytes.Buffer
-				io.Copy(&buf, r)
+				_, _ = io.Copy(&buf, r)
 				output := buf.String()
 
 				if !strings.Contains(output, tier.expected) {
@@ -718,13 +718,13 @@ func TestConsoleFormatter_UnknownSeverity(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	formatter.Format(summary)
+	_ = formatter.Format(summary)
 
 	w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	if !strings.Contains(output, "unknown severity type") {
@@ -762,13 +762,13 @@ func TestConsoleFormatter_UnknownSource(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	formatter.Format(summary)
+	_ = formatter.Format(summary)
 
 	w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	if !strings.Contains(output, "suggestion with unknown source") {
@@ -809,13 +809,13 @@ func TestConsoleFormatter_QuietModeWithErrors(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	formatter.Format(summary)
+	_ = formatter.Format(summary)
 
 	w.Close()
 	os.Stdout = old
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	output := buf.String()
 
 	// Quiet mode should produce minimal output

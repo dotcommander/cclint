@@ -129,7 +129,7 @@ func TestFindProjectRoot(t *testing.T) {
 					t.Fatalf("failed to change directory: %v", err)
 				}
 				t.Cleanup(func() {
-					os.Chdir(origDir)
+					_ = os.Chdir(origDir)
 				})
 
 				return ".", tmpDir

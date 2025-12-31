@@ -191,8 +191,8 @@ func TestDetectFileType(t *testing.T) {
 			// Create the file
 			absPath := filepath.Join(tmpDir, filepath.FromSlash(tt.relPath))
 			if !strings.HasPrefix(tt.relPath, "..") {
-				os.MkdirAll(filepath.Dir(absPath), 0755)
-				os.WriteFile(absPath, []byte("test content"), 0644)
+				_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+				_ = os.WriteFile(absPath, []byte("test content"), 0644)
 			}
 
 			got, err := DetectFileType(absPath, tmpDir)
@@ -234,23 +234,23 @@ func TestValidateFilePath(t *testing.T) {
 
 	// Create test files
 	validFile := filepath.Join(tmpDir, "valid.md")
-	os.WriteFile(validFile, []byte("test content"), 0644)
+	_ = os.WriteFile(validFile, []byte("test content"), 0644)
 
 	emptyFile := filepath.Join(tmpDir, "empty.md")
-	os.WriteFile(emptyFile, []byte(""), 0644)
+	_ = os.WriteFile(emptyFile, []byte(""), 0644)
 
 	binaryFile := filepath.Join(tmpDir, "binary.dat")
-	os.WriteFile(binaryFile, []byte{0x00, 0x01, 0x02, 0x03}, 0644)
+	_ = os.WriteFile(binaryFile, []byte{0x00, 0x01, 0x02, 0x03}, 0644)
 
 	symlinkFile := filepath.Join(tmpDir, "symlink.md")
-	os.Symlink(validFile, symlinkFile)
+	_ = os.Symlink(validFile, symlinkFile)
 
 	brokenSymlink := filepath.Join(tmpDir, "broken-symlink.md")
-	os.Symlink(filepath.Join(tmpDir, "nonexistent"), brokenSymlink)
+	_ = os.Symlink(filepath.Join(tmpDir, "nonexistent"), brokenSymlink)
 
 	// Create a directory (not a file)
 	dirPath := filepath.Join(tmpDir, "directory")
-	os.Mkdir(dirPath, 0755)
+	_ = os.Mkdir(dirPath, 0755)
 
 	tests := []struct {
 		name     string
@@ -297,8 +297,8 @@ func TestValidateFilePath_PermissionDenied(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	restrictedFile := filepath.Join(tmpDir, "restricted.md")
-	os.WriteFile(restrictedFile, []byte("content"), 0000) // No permissions
-	defer os.Chmod(restrictedFile, 0644)                  // Cleanup
+	_ = os.WriteFile(restrictedFile, []byte("content"), 0000) // No permissions
+	defer func() { _ = os.Chmod(restrictedFile, 0644) }()     // Cleanup
 
 	_, err := ValidateFilePath(restrictedFile)
 	if err == nil {
@@ -334,8 +334,8 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 
 	for path, content := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -399,8 +399,8 @@ func TestDiscoverFilesWithRegistry(t *testing.T) {
 
 	for path, content := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -454,8 +454,8 @@ func TestFindFilesByPattern(t *testing.T) {
 
 	for _, path := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte("content"), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte("content"), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -501,15 +501,15 @@ func TestFindFilesByPattern_Symlinks(t *testing.T) {
 
 	// Create target file
 	targetDir := filepath.Join(tmpDir, "target")
-	os.Mkdir(targetDir, 0755)
+	_ = os.Mkdir(targetDir, 0755)
 	targetFile := filepath.Join(targetDir, "real.md")
-	os.WriteFile(targetFile, []byte("content"), 0644)
+	_ = os.WriteFile(targetFile, []byte("content"), 0644)
 
 	// Create symlink inside project root (should be followed when enabled)
 	linkDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(linkDir, 0755)
+	_ = os.MkdirAll(linkDir, 0755)
 	linkFile := filepath.Join(linkDir, "link.md")
-	os.Symlink(targetFile, linkFile)
+	_ = os.Symlink(targetFile, linkFile)
 
 	// Note: os.Stat follows symlinks automatically, so the symlink detection code
 	// in findFilesByPattern may not trigger with regular file symlinks created by os.Symlink.
@@ -547,13 +547,13 @@ func TestFindFilesByPattern_SymlinksOutsideRoot(t *testing.T) {
 
 	// Create target file outside root
 	targetFile := filepath.Join(outsideDir, "external.md")
-	os.WriteFile(targetFile, []byte("external content"), 0644)
+	_ = os.WriteFile(targetFile, []byte("external content"), 0644)
 
 	// Create symlink inside project root pointing outside
 	linkDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(linkDir, 0755)
+	_ = os.MkdirAll(linkDir, 0755)
 	linkFile := filepath.Join(linkDir, "external-link.md")
-	os.Symlink(targetFile, linkFile)
+	_ = os.Symlink(targetFile, linkFile)
 
 	// Even with symlinks enabled, should not follow links outside root
 	fd := NewFileDiscovery(tmpDir, true)
@@ -627,7 +627,7 @@ func TestReadFileContents(t *testing.T) {
 
 	testContent := "test file content\nwith multiple lines"
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte(testContent), 0644)
+	_ = os.WriteFile(testFile, []byte(testContent), 0644)
 
 	t.Run("valid file", func(t *testing.T) {
 		content, err := fd.ReadFileContents(testFile)
@@ -727,7 +727,7 @@ func TestDiscoverFiles_SkipsDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create a directory that matches agent pattern
-	os.MkdirAll(filepath.Join(tmpDir, ".claude", "agents", "subdir"), 0755)
+	_ = os.MkdirAll(filepath.Join(tmpDir, ".claude", "agents", "subdir"), 0755)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	discovered, err := fd.DiscoverFiles()
@@ -750,10 +750,10 @@ func TestFindFilesByPattern_UnreadableFile(t *testing.T) {
 
 	// Create a file with no read permissions
 	restrictedFile := filepath.Join(tmpDir, ".claude", "agents", "restricted.md")
-	os.MkdirAll(filepath.Dir(restrictedFile), 0755)
-	os.WriteFile(restrictedFile, []byte("content"), 0644)
-	os.Chmod(restrictedFile, 0000) // No permissions
-	defer os.Chmod(restrictedFile, 0644)
+	_ = os.MkdirAll(filepath.Dir(restrictedFile), 0755)
+	_ = os.WriteFile(restrictedFile, []byte("content"), 0644)
+	_ = os.Chmod(restrictedFile, 0000) // No permissions
+	defer func() { _ = os.Chmod(restrictedFile, 0644) }()
 
 	fd := NewFileDiscovery(tmpDir, false)
 	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
@@ -772,7 +772,7 @@ func TestDetectFileType_PatternError(t *testing.T) {
 
 	// Create a file
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte("content"), 0644)
+	_ = os.WriteFile(testFile, []byte("content"), 0644)
 
 	// DetectFileType uses doublestar.Match which validates patterns
 	// Most patterns will succeed, but this tests the error handling path
@@ -810,7 +810,7 @@ func TestValidateFilePath_ReadError(t *testing.T) {
 	// Create a file that we'll later make unreadable during reading
 	// This tests the second os.Open error path (after the file exists check)
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte("content"), 0644)
+	_ = os.WriteFile(testFile, []byte("content"), 0644)
 
 	// Normal case should work
 	_, err := ValidateFilePath(testFile)
@@ -826,8 +826,8 @@ func TestFile_Fields(t *testing.T) {
 	// Create test file
 	testContent := "test content for file"
 	testFile := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	os.MkdirAll(filepath.Dir(testFile), 0755)
-	os.WriteFile(testFile, []byte(testContent), 0644)
+	_ = os.MkdirAll(filepath.Dir(testFile), 0755)
+	_ = os.WriteFile(testFile, []byte(testContent), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	files, err := fd.DiscoverFiles()
@@ -878,8 +878,8 @@ func TestDiscoverFiles_MixedContent(t *testing.T) {
 
 	for path, content := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -908,7 +908,7 @@ func TestDiscoverFiles_MixedContent(t *testing.T) {
 func TestReadFileContents_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "empty.md")
-	os.WriteFile(emptyFile, []byte(""), 0644)
+	_ = os.WriteFile(emptyFile, []byte(""), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	content, err := fd.ReadFileContents(emptyFile)
@@ -926,8 +926,8 @@ func TestDetectFileType_PluginBasename(t *testing.T) {
 
 	// Create plugin.json in .claude-plugin directory
 	pluginFile := filepath.Join(tmpDir, "pkg", ".claude-plugin", "plugin.json")
-	os.MkdirAll(filepath.Dir(pluginFile), 0755)
-	os.WriteFile(pluginFile, []byte(`{"name":"test"}`), 0644)
+	_ = os.MkdirAll(filepath.Dir(pluginFile), 0755)
+	_ = os.WriteFile(pluginFile, []byte(`{"name":"test"}`), 0644)
 
 	// This should match the basename fallback for plugins
 	fileType, err := DetectFileType(pluginFile, tmpDir)
@@ -947,14 +947,14 @@ func TestValidateFilePath_LstatPermissionError(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	restrictedDir := filepath.Join(tmpDir, "restricted")
-	os.Mkdir(restrictedDir, 0755)
+	_ = os.Mkdir(restrictedDir, 0755)
 
 	restrictedFile := filepath.Join(restrictedDir, "file.md")
-	os.WriteFile(restrictedFile, []byte("content"), 0644)
+	_ = os.WriteFile(restrictedFile, []byte("content"), 0644)
 
 	// Remove read permission from directory
-	os.Chmod(restrictedDir, 0000)
-	defer os.Chmod(restrictedDir, 0755)
+	_ = os.Chmod(restrictedDir, 0000)
+	defer func() { _ = os.Chmod(restrictedDir, 0755) }()
 
 	_, err := ValidateFilePath(restrictedFile)
 	if err == nil {
@@ -974,10 +974,10 @@ func TestValidateFilePath_SymlinkStatError(t *testing.T) {
 
 	// Create a symlink to a file that we'll delete
 	targetFile := filepath.Join(tmpDir, "target.md")
-	os.WriteFile(targetFile, []byte("content"), 0644)
+	_ = os.WriteFile(targetFile, []byte("content"), 0644)
 
 	symlinkFile := filepath.Join(tmpDir, "link.md")
-	os.Symlink(targetFile, symlinkFile)
+	_ = os.Symlink(targetFile, symlinkFile)
 
 	// Delete the target after creating symlink
 	os.Remove(targetFile)
@@ -995,7 +995,7 @@ func TestValidateFilePath_ReadFileError(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte("test"), 0644)
+	_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 	// Normal case should succeed
 	_, err := ValidateFilePath(testFile)
@@ -1010,8 +1010,8 @@ func TestFindFilesByPattern_StatError(t *testing.T) {
 
 	// Create a file that matches the pattern
 	agentFile := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	os.MkdirAll(filepath.Dir(agentFile), 0755)
-	os.WriteFile(agentFile, []byte("content"), 0644)
+	_ = os.MkdirAll(filepath.Dir(agentFile), 0755)
+	_ = os.WriteFile(agentFile, []byte("content"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
@@ -1061,9 +1061,9 @@ func TestFindFilesByPattern_SymlinkEvalError(t *testing.T) {
 
 	// Create a broken symlink
 	linkDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(linkDir, 0755)
+	_ = os.MkdirAll(linkDir, 0755)
 	linkFile := filepath.Join(linkDir, "broken.md")
-	os.Symlink(filepath.Join(tmpDir, "nonexistent"), linkFile)
+	_ = os.Symlink(filepath.Join(tmpDir, "nonexistent"), linkFile)
 
 	// With symlinks enabled, broken symlinks should be skipped
 	fd := NewFileDiscovery(tmpDir, true)
@@ -1086,15 +1086,15 @@ func TestFindFilesByPattern_SymlinkTargetStatError(t *testing.T) {
 
 	// Create directory structure
 	agentDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(agentDir, 0755)
+	_ = os.MkdirAll(agentDir, 0755)
 
 	// Create a file we can symlink to
 	targetFile := filepath.Join(tmpDir, "target.md")
-	os.WriteFile(targetFile, []byte("content"), 0644)
+	_ = os.WriteFile(targetFile, []byte("content"), 0644)
 
 	// Create symlink
 	linkFile := filepath.Join(agentDir, "link.md")
-	os.Symlink(targetFile, linkFile)
+	_ = os.Symlink(targetFile, linkFile)
 
 	// Delete target to cause stat error
 	os.Remove(targetFile)
@@ -1119,7 +1119,7 @@ func TestDetectFileType_DoublestarMatchError(t *testing.T) {
 
 	// Create a file with unusual name
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte("content"), 0644)
+	_ = os.WriteFile(testFile, []byte("content"), 0644)
 
 	// This should try all patterns and fall through to error
 	_, err := DetectFileType(testFile, tmpDir)
@@ -1135,7 +1135,7 @@ func TestValidateFilePath_AccessError(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test.md")
-	os.WriteFile(testFile, []byte("content"), 0644)
+	_ = os.WriteFile(testFile, []byte("content"), 0644)
 
 	// Normal access should work
 	_, err := ValidateFilePath(testFile)
@@ -1150,11 +1150,11 @@ func TestFindFilesByPattern_DirectorySkipping(t *testing.T) {
 
 	// Create a directory with .md extension (unusual but possible)
 	dirPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	os.MkdirAll(dirPath, 0755)
+	_ = os.MkdirAll(dirPath, 0755)
 
 	// Create a normal file as well
 	filePath := filepath.Join(tmpDir, ".claude", "agents", "normal.md")
-	os.WriteFile(filePath, []byte("content"), 0644)
+	_ = os.WriteFile(filePath, []byte("content"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
@@ -1181,15 +1181,15 @@ func TestFindFilesByPattern_ComprehensiveErrors(t *testing.T) {
 
 	// Create various test files
 	agentDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(agentDir, 0755)
+	_ = os.MkdirAll(agentDir, 0755)
 
 	// Regular file
 	regularFile := filepath.Join(agentDir, "regular.md")
-	os.WriteFile(regularFile, []byte("content"), 0644)
+	_ = os.WriteFile(regularFile, []byte("content"), 0644)
 
 	// Create a file then make it a directory (to test edge cases)
 	edgeCase := filepath.Join(agentDir, "edge.md")
-	os.WriteFile(edgeCase, []byte("temp"), 0644)
+	_ = os.WriteFile(edgeCase, []byte("temp"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
@@ -1217,7 +1217,7 @@ func TestValidateFilePath_ShortRead(t *testing.T) {
 	// Create a small file (less than 512 bytes)
 	smallFile := filepath.Join(tmpDir, "small.md")
 	content := []byte("small content")
-	os.WriteFile(smallFile, content, 0644)
+	_ = os.WriteFile(smallFile, content, 0644)
 
 	absPath, err := ValidateFilePath(smallFile)
 	if err != nil {
@@ -1233,7 +1233,7 @@ func TestValidateFilePath_ShortRead(t *testing.T) {
 	for i := range mediumContent {
 		mediumContent[i] = byte('a' + (i % 26))
 	}
-	os.WriteFile(mediumFile, mediumContent, 0644)
+	_ = os.WriteFile(mediumFile, mediumContent, 0644)
 
 	absPath, err = ValidateFilePath(mediumFile)
 	if err != nil {
@@ -1266,8 +1266,8 @@ func TestDetectFileType_AllPatternTypes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, filepath.FromSlash(tt.relPath))
-			os.MkdirAll(filepath.Dir(testFile), 0755)
-			os.WriteFile(testFile, []byte("test"), 0644)
+			_ = os.MkdirAll(filepath.Dir(testFile), 0755)
+			_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 			got, err := DetectFileType(testFile, tmpDir)
 			if err != nil {
@@ -1306,8 +1306,8 @@ func TestDiscoverFiles_LargeFileSet(t *testing.T) {
 
 	for _, path := range fileStructure {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte("content for "+path), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte("content for "+path), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -1357,7 +1357,7 @@ func TestValidateFilePath_EdgeCases(t *testing.T) {
 			name: "file with unicode name",
 			setup: func() string {
 				path := filepath.Join(tmpDir, "test-日本語.md")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			wantErr: false,
@@ -1366,7 +1366,7 @@ func TestValidateFilePath_EdgeCases(t *testing.T) {
 			name: "file with spaces in name",
 			setup: func() string {
 				path := filepath.Join(tmpDir, "test file.md")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			wantErr: false,
@@ -1375,7 +1375,7 @@ func TestValidateFilePath_EdgeCases(t *testing.T) {
 			name: "file with special chars",
 			setup: func() string {
 				path := filepath.Join(tmpDir, "test-file_v2.md")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			wantErr: false,
@@ -1385,7 +1385,7 @@ func TestValidateFilePath_EdgeCases(t *testing.T) {
 			setup: func() string {
 				longName := strings.Repeat("a", 200) + ".md"
 				path := filepath.Join(tmpDir, longName)
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			wantErr: false,
@@ -1410,16 +1410,16 @@ func TestFileTypeEntry_Coverage(t *testing.T) {
 
 	// Create files
 	agentFile := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	os.MkdirAll(filepath.Dir(agentFile), 0755)
-	os.WriteFile(agentFile, []byte("agent"), 0644)
+	_ = os.MkdirAll(filepath.Dir(agentFile), 0755)
+	_ = os.WriteFile(agentFile, []byte("agent"), 0644)
 
 	commandFile := filepath.Join(tmpDir, ".claude", "commands", "test.md")
-	os.MkdirAll(filepath.Dir(commandFile), 0755)
-	os.WriteFile(commandFile, []byte("command"), 0644)
+	_ = os.MkdirAll(filepath.Dir(commandFile), 0755)
+	_ = os.WriteFile(commandFile, []byte("command"), 0644)
 
 	skillFile := filepath.Join(tmpDir, ".claude", "skills", "test", "SKILL.md")
-	os.MkdirAll(filepath.Dir(skillFile), 0755)
-	os.WriteFile(skillFile, []byte("skill"), 0644)
+	_ = os.MkdirAll(filepath.Dir(skillFile), 0755)
+	_ = os.WriteFile(skillFile, []byte("skill"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 
@@ -1486,7 +1486,7 @@ func TestDetectFileType_CaseSensitivity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, tt.filename)
-			os.WriteFile(testFile, []byte("test"), 0644)
+			_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 			got, err := DetectFileType(testFile, tmpDir)
 			if err != nil {
@@ -1550,8 +1550,8 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 
 	for path, content := range structure {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -1586,8 +1586,8 @@ func TestDetectFileType_EscapeRoot(t *testing.T) {
 	// Create a file outside the temp dir
 	parentDir := filepath.Dir(tmpDir)
 	outsideFile := filepath.Join(parentDir, "outside.md")
-	os.WriteFile(outsideFile, []byte("content"), 0644)
-	defer os.Remove(outsideFile)
+	_ = os.WriteFile(outsideFile, []byte("content"), 0644)
+	defer func() { _ = os.Remove(outsideFile) }()
 
 	// Try to detect type - should error with "outside project root"
 	_, err := DetectFileType(outsideFile, tmpDir)
@@ -1605,7 +1605,7 @@ func TestDetectFileType_NoExtensionError(t *testing.T) {
 
 	// Create file without extension
 	noExtFile := filepath.Join(tmpDir, "MAKEFILE")
-	os.WriteFile(noExtFile, []byte("content"), 0644)
+	_ = os.WriteFile(noExtFile, []byte("content"), 0644)
 
 	_, err := DetectFileType(noExtFile, tmpDir)
 	if err == nil {
@@ -1633,7 +1633,7 @@ func TestDetectFileType_UnsupportedExtension(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, tt.file)
-			os.WriteFile(testFile, []byte("content"), 0644)
+			_ = os.WriteFile(testFile, []byte("content"), 0644)
 
 			_, err := DetectFileType(testFile, tmpDir)
 			if err == nil {
@@ -1654,8 +1654,8 @@ func TestDetectFileType_AmbiguousJSON(t *testing.T) {
 
 	// Create JSON file that doesn't match patterns
 	jsonFile := filepath.Join(tmpDir, "data", "config.json")
-	os.MkdirAll(filepath.Dir(jsonFile), 0755)
-	os.WriteFile(jsonFile, []byte("{}"), 0644)
+	_ = os.MkdirAll(filepath.Dir(jsonFile), 0755)
+	_ = os.WriteFile(jsonFile, []byte("{}"), 0644)
 
 	_, err := DetectFileType(jsonFile, tmpDir)
 	if err == nil {
@@ -1672,8 +1672,8 @@ func TestValidateFilePath_SymlinkResolutionError(t *testing.T) {
 
 	// Create circular symlink (points to itself)
 	circularLink := filepath.Join(tmpDir, "circular.md")
-	os.Symlink(circularLink, circularLink)
-	defer os.Remove(circularLink)
+	_ = os.Symlink(circularLink, circularLink)
+	defer func() { _ = os.Remove(circularLink) }()
 
 	_, err := ValidateFilePath(circularLink)
 	if err == nil {
@@ -1727,8 +1727,8 @@ func TestValidateFilePath_BinaryContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, tt.name+".dat")
-			os.WriteFile(testFile, tt.content, 0644)
-			defer os.Remove(testFile)
+			_ = os.WriteFile(testFile, tt.content, 0644)
+			defer func() { _ = os.Remove(testFile) }()
 
 			_, err := ValidateFilePath(testFile)
 			if tt.isBinary {
@@ -1753,15 +1753,15 @@ func TestFindFilesByPattern_SymlinkModeDetection(t *testing.T) {
 
 	// Create real file inside project
 	realDir := filepath.Join(tmpDir, "real")
-	os.Mkdir(realDir, 0755)
+	_ = os.Mkdir(realDir, 0755)
 	realFile := filepath.Join(realDir, "file.md")
-	os.WriteFile(realFile, []byte("content"), 0644)
+	_ = os.WriteFile(realFile, []byte("content"), 0644)
 
 	// Create symlink in agents directory pointing to real file
 	agentDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(agentDir, 0755)
+	_ = os.MkdirAll(agentDir, 0755)
 	linkFile := filepath.Join(agentDir, "linked.md")
-	os.Symlink(realFile, linkFile)
+	_ = os.Symlink(realFile, linkFile)
 
 	fd := NewFileDiscovery(tmpDir, false)
 
@@ -1797,13 +1797,13 @@ func TestFindFilesByPattern_SymlinkOutsideRootValidation(t *testing.T) {
 
 	// Create file outside project root
 	outsideFile := filepath.Join(outsideDir, "external.md")
-	os.WriteFile(outsideFile, []byte("external"), 0644)
+	_ = os.WriteFile(outsideFile, []byte("external"), 0644)
 
 	// Create symlink inside project pointing outside
 	agentDir := filepath.Join(tmpDir, ".claude", "agents")
-	os.MkdirAll(agentDir, 0755)
+	_ = os.MkdirAll(agentDir, 0755)
 	linkFile := filepath.Join(agentDir, "external-link.md")
-	os.Symlink(outsideFile, linkFile)
+	_ = os.Symlink(outsideFile, linkFile)
 
 	// With symlinks enabled, should validate and skip external targets
 	fd := NewFileDiscovery(tmpDir, true)
@@ -1854,14 +1854,14 @@ func TestFindFilesByPattern_ReadFileError(t *testing.T) {
 
 	// Create file with read permissions
 	goodFile := filepath.Join(tmpDir, ".claude", "agents", "good.md")
-	os.MkdirAll(filepath.Dir(goodFile), 0755)
-	os.WriteFile(goodFile, []byte("good content"), 0644)
+	_ = os.MkdirAll(filepath.Dir(goodFile), 0755)
+	_ = os.WriteFile(goodFile, []byte("good content"), 0644)
 
 	// Create file without read permissions
 	badFile := filepath.Join(tmpDir, ".claude", "agents", "bad.md")
-	os.WriteFile(badFile, []byte("bad content"), 0644)
-	os.Chmod(badFile, 0000)
-	defer os.Chmod(badFile, 0644)
+	_ = os.WriteFile(badFile, []byte("bad content"), 0644)
+	_ = os.Chmod(badFile, 0000)
+	defer func() { _ = os.Chmod(badFile, 0644) }()
 
 	fd := NewFileDiscovery(tmpDir, false)
 	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
@@ -1892,7 +1892,7 @@ func TestValidateFilePath_LargeFile(t *testing.T) {
 	}
 
 	largeFile := filepath.Join(tmpDir, "large.md")
-	os.WriteFile(largeFile, largeContent, 0644)
+	_ = os.WriteFile(largeFile, largeContent, 0644)
 
 	absPath, err := ValidateFilePath(largeFile)
 	if err != nil {
@@ -1908,7 +1908,7 @@ func TestValidateFilePath_ExactlyEmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	emptyFile := filepath.Join(tmpDir, "empty.md")
-	os.WriteFile(emptyFile, []byte{}, 0644)
+	_ = os.WriteFile(emptyFile, []byte{}, 0644)
 
 	_, err := ValidateFilePath(emptyFile)
 	if err == nil {
@@ -1933,8 +1933,8 @@ func TestFindFilesByPattern_MultiplePatterns(t *testing.T) {
 
 	for path, content := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte(content), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -1972,8 +1972,8 @@ func TestFindFilesByPattern_NoMatches(t *testing.T) {
 
 	// Create one file
 	testFile := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	os.MkdirAll(filepath.Dir(testFile), 0755)
-	os.WriteFile(testFile, []byte("test"), 0644)
+	_ = os.MkdirAll(filepath.Dir(testFile), 0755)
+	_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
 
@@ -2013,8 +2013,8 @@ func TestDiscoverFiles_AllPatternsCovered(t *testing.T) {
 
 	for _, path := range files {
 		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
-		os.MkdirAll(filepath.Dir(absPath), 0755)
-		os.WriteFile(absPath, []byte("content"), 0644)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte("content"), 0644)
 	}
 
 	fd := NewFileDiscovery(tmpDir, false)
@@ -2067,8 +2067,8 @@ func TestDetectFileType_AmbiguousMD(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, filepath.FromSlash(tt.path))
-			os.MkdirAll(filepath.Dir(testFile), 0755)
-			os.WriteFile(testFile, []byte("test"), 0644)
+			_ = os.MkdirAll(filepath.Dir(testFile), 0755)
+			_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 			_, err := DetectFileType(testFile, tmpDir)
 			if err == nil {
@@ -2087,11 +2087,11 @@ func TestValidateFilePath_SymlinkToDirectory(t *testing.T) {
 
 	// Create directory
 	dir := filepath.Join(tmpDir, "dir")
-	os.Mkdir(dir, 0755)
+	_ = os.Mkdir(dir, 0755)
 
 	// Create symlink to directory
 	linkToDir := filepath.Join(tmpDir, "link-to-dir")
-	os.Symlink(dir, linkToDir)
+	_ = os.Symlink(dir, linkToDir)
 
 	_, err := ValidateFilePath(linkToDir)
 	if err == nil {
@@ -2135,8 +2135,8 @@ func TestDetectFileType_EdgeCaseBasenames(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tmpDir, filepath.FromSlash(tt.path))
-			os.MkdirAll(filepath.Dir(testFile), 0755)
-			os.WriteFile(testFile, []byte("test"), 0644)
+			_ = os.MkdirAll(filepath.Dir(testFile), 0755)
+			_ = os.WriteFile(testFile, []byte("test"), 0644)
 
 			got, err := DetectFileType(testFile, tmpDir)
 			if (err != nil) != tt.wantErr {

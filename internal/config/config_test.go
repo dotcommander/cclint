@@ -37,7 +37,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	config, err := LoadConfig("")
@@ -102,7 +102,7 @@ func TestLoadConfigFromJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	config, err := LoadConfig("")
@@ -166,7 +166,7 @@ schemas:
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	config, err := LoadConfig("")
@@ -210,7 +210,7 @@ output: report.json
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	config, err := LoadConfig("")
@@ -238,7 +238,7 @@ func TestLoadConfigRootPathOverride(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	// Load with override
@@ -274,7 +274,7 @@ func TestLoadConfigEnvironmentVariables(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(tmpDir))
 	t.Cleanup(func() {
-		os.Chdir(oldWd)
+		_ = os.Chdir(oldWd)
 	})
 
 	config, err := LoadConfig("")
@@ -298,14 +298,14 @@ func TestLoadConfigConfigFilePriority(t *testing.T) {
 	// Create multiple config files
 	jsonConfig := map[string]interface{}{"root": "/json/root"}
 	jsonData, _ := json.MarshalIndent(jsonConfig, "", "  ")
-	os.WriteFile(filepath.Join(tmpDir, ".cclintrc.json"), jsonData, 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".cclintrc.json"), jsonData, 0644)
 
 	yamlContent := "root: /yaml/root\n"
-	os.WriteFile(filepath.Join(tmpDir, ".cclintrc.yaml"), []byte(yamlContent), 0644)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".cclintrc.yaml"), []byte(yamlContent), 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	require.NoError(t, err)
@@ -500,7 +500,7 @@ func TestSaveConfigInvalidPath(t *testing.T) {
 	// Try to save to an invalid path (file as directory)
 	tmpDir := setupTestDir(t)
 	filePath := filepath.Join(tmpDir, "file")
-	os.WriteFile(filePath, []byte("test"), 0644)
+	_ = os.WriteFile(filePath, []byte("test"), 0644)
 
 	invalidPath := filepath.Join(filePath, "config.json")
 	err := SaveConfig(config, invalidPath)
@@ -518,8 +518,8 @@ func TestLoadConfigUnmarshalError(t *testing.T) {
 	require.NoError(t, os.WriteFile(configPath, []byte(invalidJSON), 0644))
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	assert.Error(t, err)
@@ -539,11 +539,11 @@ func TestLoadConfigValidationError(t *testing.T) {
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.json")
 	jsonData, _ := json.MarshalIndent(configData, "", "  ")
-	os.WriteFile(configPath, jsonData, 0644)
+	_ = os.WriteFile(configPath, jsonData, 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	assert.Error(t, err)
@@ -637,11 +637,11 @@ func TestLoadConfigWithEmptyExclude(t *testing.T) {
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.json")
 	jsonData, _ := json.MarshalIndent(configData, "", "  ")
-	os.WriteFile(configPath, jsonData, 0644)
+	_ = os.WriteFile(configPath, jsonData, 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	require.NoError(t, err)
@@ -662,11 +662,11 @@ func TestLoadConfigWithNullExtensions(t *testing.T) {
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.json")
 	jsonData, _ := json.MarshalIndent(configData, "", "  ")
-	os.WriteFile(configPath, jsonData, 0644)
+	_ = os.WriteFile(configPath, jsonData, 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	require.NoError(t, err)
@@ -685,11 +685,11 @@ func TestLoadConfigEmptyRootPath(t *testing.T) {
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.json")
 	jsonData, _ := json.MarshalIndent(configData, "", "  ")
-	os.WriteFile(configPath, jsonData, 0644)
+	_ = os.WriteFile(configPath, jsonData, 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Pass empty string for rootPath
 	config, err := LoadConfig("")
@@ -808,13 +808,13 @@ func TestLoadConfigNoConfigFiles(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Ensure no config files exist
-	os.Remove(filepath.Join(tmpDir, ".cclintrc.json"))
-	os.Remove(filepath.Join(tmpDir, ".cclintrc.yaml"))
-	os.Remove(filepath.Join(tmpDir, ".cclintrc.yml"))
+	_ = os.Remove(filepath.Join(tmpDir, ".cclintrc.json"))
+	_ = os.Remove(filepath.Join(tmpDir, ".cclintrc.yaml"))
+	_ = os.Remove(filepath.Join(tmpDir, ".cclintrc.yml"))
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	// Should succeed with defaults
 	config, err := LoadConfig("")
@@ -838,11 +838,11 @@ func TestLoadConfigPartialConfig(t *testing.T) {
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.json")
 	jsonData, _ := json.MarshalIndent(configData, "", "  ")
-	os.WriteFile(configPath, jsonData, 0644)
+	_ = os.WriteFile(configPath, jsonData, 0644)
 
 	oldWd, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(oldWd)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(oldWd) }()
 
 	config, err := LoadConfig("")
 	require.NoError(t, err)

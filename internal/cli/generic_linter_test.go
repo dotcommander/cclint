@@ -211,8 +211,6 @@ type mockLinter struct {
 	specificErrs  []cue.ValidationError
 	preValidErrs  []cue.ValidationError
 	bestPracErrs  []cue.ValidationError
-	score         int
-	improvements  []ImprovementRecommendation
 	postProcessed bool
 }
 
@@ -316,8 +314,9 @@ func TestLintComponent(t *testing.T) {
 				t.Errorf("lintComponent() errors = %d, want %d", len(result.Errors), tt.wantErrCount)
 			}
 
-			if tt.linter.postProcessed {
-				// PostProcess was called
+			// Verify PostProcess was called for successful parsing
+			if tt.wantSuccess && !tt.linter.postProcessed {
+				t.Error("PostProcess was not called")
 			}
 		})
 	}
@@ -329,7 +328,6 @@ func TestValidateAllowedToolsShared(t *testing.T) {
 		"allowed-tools": "Read, Write",
 	}
 	errors := ValidateAllowedToolsShared(data, "test.md", "")
-	if errors == nil {
-		// Function exists and returns
-	}
+	// Verify function exists and returns without panic
+	_ = errors
 }
