@@ -406,6 +406,25 @@ func CheckSizeLimit(contents string, limit int, tolerance float64, componentType
 	return nil
 }
 
+// semverPattern is the compiled regex for semver validation.
+// Extracted to avoid recompilation on each call.
+var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`)
+
+// ValidateSemver checks if a version string follows semver format.
+// Returns nil if valid, or a ValidationError if invalid.
+func ValidateSemver(version, filePath string, line int) *cue.ValidationError {
+	if !semverPattern.MatchString(version) {
+		return &cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Version '%s' should follow semver format (e.g., '1.0.0')", version),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+			Line:     line,
+		}
+	}
+	return nil
+}
+
 // parseFrontmatter parses YAML frontmatter from markdown content.
 // Returns (data, body, error).
 func parseFrontmatter(contents string) (map[string]interface{}, string, error) {

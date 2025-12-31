@@ -87,15 +87,8 @@ func validatePluginSpecific(data map[string]interface{}, filePath string, conten
 		})
 	} else {
 		// Validate semver format if present
-		semverPattern := regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`)
-		if !semverPattern.MatchString(version) {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Version '%s' should be in semver format (e.g., 1.0.0)", version),
-				Severity: "warning",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindJSONFieldLine(contents, "version"),
-			})
+		if err := ValidateSemver(version, filePath, FindJSONFieldLine(contents, "version")); err != nil {
+			errors = append(errors, *err)
 		}
 	}
 

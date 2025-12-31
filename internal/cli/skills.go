@@ -92,15 +92,8 @@ func validateSkillBestPractices(filePath string, contents string, fmData map[str
 
 	// P3: Semver validation for version field - OUR OBSERVATION
 	if version, ok := fmData["version"].(string); ok && version != "" {
-		semverPattern := regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`)
-		if !semverPattern.MatchString(version) {
-			warnings = append(warnings, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Version '%s' should follow semver format (e.g., '1.0.0')", version),
-				Severity: "warning",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindFrontmatterFieldLine(contents, "version"),
-			})
+		if err := ValidateSemver(version, filePath, FindFrontmatterFieldLine(contents, "version")); err != nil {
+			warnings = append(warnings, *err)
 		}
 	}
 
