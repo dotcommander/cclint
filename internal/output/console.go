@@ -241,11 +241,12 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 	}
 
 	if allPassed {
+		msg := fmt.Sprintf("✓ All %d passed", summary.TotalFiles)
 		if f.colorize {
 			style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-			fmt.Printf("%s\n", style.Render("✓ All passed"))
+			fmt.Printf("%s\n", style.Render(msg))
 		} else {
-			fmt.Println("✓ All passed")
+			fmt.Println(msg)
 		}
 	}
 }
