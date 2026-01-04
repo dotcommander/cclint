@@ -89,19 +89,19 @@ type PostProcessable interface {
 	PostProcess(result *LintResult)
 }
 
-// lintComponent is the generic single-file linting function.
-// It orchestrates the linting pipeline using a ComponentLinter.
-// Optional capabilities are checked via type assertions (ISP compliance).
-func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintResult {
+// lintFileCore contains the shared linting logic for both single-file and batch modes.
+// It validates a file using the provided ComponentLinter and returns the result.
+// crossValidator may be nil if cross-file validation should be skipped.
+func lintFileCore(filePath, contents string, linter ComponentLinter, validator *cue.Validator, crossValidator *CrossFileValidator) LintResult {
 	result := LintResult{
-		File:    ctx.File.RelPath,
+		File:    filePath,
 		Type:    linter.Type(),
 		Success: true,
 	}
 
 	// Pre-validation checks (filename, empty content, etc.) - optional capability
 	if pv, ok := linter.(PreValidator); ok {
-		preErrors := pv.PreValidate(ctx.File.RelPath, ctx.File.Contents)
+		preErrors := pv.PreValidate(filePath, contents)
 		if len(preErrors) > 0 {
 			result.Errors = append(result.Errors, preErrors...)
 			// Check if any are fatal (should abort further validation)
@@ -115,10 +115,10 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	}
 
 	// Parse content
-	data, body, err := linter.ParseContent(ctx.File.Contents)
+	data, body, err := linter.ParseContent(contents)
 	if err != nil {
 		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
+			File:     filePath,
 			Message:  err.Error(),
 			Severity: "error",
 		})
@@ -127,10 +127,10 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	}
 
 	// CUE validation
-	if cueErrors, err := linter.ValidateCUE(ctx.Validator, data); err != nil {
+	if cueErrors, cueErr := linter.ValidateCUE(validator, data); cueErr != nil {
 		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  fmt.Sprintf("Validation error: %v", err),
+			File:     filePath,
+			Message:  fmt.Sprintf("Validation error: %v", cueErr),
 			Severity: "error",
 		})
 	} else if cueErrors != nil {
@@ -138,63 +138,39 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	}
 
 	// Component-specific validation
-	specificErrors := linter.ValidateSpecific(data, ctx.File.RelPath, ctx.File.Contents)
-	for _, issue := range specificErrors {
-		if issue.Severity == "suggestion" {
-			result.Suggestions = append(result.Suggestions, issue)
-		} else if issue.Severity == "warning" {
-			result.Warnings = append(result.Warnings, issue)
-		} else {
-			result.Errors = append(result.Errors, issue)
-		}
-	}
+	specificErrors := linter.ValidateSpecific(data, filePath, contents)
+	categorizeIssues(&result, specificErrors)
 
 	// Best practice checks - optional capability
 	if bpv, ok := linter.(BestPracticeValidator); ok {
-		if bpIssues := bpv.ValidateBestPractices(ctx.File.RelPath, ctx.File.Contents, data); bpIssues != nil {
-			for _, issue := range bpIssues {
-				if issue.Severity == "suggestion" {
-					result.Suggestions = append(result.Suggestions, issue)
-				} else if issue.Severity == "warning" {
-					result.Warnings = append(result.Warnings, issue)
-				} else {
-					result.Errors = append(result.Errors, issue)
-				}
-			}
+		if bpIssues := bpv.ValidateBestPractices(filePath, contents, data); bpIssues != nil {
+			categorizeIssues(&result, bpIssues)
 		}
 	}
 
 	// Cross-file validation - optional capability
-	crossValidator := ctx.EnsureCrossFileValidator()
 	if crossValidator != nil {
 		if cfv, ok := linter.(CrossFileValidatable); ok {
-			if crossErrors := cfv.ValidateCrossFile(crossValidator, ctx.File.RelPath, ctx.File.Contents, data); crossErrors != nil {
+			if crossErrors := cfv.ValidateCrossFile(crossValidator, filePath, contents, data); crossErrors != nil {
 				result.Errors = append(result.Errors, crossErrors...)
 			}
 		}
-	} else if ctx.Verbose {
-		result.Suggestions = append(result.Suggestions, cue.ValidationError{
-			File:     ctx.File.RelPath,
-			Message:  "Cross-file validation skipped (could not discover project files)",
-			Severity: "info",
-			Source:   cue.SourceCClintObserve,
-		})
 	}
 
 	// Secrets detection (common to all types)
-	secretWarnings := detectSecrets(ctx.File.Contents, ctx.File.RelPath)
+	secretWarnings := detectSecrets(contents, filePath)
 	result.Warnings = append(result.Warnings, secretWarnings...)
 
 	// Quality scoring - optional capability
 	if sc, ok := linter.(Scorable); ok {
-		if score := sc.Score(ctx.File.Contents, data, body); score != nil {
+		if score := sc.Score(contents, data, body); score != nil {
 			result.Quality = score
 		}
 	}
 
 	// Improvement recommendations - optional capability
 	if imp, ok := linter.(Improvable); ok {
-		if improvements := imp.GetImprovements(ctx.File.Contents, data); improvements != nil {
+		if improvements := imp.GetImprovements(contents, data); improvements != nil {
 			result.Improvements = improvements
 		}
 	}
@@ -205,6 +181,39 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	}
 
 	result.Success = len(result.Errors) == 0
+	return result
+}
+
+// categorizeIssues distributes validation issues into errors, warnings, or suggestions.
+func categorizeIssues(result *LintResult, issues []cue.ValidationError) {
+	for _, issue := range issues {
+		switch issue.Severity {
+		case "suggestion":
+			result.Suggestions = append(result.Suggestions, issue)
+		case "warning":
+			result.Warnings = append(result.Warnings, issue)
+		default:
+			result.Errors = append(result.Errors, issue)
+		}
+	}
+}
+
+// lintComponent is the generic single-file linting function.
+// It orchestrates the linting pipeline using a ComponentLinter.
+func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintResult {
+	crossValidator := ctx.EnsureCrossFileValidator()
+	result := lintFileCore(ctx.File.RelPath, ctx.File.Contents, linter, ctx.Validator, crossValidator)
+
+	// Add info message if cross-file validation was skipped
+	if crossValidator == nil && ctx.Verbose {
+		result.Suggestions = append(result.Suggestions, cue.ValidationError{
+			File:     ctx.File.RelPath,
+			Message:  "Cross-file validation skipped (could not discover project files)",
+			Severity: "info",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
 	return result
 }
 
@@ -247,110 +256,9 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 }
 
 // lintBatchFile lints a single file in batch mode.
-// Optional capabilities are checked via type assertions (ISP compliance).
+// Delegates to lintFileCore for the actual validation logic.
 func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLinter) LintResult {
-	result := LintResult{
-		File:    file.RelPath,
-		Type:    linter.Type(),
-		Success: true,
-	}
-
-	// Pre-validation checks - optional capability
-	if pv, ok := linter.(PreValidator); ok {
-		preErrors := pv.PreValidate(file.RelPath, file.Contents)
-		if len(preErrors) > 0 {
-			result.Errors = append(result.Errors, preErrors...)
-			for _, e := range preErrors {
-				if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
-					result.Success = len(result.Errors) == 0
-					return result
-				}
-			}
-		}
-	}
-
-	// Parse content
-	data, body, err := linter.ParseContent(file.Contents)
-	if err != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     file.RelPath,
-			Message:  err.Error(),
-			Severity: "error",
-		})
-		result.Success = false
-		return result
-	}
-
-	// CUE validation
-	if cueErrors, cueErr := linter.ValidateCUE(ctx.Validator, data); cueErr != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     file.RelPath,
-			Message:  fmt.Sprintf("Validation error: %v", cueErr),
-			Severity: "error",
-		})
-	} else if cueErrors != nil {
-		result.Errors = append(result.Errors, cueErrors...)
-	}
-
-	// Component-specific validation
-	specificErrors := linter.ValidateSpecific(data, file.RelPath, file.Contents)
-	for _, issue := range specificErrors {
-		if issue.Severity == "suggestion" {
-			result.Suggestions = append(result.Suggestions, issue)
-		} else if issue.Severity == "warning" {
-			result.Warnings = append(result.Warnings, issue)
-		} else {
-			result.Errors = append(result.Errors, issue)
-		}
-	}
-
-	// Best practice checks - optional capability
-	if bpv, ok := linter.(BestPracticeValidator); ok {
-		if bpIssues := bpv.ValidateBestPractices(file.RelPath, file.Contents, data); bpIssues != nil {
-			for _, issue := range bpIssues {
-				if issue.Severity == "suggestion" {
-					result.Suggestions = append(result.Suggestions, issue)
-				} else if issue.Severity == "warning" {
-					result.Warnings = append(result.Warnings, issue)
-				} else {
-					result.Errors = append(result.Errors, issue)
-				}
-			}
-		}
-	}
-
-	// Cross-file validation - optional capability
-	if cfv, ok := linter.(CrossFileValidatable); ok {
-		if crossErrors := cfv.ValidateCrossFile(ctx.CrossValidator, file.RelPath, file.Contents, data); crossErrors != nil {
-			result.Errors = append(result.Errors, crossErrors...)
-		}
-	}
-
-	// Secrets detection
-	secretWarnings := detectSecrets(file.Contents, file.RelPath)
-	result.Warnings = append(result.Warnings, secretWarnings...)
-
-	// Quality scoring - optional capability
-	if sc, ok := linter.(Scorable); ok {
-		if score := sc.Score(file.Contents, data, body); score != nil {
-			result.Quality = score
-		}
-	}
-
-	// Improvement recommendations - optional capability
-	if imp, ok := linter.(Improvable); ok {
-		if improvements := imp.GetImprovements(file.Contents, data); improvements != nil {
-			result.Improvements = improvements
-		}
-	}
-
-	// Post-processing - optional capability
-	if pp, ok := linter.(PostProcessable); ok {
-		pp.PostProcess(&result)
-	}
-
-	result.Success = len(result.Errors) == 0
-	return result
+	return lintFileCore(file.RelPath, file.Contents, linter, ctx.Validator, ctx.CrossValidator)
 }
 
 // =============================================================================

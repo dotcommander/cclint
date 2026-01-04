@@ -213,35 +213,56 @@ func hasEditingTools(tools interface{}) bool {
 	return false
 }
 
-// validateAgentBestPractices checks opinionated best practices for agents
+// validateAgentBestPractices checks opinionated best practices for agents.
+// Aggregates results from focused validation functions for each concern.
 func validateAgentBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
 	var suggestions []cue.ValidationError
-	fmEndLine := GetFrontmatterEndLine(contents)
 
-	// XML tag detection in text fields - FROM ANTHROPIC DOCS
+	// Each check function handles one concern
+	suggestions = append(suggestions, checkAgentXMLTags(data, filePath, contents)...)
+	suggestions = append(suggestions, checkAgentSizeLimit(contents, filePath)...)
+	suggestions = append(suggestions, checkAgentBloatSections(contents, filePath)...)
+	suggestions = append(suggestions, checkAgentInlineMethodology(contents, filePath)...)
+	suggestions = append(suggestions, checkAgentMissingFields(data, contents, filePath)...)
+
+	return suggestions
+}
+
+// checkAgentXMLTags detects XML-like tags in description field.
+// XML tags in agent descriptions can confuse Claude's parsing.
+func checkAgentXMLTags(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
 	if description, ok := data["description"].(string); ok {
 		if xmlErr := DetectXMLTags(description, "Description", filePath, contents); xmlErr != nil {
-			suggestions = append(suggestions, *xmlErr)
+			return []cue.ValidationError{*xmlErr}
 		}
 	}
+	return nil
+}
 
-	// Count total lines (±10% tolerance: 200 base)
+// checkAgentSizeLimit ensures agents stay under recommended line count.
+// Agents over 200 lines (+10% tolerance) should move methodology to skills.
+func checkAgentSizeLimit(contents, filePath string) []cue.ValidationError {
 	if sizeErr := CheckSizeLimit(contents, 200, 0.10, "agent", filePath); sizeErr != nil {
-		suggestions = append(suggestions, *sizeErr)
+		return []cue.ValidationError{*sizeErr}
 	}
+	return nil
+}
 
-	// === BLOAT SECTIONS DETECTOR ===
-	// Check for bloat sections (only match exact h2 headings, not substrings)
-	bloatPatterns := []struct {
-		regex   *regexp.Regexp
-		message string
-	}{
-		{regexp.MustCompile(`(?m)^## Quick Reference\s*$`), "Agent has '## Quick Reference' - belongs in skill, not agent"},
-		{regexp.MustCompile(`(?m)^## When to Use\s*$`), "Agent has '## When to Use' - caller decides, use description triggers"},
-		{regexp.MustCompile(`(?m)^## What it does\s*$`), "Agent has '## What it does' - belongs in description"},
-		{regexp.MustCompile(`(?m)^## Usage\s*$`), "Agent has '## Usage' - belongs in skill or remove"},
-	}
-	for _, bp := range bloatPatterns {
+// bloatSectionPatterns are H2 headings that indicate content should be elsewhere.
+var bloatSectionPatterns = []struct {
+	regex   *regexp.Regexp
+	message string
+}{
+	{regexp.MustCompile(`(?m)^## Quick Reference\s*$`), "Agent has '## Quick Reference' - belongs in skill, not agent"},
+	{regexp.MustCompile(`(?m)^## When to Use\s*$`), "Agent has '## When to Use' - caller decides, use description triggers"},
+	{regexp.MustCompile(`(?m)^## What it does\s*$`), "Agent has '## What it does' - belongs in description"},
+	{regexp.MustCompile(`(?m)^## Usage\s*$`), "Agent has '## Usage' - belongs in skill or remove"},
+}
+
+// checkAgentBloatSections detects H2 sections that belong in skills, not agents.
+func checkAgentBloatSections(contents, filePath string) []cue.ValidationError {
+	var suggestions []cue.ValidationError
+	for _, bp := range bloatSectionPatterns {
 		if bp.regex.MatchString(contents) {
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
@@ -251,18 +272,24 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			})
 		}
 	}
+	return suggestions
+}
 
-	// === INLINE METHODOLOGY DETECTOR ===
-	inlinePatterns := []struct {
-		pattern string
-		message string
-	}{
-		{`score\s*=\s*\([^)]{20,}`, "Inline scoring formula detected - should be 'See skill for scoring'"},
-		{`\|\s*CRITICAL\s*\|[^|]*\|\s*HIGH\s*\|`, "Inline priority matrix detected - move to skill"},
-		{`(?i)tier\s*(bonus|1|2|3|4)[^|]*\+\s*\d+`, "Tier scoring details inline - move to skill"},
-		{`regexp\.(MustCompile|Compile)\s*\(`, "Detection patterns inline - move to skill"},
-	}
-	for _, ip := range inlinePatterns {
+// inlineMethodologyPatterns detect methodology that should be in skills.
+var inlineMethodologyPatterns = []struct {
+	pattern string
+	message string
+}{
+	{`score\s*=\s*\([^)]{20,}`, "Inline scoring formula detected - should be 'See skill for scoring'"},
+	{`\|\s*CRITICAL\s*\|[^|]*\|\s*HIGH\s*\|`, "Inline priority matrix detected - move to skill"},
+	{`(?i)tier\s*(bonus|1|2|3|4)[^|]*\+\s*\d+`, "Tier scoring details inline - move to skill"},
+	{`regexp\.(MustCompile|Compile)\s*\(`, "Detection patterns inline - move to skill"},
+}
+
+// checkAgentInlineMethodology detects methodology patterns that belong in skills.
+func checkAgentInlineMethodology(contents, filePath string) []cue.ValidationError {
+	var suggestions []cue.ValidationError
+	for _, ip := range inlineMethodologyPatterns {
 		matched, _ := regexp.MatchString(ip.pattern, contents)
 		if matched {
 			suggestions = append(suggestions, cue.ValidationError{
@@ -273,8 +300,15 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 			})
 		}
 	}
+	return suggestions
+}
 
-	// Check for missing model specification - OUR OBSERVATION (Anthropic docs say model is optional)
+// checkAgentMissingFields checks for missing recommended fields and patterns.
+func checkAgentMissingFields(data map[string]interface{}, contents, filePath string) []cue.ValidationError {
+	var suggestions []cue.ValidationError
+	fmEndLine := GetFrontmatterEndLine(contents)
+
+	// Check for missing model specification
 	if _, hasModel := data["model"]; !hasModel {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
@@ -285,11 +319,9 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		})
 	}
 
-	// Check for Skill loading pattern - OUR OBSERVATION (thin agent -> fat skill pattern)
-	// Accept Skill() tool calls, Skill: references, and Skills: (plural) references
+	// Check for Skill loading pattern (thin agent -> fat skill pattern)
 	hasSkillRef := strings.Contains(contents, "Skill(") || strings.Contains(contents, "Skill:") || strings.Contains(contents, "Skills:")
 	if !hasSkillRef && (strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow")) {
-		// Has structure but no skill reference - gentle reminder
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "No skill reference found. If methodology is reusable, consider extracting to a skill.",
@@ -299,7 +331,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		})
 	}
 
-	// Check for Use PROACTIVELY pattern in description - Anthropic docs mention this as a tip
+	// Check for PROACTIVELY pattern in description (Anthropic docs tip)
 	if desc, hasDesc := data["description"].(string); hasDesc {
 		if !strings.Contains(desc, "PROACTIVELY") {
 			suggestions = append(suggestions, cue.ValidationError{
@@ -312,7 +344,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 		}
 	}
 
-	// Check for permissionMode when agent has editing tools - OUR OBSERVATION
+	// Check for permissionMode when agent has editing tools
 	if _, hasPermMode := data["permissionMode"]; !hasPermMode {
 		if hasEditingTools(data["tools"]) {
 			suggestions = append(suggestions, cue.ValidationError{
