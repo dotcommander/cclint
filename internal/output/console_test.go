@@ -387,8 +387,6 @@ func TestConsoleFormatter_Format(t *testing.T) {
 			os.Stdout = w
 
 			formatter := NewConsoleFormatter(tt.quiet, tt.verbose, tt.showScores, tt.showImprovements)
-			// Reset start time to get consistent duration output
-			formatter.startTime = tt.summary.StartTime
 			err := formatter.Format(tt.summary)
 
 			w.Close()

@@ -16,7 +16,6 @@ type ConsoleFormatter struct {
 	colorize         bool
 	showScores       bool
 	showImprovements bool
-	startTime        time.Time
 }
 
 // NewConsoleFormatter creates a new ConsoleFormatter
@@ -27,7 +26,6 @@ func NewConsoleFormatter(quiet, verbose, showScores, showImprovements bool) *Con
 		colorize:         true,
 		showScores:       showScores,
 		showImprovements: showImprovements,
-		startTime:        time.Now(),
 	}
 }
 
@@ -209,7 +207,7 @@ func (f *ConsoleFormatter) printSummary(summary *cli.LintSummary) {
 		return
 	}
 
-	duration := time.Since(f.startTime)
+	duration := time.Since(summary.StartTime)
 	if f.verbose {
 		fmt.Printf("\n%d/%d passed, %d errors, %d suggestions (%v)\n",
 			summary.SuccessfulFiles, summary.TotalFiles,
@@ -229,11 +227,6 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 		return
 	}
 
-	// Print newline before conclusion if there were file results
-	if len(summary.Results) > 0 {
-		fmt.Println()
-	}
-
 	// Check for success (only count suggestions in verbose mode)
 	allPassed := summary.FailedFiles == 0
 	if f.verbose {
@@ -247,10 +240,13 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 		}
 		msg := fmt.Sprintf("✓ All %d %s passed", summary.TotalFiles, componentType)
 		if f.colorize {
-			style := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+			style := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 			fmt.Printf("%s\n", style.Render(msg))
 		} else {
 			fmt.Println(msg)
 		}
 	}
+
+	// Add blank line after each component group for better readability
+	fmt.Println()
 }

@@ -415,18 +415,20 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 	return files, nil
 }
 
-// determineFileType determines the file type based on its path
+// determineFileType determines the file type based on its path.
+// Uses path component matching (not substring) to avoid false positives
+// like matching "/my-agents-backup/" when looking for "/agents/".
 func (fd *FileDiscovery) determineFileType(path string) FileType {
 	lowerPath := strings.ToLower(path)
 
 	// Rules must be checked before agents/commands (rules/ is inside .claude/)
-	if strings.Contains(lowerPath, ".claude/rules") && strings.HasSuffix(lowerPath, ".md") {
+	if hasPathComponent(lowerPath, ".claude/rules") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeRule
 	}
-	if strings.Contains(lowerPath, "agents") && strings.HasSuffix(lowerPath, ".md") {
+	if hasPathComponent(lowerPath, "agents") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeAgent
 	}
-	if strings.Contains(lowerPath, "commands") && strings.HasSuffix(lowerPath, ".md") {
+	if hasPathComponent(lowerPath, "commands") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeCommand
 	}
 	if strings.HasSuffix(lowerPath, "settings.json") {
@@ -435,11 +437,40 @@ func (fd *FileDiscovery) determineFileType(path string) FileType {
 	if strings.HasSuffix(lowerPath, "claude.md") {
 		return FileTypeContext
 	}
-	if strings.Contains(lowerPath, ".claude-plugin") && strings.HasSuffix(lowerPath, "plugin.json") {
+	if hasPathComponent(lowerPath, ".claude-plugin") && strings.HasSuffix(lowerPath, "plugin.json") {
 		return FileTypePlugin
 	}
 
 	return FileTypeUnknown
+}
+
+// hasPathComponent checks if a path contains a directory component.
+// Unlike strings.Contains, this matches on path boundaries to avoid
+// false positives (e.g., "agents" won't match "my-agents-backup").
+func hasPathComponent(path, component string) bool {
+	// Check for exact component boundaries using path separator
+	sep := string(filepath.Separator)
+
+	// Handle both forward and back slashes for cross-platform support
+	normalizedPath := strings.ReplaceAll(path, "\\", "/")
+	normalizedComponent := strings.ReplaceAll(component, "\\", "/")
+	sep = "/"
+
+	// Check: /component/, /component (end), component/ (start)
+	if strings.Contains(normalizedPath, sep+normalizedComponent+sep) {
+		return true
+	}
+	if strings.HasSuffix(normalizedPath, sep+normalizedComponent) {
+		return true
+	}
+	if strings.HasPrefix(normalizedPath, normalizedComponent+sep) {
+		return true
+	}
+	// Exact match (path == component)
+	if normalizedPath == normalizedComponent {
+		return true
+	}
+	return false
 }
 
 // ReadFileContents reads the contents of a file

@@ -12,7 +12,7 @@ import (
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/outputters"
+	"github.com/dotcommander/cclint/internal/output"
 )
 
 // LinterFunc is the function signature for component linters.
@@ -89,13 +89,12 @@ func (o *Orchestrator) Run() (*Result, error) {
 		fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", err)
 	}
 
-	outputter := outputters.NewOutputter(o.cfg)
-
 	// Track totals across all linters
 	result := &Result{}
 	var allIssues []cue.ValidationError
+	var allSummaries []*cli.LintSummary
 
-	// Run all linters
+	// Run all linters and collect summaries
 	for _, l := range o.linters {
 		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck)
 		if err != nil {
@@ -120,10 +119,8 @@ func (o *Orchestrator) Run() (*Result, error) {
 			result.SuggestionsIgnored += suggIgnored
 		}
 
-		// Format and output results for this component type
-		if err := outputter.Format(summary, o.cfg.Format); err != nil {
-			return nil, fmt.Errorf("error formatting %s output: %w", l.Name, err)
-		}
+		// Collect summary for compact output
+		allSummaries = append(allSummaries, summary)
 
 		// Accumulate totals
 		result.TotalFiles += summary.TotalFiles
@@ -131,6 +128,14 @@ func (o *Orchestrator) Run() (*Result, error) {
 		result.TotalSuggestions += summary.TotalSuggestions
 		if summary.TotalErrors > 0 {
 			result.HasErrors = true
+		}
+	}
+
+	// Output all results using compact formatter (for console)
+	if o.cfg.Format == "console" && !o.cfg.Quiet {
+		formatter := output.NewCompactFormatter(o.cfg.Quiet, o.cfg.Verbose, o.cfg.ShowScores, o.cfg.ShowImprovements)
+		if err := formatter.FormatAll(allSummaries); err != nil {
+			return nil, fmt.Errorf("error formatting output: %w", err)
 		}
 	}
 
