@@ -18,6 +18,33 @@ import "strings"
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"LSP" | "Skill" | "DBClient"
 
+// ============================================================================
+// Skill Hook Definitions
+// ============================================================================
+
+// Hook command definition
+#SkillHookCommand: {
+	type:     "command"
+	command:  string
+	timeout?: int   // timeout in seconds
+	once?:    bool  // run only once per session
+}
+
+// Skill hook entry
+#SkillHook: {
+	matcher?: string                     // optional tool matcher (e.g., "Bash", "Write")
+	hooks: [...#SkillHookCommand]        // array of commands to run
+}
+
+// Skill hooks configuration
+#SkillHooks: {
+	[string]: [...#SkillHook]
+}
+
+// ============================================================================
+// Skill Schema
+// ============================================================================
+
 // Skill frontmatter schema
 // Source: https://code.claude.com/docs/en/skills
 #Skill: {
@@ -28,6 +55,10 @@ import "strings"
 	// Optional Claude Code fields
 	"allowed-tools"?: "*" | string | [...#KnownTool]          // skills use 'allowed-tools:', NOT 'tools:'
 	model?: #Model                                            // model to use when skill is active
+	context?: "fork"                                          // run skill in forked sub-agent context
+	agent?: string                                            // agent type for execution
+	"user-invocable"?: bool                                   // opt-out of slash command menu (default true)
+	hooks?: #SkillHooks                                       // skill-level hooks (PreToolUse, PostToolUse, Stop)
 
 	// Allow additional fields
 	...

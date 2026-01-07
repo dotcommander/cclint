@@ -16,6 +16,33 @@ import "strings"
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"LSP" | "Skill" | "DBClient"
 
+// ============================================================================
+// Command Hook Definitions
+// ============================================================================
+
+// Hook command definition
+#CommandHookCommand: {
+	type:     "command"
+	command:  string
+	timeout?: int   // timeout in seconds
+	once?:    bool  // run only once per session
+}
+
+// Command hook entry
+#CommandHook: {
+	matcher?: string                      // optional tool matcher (e.g., "Bash", "Write")
+	hooks: [...#CommandHookCommand]       // array of commands to run
+}
+
+// Command hooks configuration
+#CommandHooks: {
+	[string]: [...#CommandHook]
+}
+
+// ============================================================================
+// Command Schema
+// ============================================================================
+
 // Command frontmatter schema (all fields optional per Claude Code spec)
 // Source: https://code.claude.com/docs/en/slash-commands
 #Command: {
@@ -26,6 +53,7 @@ import "strings"
 	"argument-hint"?: string                                   // argument hint for help
 	model?: #Model
 	"disable-model-invocation"?: bool                          // prevent SlashCommand tool from calling this
+	hooks?: #CommandHooks                                      // command-level hooks (PreToolUse, PostToolUse, Stop)
 
 	// Allow additional fields
 	...

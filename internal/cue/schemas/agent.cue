@@ -33,7 +33,8 @@ import (
 #AgentHookCommand: {
 	type:     "command"
 	command:  string
-	timeout?: int  // timeout in seconds
+	timeout?: int   // timeout in seconds
+	once?:    bool  // run only once per session (v2.1.0+)
 }
 
 // Agent hook entry - matcher is optional (e.g., Stop hook doesn't need a matcher)
