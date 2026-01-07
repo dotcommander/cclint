@@ -302,6 +302,119 @@ Command model field must be one of the predefined Claude Code model identifiers.
 
 ---
 
+### Rule 117a: Command Hooks Field (v2.1.0+)
+
+**Severity:** info
+**Component:** command
+**Category:** schema
+
+**Description:**
+Commands can define lifecycle hooks (PreToolUse, PostToolUse, Stop) scoped to the command's execution.
+
+**Constraint:**
+```
+hooks?: {
+	[string]: [...#CommandHook]
+}
+```
+
+**Valid Values:**
+Object with event names mapping to arrays of hook definitions.
+
+**Source:** Claude Code 2.1.0 changelog - hooks support for commands
+
+---
+
+## Skill Schema Constraints (v2.1.0+)
+
+### Rule 117b: Skill Context Field
+
+**Severity:** info
+**Component:** skill
+**Category:** schema
+
+**Description:**
+Skills can run in a forked sub-agent context using `context: fork`.
+
+**Constraint:**
+```
+context?: "fork"
+```
+
+**Valid Values:**
+- `fork` - Run skill in forked sub-agent context
+- Omitted - Run in main context (default)
+
+**Source:** Claude Code 2.1.0 changelog - context: fork for skills
+
+---
+
+### Rule 117c: Skill Agent Field
+
+**Severity:** info
+**Component:** skill
+**Category:** schema
+
+**Description:**
+Skills can specify an agent type for execution.
+
+**Constraint:**
+```
+agent?: string
+```
+
+**Valid Values:**
+Any valid agent type name (e.g., "refactor-specialist", "go-specialist").
+
+**Source:** Claude Code 2.1.0 changelog - agent field for skills
+
+---
+
+### Rule 117d: Skill User-Invocable Field
+
+**Severity:** info
+**Component:** skill
+**Category:** schema
+
+**Description:**
+Skills in `/skills/` directories are visible in the slash command menu by default. Use `user-invocable: false` to opt out.
+
+**Constraint:**
+```
+"user-invocable"?: bool
+```
+
+**Valid Values:**
+- `true` or omitted - Skill appears in slash command menu (default for /skills/ dirs)
+- `false` - Skill hidden from slash command menu
+
+**Source:** Claude Code 2.1.0 changelog - user-invocable field for skills
+
+---
+
+### Rule 117e: Skill Hooks Field
+
+**Severity:** info
+**Component:** skill
+**Category:** schema
+
+**Description:**
+Skills can define lifecycle hooks scoped to the skill's execution.
+
+**Constraint:**
+```
+hooks?: {
+	[string]: [...#SkillHook]
+}
+```
+
+**Valid Values:**
+Object with event names (PreToolUse, PostToolUse, Stop) mapping to hook arrays.
+
+**Source:** Claude Code 2.1.0 changelog - hooks support for skills
+
+---
+
 ## Settings Schema Constraints (Rules 118-121)
 
 ### Rule 118: Hook Event Structure
@@ -369,20 +482,24 @@ Any string pattern that matches hook trigger conditions (glob patterns, regex, e
 **Category:** schema
 
 **Description:**
-Hook commands must specify type as "command". This is currently the only supported hook type.
+Hook commands must specify one of the valid hook types. As of Claude Code 2.1.0, three types are supported.
 
 **Constraint:**
 ```
+#HookType: "command" | "prompt" | "agent"
+
 #HookCommand: {
-	type: "command"
+	type: #HookType
 	...
 }
 ```
 
 **Valid Values:**
-- `command` (only valid value)
+- `command` - Execute a shell command
+- `prompt` - Modify Claude's prompt (plugins, v2.1.0+)
+- `agent` - Invoke an agent (plugins, v2.1.0+)
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - hook type values (command, prompt)
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - hook type values
 
 ---
 
@@ -408,6 +525,76 @@ Hook command definitions must include a command field specifying what to execute
 Any non-empty string representing a shell command.
 
 **Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - command field required for type:command
+
+---
+
+### Rule 121a: Hook Once Field (v2.1.0+)
+
+**Severity:** error
+**Component:** settings
+**Category:** schema
+
+**Description:**
+Hook commands can specify `once: true` to run only once per session.
+
+**Constraint:**
+```
+#HookCommand: {
+	type:     #HookType
+	command:  string
+	timeout?: int
+	once?:    bool
+}
+```
+
+**Valid Values:**
+- `true` - Run hook only once per session
+- `false` or omitted - Run hook every time it triggers
+
+**Source:** Claude Code 2.1.0 changelog - once field for hooks
+
+---
+
+### Rule 121b: Settings Language Field (v2.1.0+)
+
+**Severity:** info
+**Component:** settings
+**Category:** schema
+
+**Description:**
+Configure Claude's response language.
+
+**Constraint:**
+```
+language?: string
+```
+
+**Valid Values:**
+Any language name string (e.g., "japanese", "spanish", "french").
+
+**Source:** Claude Code 2.1.0 changelog - language setting
+
+---
+
+### Rule 121c: Settings respectGitignore Field (v2.1.0+)
+
+**Severity:** info
+**Component:** settings
+**Category:** schema
+
+**Description:**
+Per-project control over @-mention file picker behavior.
+
+**Constraint:**
+```
+respectGitignore?: bool
+```
+
+**Valid Values:**
+- `true` - Hide gitignored files from @-mention picker
+- `false` - Show all files in @-mention picker
+
+**Source:** Claude Code 2.1.0 changelog - respectGitignore setting
 
 ---
 

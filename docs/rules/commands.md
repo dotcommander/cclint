@@ -279,6 +279,36 @@ cclint observation (documentation best practice)
 
 ---
 
+## New Frontmatter Fields (v2.1.0+)
+
+Claude Code 2.1.0 introduced the `hooks` field for commands:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hooks` | object | Lifecycle hooks scoped to command execution |
+
+### Example with Hooks
+
+```yaml
+---
+name: my-command
+description: Example command with hooks
+hooks:
+  PreToolUse:
+    - matcher: "Write"
+      hooks:
+        - type: command
+          command: echo "Before write"
+          once: true
+  Stop:
+    - hooks:
+        - type: command
+          command: echo "Command finished"
+---
+```
+
+---
+
 ## Summary
 
 | Rule Range | Category | Count |

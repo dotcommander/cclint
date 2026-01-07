@@ -289,6 +289,38 @@ Document contains at least one of:
 
 ---
 
+## New Frontmatter Fields (v2.1.0+)
+
+Claude Code 2.1.0 introduced several new optional frontmatter fields for skills:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `context` | `"fork"` | Run skill in forked sub-agent context |
+| `agent` | string | Agent type for execution (e.g., "refactor-specialist") |
+| `user-invocable` | bool | Show in slash command menu (default: true for /skills/) |
+| `hooks` | object | Lifecycle hooks scoped to skill execution |
+
+### Example with New Fields
+
+```yaml
+---
+name: my-skill
+description: Example skill with v2.1.0 fields
+context: fork
+agent: refactor-specialist
+user-invocable: true
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo "Before bash"
+          once: true
+---
+```
+
+---
+
 ## Best Practices
 
 ### Skill Structure

@@ -205,15 +205,15 @@ The `type` field contains a JSON string value.
 **Category:** structural
 
 **Description:**
-Hook type must be either "command" (executes a shell command) or "prompt" (modifies Claude's prompt). No other values are valid.
+Hook type must be one of the valid types. As of Claude Code 2.1.0, plugins can use "prompt" and "agent" types in addition to "command".
 
 **Pass Criteria:**
-The `type` field value is exactly "command" or "prompt".
+The `type` field value is exactly "command", "prompt", or "agent".
 
 **Fail Message:**
-`Event '[eventName]' hook [index] inner hook [innerIndex]: invalid type '[hookType]'. Valid types: command, prompt`
+`Event '[eventName]' hook [index] inner hook [innerIndex]: invalid type '[hookType]'. Valid types: command, prompt, agent`
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Hook type must be either 'command' (executes a shell command) or 'prompt' (modifies Claude's prompt)"
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - Hook type values (command, prompt, agent)
 
 ---
 
@@ -520,6 +520,54 @@ Command does not redirect to `/dev/` paths, or redirection is verified to be int
 `Event '[eventName]' hook [index] inner hook [innerIndex]: Redirecting to /dev/ - verify this is intentional`
 
 **Source:** cclint observation - Security best practice: Redirecting output to `/dev/` paths (like `/dev/null`, `/dev/tcp/`) should be reviewed to ensure it's intentional and not masking malicious activity
+
+---
+
+## New Settings Fields (v2.1.0+)
+
+Claude Code 2.1.0 introduced new settings.json fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `language` | string | Configure Claude's response language (e.g., "japanese") |
+| `respectGitignore` | bool | Control @-mention file picker behavior |
+
+### New Hook Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `once` | bool | Run hook only once per session |
+
+### New Hook Types (Plugins)
+
+| Type | Description |
+|------|-------------|
+| `command` | Execute a shell command (original) |
+| `prompt` | Modify Claude's prompt (plugins, v2.1.0+) |
+| `agent` | Invoke an agent (plugins, v2.1.0+) |
+
+### Example settings.json
+
+```json
+{
+  "language": "japanese",
+  "respectGitignore": true,
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session started'",
+            "once": true
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
 ---
 
