@@ -2,11 +2,29 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/frontend"
 )
+
+// binaryExtensions lists file extensions that should not be included via @include
+var binaryExtensions = map[string]bool{
+	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".bmp": true,
+	".ico": true, ".webp": true, ".svg": true, ".tiff": true,
+	".pdf": true, ".doc": true, ".docx": true, ".xls": true, ".xlsx": true,
+	".ppt": true, ".pptx": true, ".odt": true, ".ods": true,
+	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
+	".exe": true, ".dll": true, ".so": true, ".dylib": true, ".bin": true,
+	".mp3": true, ".mp4": true, ".wav": true, ".avi": true, ".mov": true,
+	".ttf": true, ".otf": true, ".woff": true, ".woff2": true,
+}
+
+// includePattern matches @include directives in CLAUDE.md files
+// Supports: @include path/to/file or @include ./relative/path
+var includePattern = regexp.MustCompile(`(?m)@include\s+([^\s]+)`)
 
 // LintContext runs linting on CLAUDE.md files using the generic linter.
 func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
@@ -74,7 +92,7 @@ func parseMarkdownSections(content string) []interface{} {
 }
 
 // validateContextSpecific implements context-specific validation rules
-func validateContextSpecific(data map[string]interface{}, filePath string) []cue.ValidationError {
+func validateContextSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check if sections are present
@@ -106,6 +124,36 @@ func validateContextSpecific(data map[string]interface{}, filePath string) []cue
 			Message:  "No sections found in CLAUDE.md",
 			Severity: "suggestion",
 		})
+	}
+
+	// Check for binary file includes (Claude Code 2.1.2+ auto-skips these, but warn users)
+	errors = append(errors, checkBinaryIncludes(contents, filePath)...)
+
+	return errors
+}
+
+// checkBinaryIncludes detects @include directives referencing binary files.
+// Claude Code 2.1.2 fixed a bug where binary files were accidentally included in memory.
+// This check warns users about ineffective includes that will be silently skipped.
+func checkBinaryIncludes(contents, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	matches := includePattern.FindAllStringSubmatch(contents, -1)
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		includePath := match[1]
+		ext := strings.ToLower(filepath.Ext(includePath))
+
+		if binaryExtensions[ext] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("@include references binary file '%s' which will be skipped by Claude Code", includePath),
+				Severity: "warning",
+				Source:   "binary-include",
+			})
+		}
 	}
 
 	return errors

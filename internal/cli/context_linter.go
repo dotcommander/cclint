@@ -59,5 +59,5 @@ func (l *ContextLinter) ValidateCUE(validator *cue.Validator, data map[string]in
 }
 
 func (l *ContextLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
-	return validateContextSpecific(data, filePath)
+	return validateContextSpecific(data, filePath, contents)
 }

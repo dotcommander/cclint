@@ -127,11 +127,13 @@ func TestValidateContextSpecific(t *testing.T) {
 	tests := []struct {
 		name           string
 		data           map[string]interface{}
+		contents       string
 		wantErrorCount int
 	}{
 		{
 			name:           "no sections",
 			data:           map[string]interface{}{},
+			contents:       "",
 			wantErrorCount: 1, // suggestion for no sections
 		},
 		{
@@ -139,6 +141,7 @@ func TestValidateContextSpecific(t *testing.T) {
 			data: map[string]interface{}{
 				"sections": []interface{}{},
 			},
+			contents:       "",
 			wantErrorCount: 1, // suggestion for no sections
 		},
 		{
@@ -155,6 +158,7 @@ func TestValidateContextSpecific(t *testing.T) {
 					},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 0,
 		},
 		{
@@ -166,6 +170,7 @@ func TestValidateContextSpecific(t *testing.T) {
 					},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 1,
 		},
 		{
@@ -177,6 +182,7 @@ func TestValidateContextSpecific(t *testing.T) {
 					},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 1,
 		},
 		{
@@ -189,6 +195,7 @@ func TestValidateContextSpecific(t *testing.T) {
 					},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 1,
 		},
 		{
@@ -201,6 +208,7 @@ func TestValidateContextSpecific(t *testing.T) {
 					},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 1,
 		},
 		{
@@ -218,13 +226,67 @@ func TestValidateContextSpecific(t *testing.T) {
 					map[string]interface{}{},
 				},
 			},
+			contents:       "",
 			wantErrorCount: 4, // empty heading, empty content, missing heading, missing content
+		},
+		// Binary @include tests (Claude Code 2.1.2+)
+		{
+			name: "binary include - png",
+			data: map[string]interface{}{
+				"sections": []interface{}{
+					map[string]interface{}{
+						"heading": "Images",
+						"content": "See image below",
+					},
+				},
+			},
+			contents:       "@include ./assets/logo.png",
+			wantErrorCount: 1, // binary include warning
+		},
+		{
+			name: "binary include - multiple",
+			data: map[string]interface{}{
+				"sections": []interface{}{
+					map[string]interface{}{
+						"heading": "Assets",
+						"content": "Various files",
+					},
+				},
+			},
+			contents:       "@include ./docs/manual.pdf\n@include ./assets/icon.jpg",
+			wantErrorCount: 2, // two binary include warnings
+		},
+		{
+			name: "valid include - markdown",
+			data: map[string]interface{}{
+				"sections": []interface{}{
+					map[string]interface{}{
+						"heading": "Docs",
+						"content": "See below",
+					},
+				},
+			},
+			contents:       "@include ./docs/API.md",
+			wantErrorCount: 0, // markdown is fine
+		},
+		{
+			name: "mixed includes - text and binary",
+			data: map[string]interface{}{
+				"sections": []interface{}{
+					map[string]interface{}{
+						"heading": "Resources",
+						"content": "Files",
+					},
+				},
+			},
+			contents:       "@include ./config.json\n@include ./logo.png\n@include ./README.md",
+			wantErrorCount: 1, // only png is binary
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors := validateContextSpecific(tt.data, "CLAUDE.md")
+			errors := validateContextSpecific(tt.data, "CLAUDE.md", tt.contents)
 			if len(errors) != tt.wantErrorCount {
 				t.Errorf("validateContextSpecific() error count = %d, want %d", len(errors), tt.wantErrorCount)
 				for _, err := range errors {

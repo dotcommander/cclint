@@ -2473,7 +2473,7 @@ Any non-empty string representing a shell command.
 
 ---
 
-### CLAUDE.md Schema Constraints (Rules 122-124)
+### CLAUDE.md Schema Constraints (Rules 122-125)
 
 #### Rule 122: Section Structure
 
@@ -2545,6 +2545,25 @@ Reference links in CLAUDE.md sections must include a path field. The title is op
 
 ---
 
+#### Rule 125: Binary File @include Warning
+
+**Severity:** warning
+**Component:** claude_md
+**Category:** best-practice
+
+**Description:**
+CLAUDE.md `@include` directives should not reference binary files (images, PDFs, etc.). Claude Code 2.1.2+ automatically skips binary files during include processing, making such includes ineffective.
+
+**Constraint:**
+`@include` paths should not have binary file extensions: `.png`, `.jpg`, `.jpeg`, `.gif`, `.bmp`, `.ico`, `.webp`, `.svg`, `.tiff`, `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.zip`, `.tar`, `.gz`, `.exe`, `.dll`, `.so`, `.mp3`, `.mp4`, `.wav`, `.ttf`, `.otf`, `.woff`, `.woff2`
+
+**Error Message:**
+`@include references binary file '[path]' which will be skipped by Claude Code`
+
+**Source:** Claude Code 2.1.2 Release Notes - "Fixed binary files (images, PDFs, etc.) being accidentally included in memory when using @include directives in CLAUDE.md files"
+
+---
+
 ## Summary Statistics
 
 | Component | Rule Range | Count | Error | Warning | Suggestion |
@@ -2555,8 +2574,8 @@ Reference links in CLAUDE.md sections must include a path field. The title is op
 | Settings | 048-074 | 27 | 17 | 10 | 0 |
 | Plugin | 075-092 | 18 | 13 | 0 | 5 |
 | Security | 093-104 | 12 | 0 | 12 | 0 |
-| Schema | 105-124 | 20 | 20 | 0 | 0 |
-| **Total** | **001-124** | **124** | **63** | **23** | **38** |
+| Schema | 105-125 | 21 | 20 | 1 | 0 |
+| **Total** | **001-125** | **125** | **63** | **24** | **38** |
 
 ## Source Documentation URLs
 
