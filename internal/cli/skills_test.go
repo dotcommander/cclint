@@ -153,7 +153,16 @@ func TestExtractSkillName(t *testing.T) {
 }
 
 func TestKnownSkillFields(t *testing.T) {
-	expected := []string{"name", "description", "allowed-tools", "model"}
+	// Core fields from Anthropic docs
+	expected := []string{
+		"name", "description", "allowed-tools", "model",
+		"context", "agent", "user-invocable", "hooks",
+	}
+	// agentskills.io spec fields
+	expected = append(expected, "license", "compatibility", "metadata")
+	// Legacy fields
+	expected = append(expected, "version")
+
 	for _, field := range expected {
 		if !knownSkillFields[field] {
 			t.Errorf("knownSkillFields missing expected field: %s", field)
