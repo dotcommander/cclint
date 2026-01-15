@@ -127,7 +127,7 @@ func TestRunSingleFileLint(t *testing.T) {
 
 	validContent := `---
 name: test-agent
-description: A test agent for testing
+description: A test agent. Use PROACTIVELY when testing.. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -212,7 +212,7 @@ func TestRunGitLint(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(testFile), 0755))
 	validContent := `---
 name: test-agent
-description: A test agent
+description: A test agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -691,7 +691,7 @@ func TestRunSingleFileLint_WithTypeFlag(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "random.md")
 	content := `---
 name: test
-description: Test
+description: Test. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -736,7 +736,7 @@ func TestRunSingleFileLint_VerboseMode(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -777,7 +777,7 @@ func TestRunLint_WithBaseline(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -826,7 +826,7 @@ func TestRunLint_CreateBaseline(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -896,7 +896,7 @@ func TestRunGitLint_DiffMode(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -959,7 +959,7 @@ func TestRunGitLint_StagedModeWithFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1009,7 +1009,7 @@ func TestRunSingleFileLint_QuietMode(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1052,7 +1052,7 @@ func TestRunSingleFileLint_MultipleFiles(t *testing.T) {
 
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1108,7 +1108,7 @@ func TestRunGitLint_StagedWithRealFiles(t *testing.T) {
 
 	content := `---
 name: test-agent
-description: Test agent for git integration
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing. for git integration
 model: sonnet
 ---
 
@@ -1186,7 +1186,7 @@ func TestRunGitLint_DiffModeWithFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: new-agent
-description: New agent
+description: New agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1236,7 +1236,7 @@ func TestRunGitLint_OutputValidationReminder(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test
-description: Test
+description: Test. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1280,7 +1280,7 @@ func TestRunSingleFileLint_NonQuietMode(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1339,7 +1339,7 @@ func TestRunLint_Success(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test
-description: Test
+description: Test. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1396,7 +1396,7 @@ func TestRunGitLint_WithFilesToLint(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test-agent
-description: Test agent for lint
+description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing. for lint
 model: sonnet
 ---
 
@@ -1474,7 +1474,7 @@ func TestRunGitLint_DiffModeRealFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: new-agent
-description: New agent
+description: New agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1518,7 +1518,7 @@ func TestRunSingleFileLint_ValidAgent(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: good-agent
-description: A good agent for testing
+description: A good agent. Use PROACTIVELY when testing.
 model: sonnet
 ---
 
@@ -1560,7 +1560,7 @@ func TestRunSingleFileLint_WithFormatOption(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: format-test
-description: Test file for format option
+description: Test. Use PROACTIVELY when testing. file for format option
 model: sonnet
 ---
 
@@ -1606,7 +1606,7 @@ func TestRunGitLint_NonQuietMode(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
 	content := `---
 name: test
-description: Test
+description: Test. Use PROACTIVELY when testing.
 model: sonnet
 ---
 

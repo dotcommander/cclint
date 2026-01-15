@@ -470,7 +470,12 @@ func TestCrossExtractFunctions(t *testing.T) {
 }
 
 func TestBuiltInSubagentTypes(t *testing.T) {
-	expected := []string{"general-purpose", "statusline-setup", "Explore", "Plan", "claude-code-guide"}
+	expected := []string{
+		// Built-in subagent types
+		"general-purpose", "statusline-setup", "Explore", "Plan", "claude-code-guide",
+		// Model names
+		"haiku", "sonnet", "opus",
+	}
 	for _, name := range expected {
 		if !builtInSubagentTypes[name] {
 			t.Errorf("builtInSubagentTypes missing: %s", name)
@@ -877,5 +882,330 @@ func TestDetermineCycleType(t *testing.T) {
 				t.Errorf("determineCycleType() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestValidateCommand_SkillReferences tests skill reference validation in commands
+func TestValidateCommand_SkillReferences(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "skills/existing-skill/SKILL.md", Type: discovery.FileTypeSkill, Contents: "Skill content"},
+		{RelPath: "agents/test-agent.md", Type: discovery.FileTypeAgent, Contents: "Agent content"},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name        string
+		contents    string
+		frontmatter map[string]interface{}
+		wantErrors  int
+		wantMessage string
+	}{
+		{
+			name:       "valid Skill: reference",
+			contents:   "Use Skill: existing-skill",
+			wantErrors: 0,
+		},
+		{
+			name:        "missing Skill: reference",
+			contents:    "Use Skill: nonexistent-skill",
+			wantErrors:  1,
+			wantMessage: "non-existent skill 'nonexistent-skill'",
+		},
+		{
+			name:       "valid Skill() function call",
+			contents:   "Load via Skill(existing-skill)",
+			wantErrors: 0,
+		},
+		{
+			name:        "missing Skill() function call",
+			contents:    `Invoke Skill("missing-skill")`,
+			wantErrors:  1,
+			wantMessage: "non-existent skill 'missing-skill'",
+		},
+		{
+			name:       "Skill() with single quotes",
+			contents:   "Call Skill('existing-skill')",
+			wantErrors: 0,
+		},
+		{
+			name:       "Skill() with whitespace",
+			contents:   "Call Skill( existing-skill )",
+			wantErrors: 0,
+		},
+		{
+			name:       "no skill references",
+			contents:   "Just a command with Task(test-agent)",
+			wantErrors: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.frontmatter == nil {
+				tt.frontmatter = map[string]interface{}{}
+			}
+			errors := v.ValidateCommand("commands/test.md", tt.contents, tt.frontmatter)
+
+			// Filter to only skill-related errors
+			skillErrors := 0
+			for _, e := range errors {
+				if strings.Contains(e.Message, "skill") {
+					skillErrors++
+				}
+			}
+
+			if skillErrors != tt.wantErrors {
+				t.Errorf("ValidateCommand() skill errors = %d, want %d", skillErrors, tt.wantErrors)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+			if tt.wantMessage != "" && skillErrors > 0 {
+				found := false
+				for _, e := range errors {
+					if strings.Contains(e.Message, tt.wantMessage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error containing %q, not found", tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateSkill_BroadAgentPatterns tests expanded agent reference patterns in skills
+func TestValidateSkill_BroadAgentPatterns(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "agents/test-agent.md", Type: discovery.FileTypeAgent, Contents: "Agent content"},
+		{RelPath: "agents/helper-agent.md", Type: discovery.FileTypeAgent, Contents: "Helper content"},
+		{RelPath: "agents/test-specialist.md", Type: discovery.FileTypeAgent, Contents: "Specialist content"},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name        string
+		contents    string
+		wantErrors  int
+		wantMessage string
+	}{
+		{
+			name:       "Task() without specialist suffix - exists",
+			contents:   "Delegates via Task(test-agent)",
+			wantErrors: 0,
+		},
+		{
+			name:        "Task() without specialist suffix - missing",
+			contents:    "Delegates via Task(missing-agent)",
+			wantErrors:  1,
+			wantMessage: "agent doesn't exist",
+		},
+		{
+			name:       "built-in agent Explore - no error",
+			contents:   "Use Task(Explore) to discover",
+			wantErrors: 0,
+		},
+		{
+			name:       "built-in agent Plan - no error",
+			contents:   "Use Task(Plan) for planning",
+			wantErrors: 0,
+		},
+		{
+			name:       "built-in agent general-purpose - no error",
+			contents:   "Use Task(general-purpose) for general tasks",
+			wantErrors: 0,
+		},
+		{
+			name:        "delegate via pattern - missing",
+			contents:    "delegate via nonexistent-agent",
+			wantErrors:  1,
+			wantMessage: "agent doesn't exist",
+		},
+		{
+			name:       "delegate via pattern - exists",
+			contents:   "delegate via test-agent",
+			wantErrors: 0,
+		},
+		{
+			name:        "agent handles pattern - missing",
+			contents:    "The missing-agent handles this task",
+			wantErrors:  1,
+			wantMessage: "agent doesn't exist",
+		},
+		{
+			name:       "agent handles pattern - exists",
+			contents:   "The helper-agent handles this task",
+			wantErrors: 0,
+		},
+		{
+			name:       "Task() with quotes - exists",
+			contents:   `Use Task("test-agent") for work`,
+			wantErrors: 0,
+		},
+		{
+			name:        "Task() with quotes - missing",
+			contents:    `Use Task("fake-agent") for work`,
+			wantErrors:  1,
+			wantMessage: "agent doesn't exist",
+		},
+		{
+			name:       "dynamic reference - skip validation",
+			contents:   "Task(args.agent): dynamic",
+			wantErrors: 0, // Should be skipped due to dot in name
+		},
+		{
+			name:       "subagent_type reference - skip validation",
+			contents:   "Task(subagent_type): dynamic type",
+			wantErrors: 0, // Should be skipped
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.ValidateSkill("skills/test/SKILL.md", tt.contents)
+
+			if len(errors) != tt.wantErrors {
+				t.Errorf("ValidateSkill() errors = %d, want %d", len(errors), tt.wantErrors)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+			if tt.wantMessage != "" && len(errors) > 0 {
+				found := false
+				for _, e := range errors {
+					if strings.Contains(e.Message, tt.wantMessage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error containing %q, not found", tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
+// TestFindSkillReferences_FunctionCalls tests all Skill() function call formats
+func TestFindSkillReferences_FunctionCalls(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected []string
+	}{
+		{
+			name:     "Skill() without quotes",
+			content:  "Load via Skill(foo-bar)",
+			expected: []string{"foo-bar"},
+		},
+		{
+			name:     "Skill() with double quotes",
+			content:  `Use Skill("my-skill")`,
+			expected: []string{"my-skill"},
+		},
+		{
+			name:     "Skill() with single quotes",
+			content:  `Invoke Skill('test-skill')`,
+			expected: []string{"test-skill"},
+		},
+		{
+			name:     "Skill() with whitespace",
+			content:  "Call Skill( some-skill )",
+			expected: []string{"some-skill"},
+		},
+		{
+			name:     "multiple Skill() calls",
+			content:  "Skill(first)\nSkill(second)\nSkill(third)",
+			expected: []string{"first", "second", "third"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := findSkillReferences(tt.content)
+			if len(got) != len(tt.expected) {
+				t.Errorf("findSkillReferences() = %v, want %v", got, tt.expected)
+				return
+			}
+			gotMap := make(map[string]bool)
+			for _, s := range got {
+				gotMap[s] = true
+			}
+			for _, want := range tt.expected {
+				if !gotMap[want] {
+					t.Errorf("findSkillReferences() missing %q in %v", want, got)
+				}
+			}
+		})
+	}
+}
+
+// TestCrossFileValidation_EndToEnd tests the full cross-file validation flow
+func TestCrossFileValidation_EndToEnd(t *testing.T) {
+	files := []discovery.File{
+		// Agent referencing skills
+		{
+			RelPath:  "agents/test-agent.md",
+			Type:     discovery.FileTypeAgent,
+			Contents: "Skill: real-skill\nSkill(another-skill)\nTask(helper-agent)",
+		},
+		// Command referencing agent and skill
+		{
+			RelPath:  "commands/test-cmd.md",
+			Type:     discovery.FileTypeCommand,
+			Contents: "Task(test-agent)\nUse Skill: real-skill",
+		},
+		// Skill referencing agent
+		{
+			RelPath:  "skills/real-skill/SKILL.md",
+			Type:     discovery.FileTypeSkill,
+			Contents: "Delegate to helper-agent via Task(helper-agent)",
+		},
+		// Helper agent
+		{
+			RelPath:  "agents/helper-agent.md",
+			Type:     discovery.FileTypeAgent,
+			Contents: "Helper agent content",
+		},
+	}
+
+	validator := NewCrossFileValidator(files)
+
+	// Test agent validation - should error on 'another-skill' (missing)
+	agentErrors := validator.ValidateAgent("agents/test-agent.md", files[0].Contents)
+	if len(agentErrors) != 1 {
+		t.Errorf("ValidateAgent() errors = %d, want 1", len(agentErrors))
+		for _, e := range agentErrors {
+			t.Logf("  Error: %s", e.Message)
+		}
+	} else if !strings.Contains(agentErrors[0].Message, "another-skill") {
+		t.Errorf("Expected error about 'another-skill', got: %s", agentErrors[0].Message)
+	}
+
+	// Test command validation - all references should be valid
+	cmdErrors := validator.ValidateCommand("commands/test-cmd.md", files[1].Contents, map[string]interface{}{})
+	// Filter to non-info errors
+	realCmdErrors := 0
+	for _, e := range cmdErrors {
+		if e.Severity == "error" {
+			realCmdErrors++
+		}
+	}
+	if realCmdErrors != 0 {
+		t.Errorf("ValidateCommand() errors = %d, want 0", realCmdErrors)
+		for _, e := range cmdErrors {
+			t.Logf("  %s: %s", e.Severity, e.Message)
+		}
+	}
+
+	// Test skill validation - helper-agent exists
+	skillErrors := validator.ValidateSkill("skills/real-skill/SKILL.md", files[2].Contents)
+	if len(skillErrors) != 0 {
+		t.Errorf("ValidateSkill() errors = %d, want 0", len(skillErrors))
+		for _, e := range skillErrors {
+			t.Logf("  Error: %s", e.Message)
+		}
 	}
 }
