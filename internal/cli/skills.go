@@ -8,13 +8,27 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
-// knownSkillFields lists valid frontmatter fields per Anthropic docs
-// Source: https://docs.anthropic.com/en/docs/claude-code/skills
+// knownSkillFields lists valid frontmatter fields per Anthropic docs and agentskills.io spec
+// Sources:
+//   - https://docs.anthropic.com/en/docs/claude-code/skills
+//   - https://agentskills.io/specification
 var knownSkillFields = map[string]bool{
-	"name":          true, // Required: skill identifier
-	"description":   true, // Required: what the skill does (critical for discovery)
-	"allowed-tools": true, // Optional: tool access permissions
-	"model":         true, // Optional: model to use when skill is active
+	// Required fields
+	"name":        true, // Required: skill identifier
+	"description": true, // Required: what the skill does (critical for discovery)
+	// Optional Claude Code fields
+	"allowed-tools":   true, // Optional: tool access permissions
+	"model":           true, // Optional: model to use when skill is active
+	"context":         true, // Optional: "fork" for sub-agent context
+	"agent":           true, // Optional: agent type for execution
+	"user-invocable":  true, // Optional: show in slash command menu
+	"hooks":           true, // Optional: skill-level hooks
+	// Optional agentskills.io fields
+	"license":       true, // Optional: SPDX identifier or license file reference
+	"compatibility": true, // Optional: environment requirements (max 500 chars)
+	"metadata":      true, // Optional: arbitrary key-value mapping
+	// Legacy/common fields
+	"version": true, // Optional: semver version string
 }
 
 // LintSkills runs linting on skill files using the generic linter.
@@ -135,8 +149,87 @@ func validateSkillBestPractices(filePath string, contents string, fmData map[str
 	// Validate tool field naming (skills use 'allowed-tools:', not 'tools:')
 	suggestions = append(suggestions, ValidateToolFieldName(fmData, filePath, contents, "skill")...)
 
+	// Rule 052: Validate allowed-tools format (agentskills.io spec)
+	if allowedTools, ok := fmData["allowed-tools"].(string); ok && allowedTools != "*" {
+		// Valid format: space-delimited tool names like "Bash(git:*) Read Write"
+		toolPattern := regexp.MustCompile(`^[A-Z][a-zA-Z]+(\([^)]+\))?$`)
+		tokens := strings.Fields(allowedTools)
+		for _, token := range tokens {
+			if !toolPattern.MatchString(token) {
+				warnings = append(warnings, cue.ValidationError{
+					File:     filePath,
+					Message:  "allowed-tools format should be space-delimited tool names (e.g., 'Bash(git:*) Read Write')",
+					Severity: "warning",
+					Source:   cue.SourceAgentSkillsIO,
+					Line:     FindFrontmatterFieldLine(contents, "allowed-tools"),
+				})
+				break
+			}
+		}
+	}
+
+	// Rule 053: License field validation (agentskills.io spec)
+	if license, ok := fmData["license"].(string); ok {
+		if strings.TrimSpace(license) == "" {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "license field is empty - provide SPDX identifier (e.g., 'MIT', 'Apache-2.0') or license file reference",
+				Severity: "suggestion",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     FindFrontmatterFieldLine(contents, "license"),
+			})
+		}
+	}
+
+	// Rule 054: Compatibility field length (agentskills.io spec - max 500 chars)
+	if compat, ok := fmData["compatibility"].(string); ok {
+		if len(compat) > 500 {
+			warnings = append(warnings, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("compatibility field is %d chars (max 500 per agentskills.io spec)", len(compat)),
+				Severity: "warning",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     FindFrontmatterFieldLine(contents, "compatibility"),
+			})
+		}
+	}
+
+	// Rule 055: Metadata field structure (agentskills.io spec)
+	if metadata, ok := fmData["metadata"]; ok {
+		metaMap, isMap := metadata.(map[string]interface{})
+		if !isMap {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  "metadata field should be key-value mapping (e.g., metadata:\\n  author: example-org\\n  version: \"1.0\")",
+				Severity: "suggestion",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     FindFrontmatterFieldLine(contents, "metadata"),
+			})
+		} else {
+			// Validate value types are primitives
+			for key, val := range metaMap {
+				switch val.(type) {
+				case string, int, int64, float64, bool:
+					// Valid primitive types
+				default:
+					suggestions = append(suggestions, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("metadata.%s should be primitive value (string, number, or boolean)", key),
+						Severity: "suggestion",
+						Source:   cue.SourceAgentSkillsIO,
+						Line:     FindFrontmatterFieldLine(contents, "metadata"),
+					})
+				}
+			}
+		}
+	}
+
 	// Merge warnings into suggestions for return
 	suggestions = append(suggestions, warnings...)
+
+	// Rule 056-059: Directory structure validation (agentskills.io spec)
+	// Checks scripts/, references/, absolute paths, and reference depth
+	suggestions = append(suggestions, ValidateSkillDirectory(filePath, contents)...)
 
 	return suggestions
 }

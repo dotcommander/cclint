@@ -92,7 +92,7 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 		if !knownSkillFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, model", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. See https://agentskills.io/specification for valid fields", key),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, key),
@@ -111,6 +111,43 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "name"),
 			})
+		}
+
+		// Rule 048: Name cannot start or end with hyphen (agentskills.io spec)
+		if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Skill name '%s' cannot start or end with a hyphen", name),
+				Severity: "error",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     FindFrontmatterFieldLine(contents, "name"),
+			})
+		}
+
+		// Rule 049: Name cannot contain consecutive hyphens (agentskills.io spec)
+		if strings.Contains(name, "--") {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Skill name '%s' contains consecutive hyphens (--) which are not allowed", name),
+				Severity: "error",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     FindFrontmatterFieldLine(contents, "name"),
+			})
+		}
+
+		// Rule 050: Name must match parent directory name (agentskills.io spec)
+		parentDir := filepath.Base(filepath.Dir(filePath))
+		// Skip validation for root-level or special directories
+		if parentDir != "." && parentDir != "skills" && parentDir != ".claude" {
+			if name != parentDir {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Skill name '%s' should match parent directory name '%s'", name, parentDir),
+					Severity: "warning",
+					Source:   cue.SourceAgentSkillsIO,
+					Line:     FindFrontmatterFieldLine(contents, "name"),
+				})
+			}
 		}
 	}
 
