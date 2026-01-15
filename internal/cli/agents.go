@@ -95,6 +95,15 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
+	} else if !strings.Contains(description, "PROACTIVELY") {
+		// Check for PROACTIVELY pattern - REQUIRED for agent discoverability
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "Description MUST include 'Use PROACTIVELY when...' pattern for agent discoverability.",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "description"),
+		})
 	}
 
 	// Check name format - FROM ANTHROPIC DOCS: "Unique identifier using lowercase letters and hyphens"
@@ -329,19 +338,6 @@ func checkAgentMissingFields(data map[string]interface{}, contents, filePath str
 			Source:   cue.SourceCClintObserve,
 			Line:     FindSectionLine(contents, "Foundation"),
 		})
-	}
-
-	// Check for PROACTIVELY pattern in description (Anthropic docs tip)
-	if desc, hasDesc := data["description"].(string); hasDesc {
-		if !strings.Contains(desc, "PROACTIVELY") {
-			suggestions = append(suggestions, cue.ValidationError{
-				File:     filePath,
-				Message:  "Description lacks 'Use PROACTIVELY when...' pattern. Add to clarify activation scenarios.",
-				Severity: "suggestion",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "description"),
-			})
-		}
 	}
 
 	// Check for permissionMode when agent has editing tools

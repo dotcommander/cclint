@@ -17,12 +17,19 @@ import (
 
 // builtInSubagentTypes are Task() targets that exist in Claude Code's runtime,
 // not as user-defined agent files. These should not trigger "missing agent" errors.
+// Includes both built-in subagent types and model name references.
 var builtInSubagentTypes = map[string]bool{
+	// Built-in subagent types
 	"general-purpose":   true,
 	"statusline-setup":  true,
 	"Explore":           true,
 	"Plan":              true,
 	"claude-code-guide": true,
+
+	// Model names (used in Task() for model selection)
+	"haiku":  true,
+	"sonnet": true,
+	"opus":   true,
 }
 
 // CrossFileValidator validates references between components
@@ -99,6 +106,9 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 
 	// Check for unused allowed-tools
 	errors = append(errors, v.checkUnusedAllowedTools(filePath, contents, frontmatter)...)
+
+	// Check for skill references (Skill: or Skill() patterns)
+	errors = append(errors, v.checkSkillReferences(filePath, contents)...)
 
 	return errors
 }
@@ -221,6 +231,30 @@ func (v *CrossFileValidator) checkUnusedAllowedTools(filePath, contents string, 
 	return errors
 }
 
+// checkSkillReferences validates skill references in any component.
+func (v *CrossFileValidator) checkSkillReferences(filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+	seenSkillErrors := make(map[string]bool)
+
+	skillRefs := findSkillReferences(contents)
+	for _, skillRef := range skillRefs {
+		if seenSkillErrors[skillRef] {
+			continue
+		}
+		if _, exists := v.skills[skillRef]; !exists {
+			seenSkillErrors[skillRef] = true
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("References non-existent skill '%s'. Create skills/%s/SKILL.md", skillRef, skillRef),
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+
+	return errors
+}
+
 // ValidateAgent checks agent references to skills
 func (v *CrossFileValidator) ValidateAgent(filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
@@ -244,14 +278,23 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string) []c
 func (v *CrossFileValidator) ValidateSkill(filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
+	// Agent reference patterns - ordered from most specific to least specific
 	agentPatterns := []struct {
 		pattern string
 		example string
 	}{
+		// Specialist patterns (existing, most specific)
 		{`delegate to\s+([a-z0-9][a-z0-9-]*-specialist)`, "delegate to foo-specialist"},
 		{`use\s+([a-z0-9][a-z0-9-]*-specialist)`, "use foo-specialist"},
 		{`see\s+([a-z0-9][a-z0-9-]*-specialist)`, "see foo-specialist"},
 		{`Task\(([a-z0-9][a-z0-9-]*-specialist)`, "Task(foo-specialist)"},
+
+		// Generic Task() pattern - matches any agent name
+		{`Task\(\s*["']?([a-z0-9][a-z0-9-]*)["']?\s*[,)]`, "Task(agent-name)"},
+
+		// Narrative patterns for agents
+		{`delegate via\s+([a-z0-9][a-z0-9-]*)`, "delegate via agent-name"},
+		{`([a-z0-9][a-z0-9-]*-agent)\s+handles`, "foo-agent handles"},
 	}
 
 	seenAgents := make(map[string]bool)
@@ -263,6 +306,19 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string) []c
 				continue
 			}
 			agentRef := strings.TrimSpace(match[1])
+
+			// Skip dynamic/variable references
+			if strings.Contains(agentRef, "subagent_type") ||
+				strings.Contains(agentRef, ".") ||
+				strings.Contains(agentRef, "[") {
+				continue
+			}
+
+			// Skip built-in agents
+			if builtInSubagentTypes[agentRef] {
+				continue
+			}
+
 			if seenAgents[agentRef] {
 				continue
 			}
