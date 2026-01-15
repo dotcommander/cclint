@@ -1,0 +1,252 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/dotcommander/cclint/internal/cue"
+)
+
+// ValidateSkillDirectory checks the skill's directory structure per agentskills.io spec.
+// This includes scripts/, references/, and assets/ subdirectories.
+func ValidateSkillDirectory(skillPath, contents string) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	skillDir := filepath.Dir(skillPath)
+	skillLines := len(strings.Split(contents, "\n"))
+
+	// Check scripts/ directory
+	scriptsDir := filepath.Join(skillDir, "scripts")
+	if stat, err := os.Stat(scriptsDir); err == nil && stat.IsDir() {
+		issues = append(issues, validateScriptsDirectory(scriptsDir, skillPath)...)
+	}
+
+	// Check references/ directory
+	refsDir := filepath.Join(skillDir, "references")
+	if stat, err := os.Stat(refsDir); err == nil && stat.IsDir() {
+		issues = append(issues, validateReferencesDirectory(refsDir, skillPath, skillLines)...)
+	}
+
+	// Check for absolute paths in markdown links
+	issues = append(issues, validateRelativePaths(contents, skillPath)...)
+
+	// Check reference chain depth (markdown links to references that link to other references)
+	issues = append(issues, validateReferenceDepth(contents, skillDir, skillPath)...)
+
+	return issues
+}
+
+// validateScriptsDirectory checks scripts for shebangs and basic structure.
+func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	entries, err := os.ReadDir(scriptsDir)
+	if err != nil {
+		return issues
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		scriptPath := filepath.Join(scriptsDir, entry.Name())
+		relPath := filepath.Join("scripts", entry.Name())
+
+		// Check for shebang in script files
+		content, err := os.ReadFile(scriptPath)
+		if err != nil {
+			continue
+		}
+
+		// Skip non-script files (images, data files, etc.)
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		scriptExts := map[string]bool{
+			".sh": true, ".bash": true, ".zsh": true,
+			".py": true, ".python": true,
+			".js": true, ".ts": true, ".mjs": true,
+			".rb": true, ".pl": true, ".php": true,
+		}
+
+		// If it's a known script extension or has no extension, check for shebang
+		if scriptExts[ext] || ext == "" {
+			if len(content) > 0 && !strings.HasPrefix(string(content), "#!") {
+				issues = append(issues, cue.ValidationError{
+					File:     skillPath,
+					Message:  fmt.Sprintf("Script '%s' missing shebang (e.g., #!/usr/bin/env python3)", relPath),
+					Severity: "suggestion",
+					Source:   cue.SourceAgentSkillsIO,
+				})
+			}
+		}
+
+		// Check for executable permission on Unix-like systems
+		info, err := entry.Info()
+		if err == nil {
+			mode := info.Mode()
+			if mode&0111 == 0 && scriptExts[ext] {
+				issues = append(issues, cue.ValidationError{
+					File:     skillPath,
+					Message:  fmt.Sprintf("Script '%s' is not executable (chmod +x)", relPath),
+					Severity: "suggestion",
+					Source:   cue.SourceAgentSkillsIO,
+				})
+			}
+		}
+	}
+
+	return issues
+}
+
+// validateReferencesDirectory checks that reference files are smaller than SKILL.md.
+func validateReferencesDirectory(refsDir, skillPath string, skillLines int) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	err := filepath.WalkDir(refsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+
+		// Only check markdown files
+		if !strings.HasSuffix(strings.ToLower(path), ".md") {
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		refLines := len(strings.Split(string(content), "\n"))
+		relPath, _ := filepath.Rel(filepath.Dir(skillPath), path)
+
+		if refLines > skillLines {
+			issues = append(issues, cue.ValidationError{
+				File:     skillPath,
+				Message:  fmt.Sprintf("Reference file '%s' (%d lines) is larger than SKILL.md (%d lines) - consider splitting", relPath, refLines, skillLines),
+				Severity: "suggestion",
+				Source:   cue.SourceAgentSkillsIO,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return issues
+	}
+
+	return issues
+}
+
+// validateRelativePaths checks for absolute paths in markdown links.
+func validateRelativePaths(contents, skillPath string) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	// Match markdown links: [text](path) or [text](path "title")
+	linkPattern := regexp.MustCompile(`\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
+	matches := linkPattern.FindAllStringSubmatch(contents, -1)
+
+	for _, match := range matches {
+		if len(match) < 3 {
+			continue
+		}
+		linkPath := match[2]
+
+		// Skip URLs
+		if strings.HasPrefix(linkPath, "http://") || strings.HasPrefix(linkPath, "https://") {
+			continue
+		}
+
+		// Check for absolute paths
+		if strings.HasPrefix(linkPath, "/") || strings.HasPrefix(linkPath, "~") {
+			line := findLineNumber(contents, match[0])
+			issues = append(issues, cue.ValidationError{
+				File:     skillPath,
+				Message:  fmt.Sprintf("Use relative path instead of absolute: '%s'", linkPath),
+				Severity: "warning",
+				Source:   cue.SourceAgentSkillsIO,
+				Line:     line,
+			})
+		}
+	}
+
+	return issues
+}
+
+// validateReferenceDepth checks for nested reference chains >1 level deep.
+func validateReferenceDepth(contents string, skillDir, skillPath string) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	// Extract markdown links to local files
+	linkPattern := regexp.MustCompile(`\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
+	matches := linkPattern.FindAllStringSubmatch(contents, -1)
+
+	for _, match := range matches {
+		if len(match) < 3 {
+			continue
+		}
+		linkPath := match[2]
+
+		// Skip URLs and anchors
+		if strings.HasPrefix(linkPath, "http") || strings.HasPrefix(linkPath, "#") {
+			continue
+		}
+
+		// Check if it's a reference to references/ directory
+		if !strings.Contains(linkPath, "references/") {
+			continue
+		}
+
+		// Resolve the full path
+		fullPath := filepath.Join(skillDir, linkPath)
+		if _, err := os.Stat(fullPath); err != nil {
+			continue
+		}
+
+		// Read the referenced file and check for nested references
+		refContent, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+
+		// Check if the referenced file contains links to other references/
+		nestedMatches := linkPattern.FindAllStringSubmatch(string(refContent), -1)
+		for _, nested := range nestedMatches {
+			if len(nested) < 3 {
+				continue
+			}
+			nestedPath := nested[2]
+
+			// Skip URLs and anchors
+			if strings.HasPrefix(nestedPath, "http") || strings.HasPrefix(nestedPath, "#") {
+				continue
+			}
+
+			// Check if it links to another references/ file
+			if strings.Contains(nestedPath, "references/") || strings.HasSuffix(nestedPath, ".md") {
+				issues = append(issues, cue.ValidationError{
+					File:     skillPath,
+					Message:  fmt.Sprintf("Reference chain detected: SKILL.md → %s → %s (keep references 1 level deep)", linkPath, nestedPath),
+					Severity: "suggestion",
+					Source:   cue.SourceAgentSkillsIO,
+				})
+				break // Only report once per referenced file
+			}
+		}
+	}
+
+	return issues
+}
+
+// findLineNumber finds the line number of a substring in content.
+func findLineNumber(content, substr string) int {
+	idx := strings.Index(content, substr)
+	if idx == -1 {
+		return 0
+	}
+	return strings.Count(content[:idx], "\n") + 1
+}

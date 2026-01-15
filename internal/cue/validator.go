@@ -16,8 +16,9 @@ var schemaFS embed.FS
 
 // Rule source constants
 const (
-	SourceAnthropicDocs   = "anthropic-docs"   // Official Anthropic documentation
-	SourceCClintObserve   = "cclint-observation" // Our best practice observations
+	SourceAnthropicDocs = "anthropic-docs"     // Official Anthropic documentation
+	SourceCClintObserve = "cclint-observation" // Our best practice observations
+	SourceAgentSkillsIO = "agentskills-io"     // agentskills.io specification
 )
 
 // ValidationError represents a validation error

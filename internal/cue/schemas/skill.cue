@@ -47,9 +47,11 @@ import "strings"
 
 // Skill frontmatter schema
 // Source: https://code.claude.com/docs/en/skills
+// Extended: https://agentskills.io/specification
 #Skill: {
 	// Required fields
-	name: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
+	// Name: lowercase, numbers, hyphens only. No leading/trailing/consecutive hyphens.
+	name: string & =~("^[a-z0-9]+(-[a-z0-9]+)*$") & strings.MaxRunes(64)
 	description: string & !="" & strings.MaxRunes(1024)       // non-empty description, max 1024 chars
 
 	// Optional Claude Code fields
@@ -59,6 +61,11 @@ import "strings"
 	agent?: string                                            // agent type for execution
 	"user-invocable"?: bool                                   // opt-out of slash command menu (default true)
 	hooks?: #SkillHooks                                       // skill-level hooks (PreToolUse, PostToolUse, Stop)
+
+	// Optional agentskills.io fields
+	license?: string                                          // SPDX identifier or license file reference
+	compatibility?: string & strings.MaxRunes(500)            // environment requirements (max 500 chars)
+	metadata?: {[string]: string | number | bool}             // arbitrary key-value mapping
 
 	// Allow additional fields
 	...
