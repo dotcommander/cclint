@@ -23,8 +23,20 @@ Skills must be named `SKILL.md` and follow Anthropic's documentation standards f
 | 043 | [Missing trigger phrases](#rule-043-missing-trigger-phrases) | suggestion |
 | 044 | [Invalid semver version format](#rule-044-invalid-semver-version-format) | warning |
 | 045 | [Missing Anti-Patterns section](#rule-045-missing-anti-patterns-section) | suggestion |
-| 046 | [Skill exceeds 550 lines](#rule-046-skill-exceeds-550-lines) | suggestion |
+| 046 | [Skill exceeds 500 lines](#rule-046-skill-exceeds-500-lines) | suggestion |
 | 047 | [Missing Examples section](#rule-047-missing-examples-section) | suggestion |
+| 048 | [Name cannot start/end with hyphen](#rule-048-name-cannot-startend-with-hyphen) | error |
+| 049 | [Consecutive hyphens in name](#rule-049-consecutive-hyphens-in-name) | error |
+| 050 | [Name must match directory](#rule-050-name-must-match-directory) | warning |
+| 052 | [Invalid allowed-tools format](#rule-052-invalid-allowed-tools-format) | warning |
+| 053 | [Empty license field](#rule-053-empty-license-field) | suggestion |
+| 054 | [Compatibility field too long](#rule-054-compatibility-field-too-long) | warning |
+| 055 | [Invalid metadata structure](#rule-055-invalid-metadata-structure) | suggestion |
+| 056 | [Script missing shebang](#rule-056-script-missing-shebang) | suggestion |
+| 057 | [Script not executable](#rule-057-script-not-executable) | suggestion |
+| 058 | [Reference file too large](#rule-058-reference-file-too-large) | suggestion |
+| 059 | [Absolute path in markdown link](#rule-059-absolute-path-in-markdown-link) | warning |
+| 060 | [Reference chain too deep](#rule-060-reference-chain-too-deep) | suggestion |
 
 ---
 
@@ -289,9 +301,311 @@ Document contains at least one of:
 
 ---
 
-## New Frontmatter Fields (v2.1.0+)
+### Rule 048: Name cannot start/end with hyphen
 
-Claude Code 2.1.0 introduced several new optional frontmatter fields for skills:
+**Severity:** error
+**Component:** skill
+**Category:** structural
+
+**Description:**
+Per agentskills.io specification, skill names must not start or end with a hyphen. This ensures compatibility with directory naming conventions and agent discovery systems.
+
+**Pass Criteria:**
+- `name` field does not start with `-`
+- `name` field does not end with `-`
+
+**Fail Message:**
+`Skill name '{name}' cannot start or end with a hyphen`
+
+**Example violations:**
+- `-my-skill` (starts with hyphen)
+- `my-skill-` (ends with hyphen)
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Name validation rules
+
+---
+
+### Rule 049: Consecutive hyphens in name
+
+**Severity:** error
+**Component:** skill
+**Category:** structural
+
+**Description:**
+Per agentskills.io specification, skill names must not contain consecutive hyphens (`--`). This ensures clean naming conventions and prevents parsing ambiguities.
+
+**Pass Criteria:**
+- `name` field does not contain `--`
+
+**Fail Message:**
+`Skill name '{name}' contains consecutive hyphens (--) which are not allowed`
+
+**Example violations:**
+- `my--skill`
+- `data--analysis--tool`
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Name validation rules
+
+---
+
+### Rule 050: Name must match directory
+
+**Severity:** warning
+**Component:** skill
+**Category:** structural
+
+**Description:**
+Per agentskills.io specification, the skill name in frontmatter should match the parent directory name. This is important for skill discovery and prevents confusion.
+
+**Pass Criteria:**
+- `name` field equals parent directory name (case-sensitive)
+- Skipped for root-level or special directories (`.`, `skills`, `.claude`)
+
+**Fail Message:**
+`Skill name '{name}' should match parent directory name '{directory}'`
+
+**Example:**
+```
+# Directory: pdf-processing/SKILL.md
+# Frontmatter: name: pdf-tools
+❌ Mismatch: "pdf-tools" vs "pdf-processing"
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Directory matching requirement
+
+---
+
+### Rule 052: Invalid allowed-tools format
+
+**Severity:** warning
+**Component:** skill
+**Category:** best-practice
+
+**Description:**
+Per agentskills.io specification, the `allowed-tools` field should use space-delimited tool names with optional scope syntax (e.g., `Bash(git:*) Read Write`).
+
+**Pass Criteria:**
+- `allowed-tools` is `"*"` (wildcard), OR
+- Each token matches pattern: starts with uppercase, optionally followed by scope in parentheses
+
+**Fail Message:**
+`allowed-tools format should be space-delimited tool names (e.g., 'Bash(git:*) Read Write')`
+
+**Valid examples:**
+```yaml
+allowed-tools: "*"
+allowed-tools: "Read Write Edit"
+allowed-tools: "Bash(git:*) Bash(jq:*) Read"
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Tool restrictions format
+
+---
+
+### Rule 053: Empty license field
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** documentation
+
+**Description:**
+Per agentskills.io specification, if a `license` field is provided, it should contain a valid SPDX identifier or reference to a bundled license file.
+
+**Pass Criteria:**
+- If `license` field present: non-empty string
+
+**Fail Message:**
+`license field is empty - provide SPDX identifier (e.g., 'MIT', 'Apache-2.0') or license file reference`
+
+**Valid examples:**
+```yaml
+license: MIT
+license: Apache-2.0
+license: See LICENSE.txt
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - License field
+
+---
+
+### Rule 054: Compatibility field too long
+
+**Severity:** warning
+**Component:** skill
+**Category:** documentation
+
+**Description:**
+Per agentskills.io specification, the optional `compatibility` field must not exceed 500 characters. This field describes environment requirements.
+
+**Pass Criteria:**
+- If `compatibility` field present: ≤500 characters
+
+**Fail Message:**
+`compatibility field is {length} chars (max 500 per agentskills.io spec)`
+
+**Valid example:**
+```yaml
+compatibility: Designed for Claude Code. Requires git and internet access.
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Compatibility field constraints
+
+---
+
+### Rule 055: Invalid metadata structure
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** documentation
+
+**Description:**
+Per agentskills.io specification, the optional `metadata` field should be a key-value mapping with primitive values (string, number, boolean).
+
+**Pass Criteria:**
+- If `metadata` field present: must be a mapping
+- All values should be primitives
+
+**Fail Message:**
+`metadata field should be key-value mapping` or `metadata.{key} should be primitive value`
+
+**Valid example:**
+```yaml
+metadata:
+  author: example-org
+  version: "1.0"
+  category: data-processing
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Metadata field structure
+
+---
+
+### Rule 056: Script missing shebang
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** best-practice
+
+**Description:**
+Per agentskills.io specification, scripts in the `scripts/` directory should include a shebang line for portability. This ensures scripts can be executed directly without specifying the interpreter.
+
+**Pass Criteria:**
+- Script files (.sh, .py, .js, etc.) start with `#!`
+
+**Fail Message:**
+`Script 'scripts/{filename}' missing shebang (e.g., #!/usr/bin/env python3)`
+
+**Valid examples:**
+```bash
+#!/usr/bin/env bash
+#!/usr/bin/env python3
+#!/usr/bin/env node
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Script best practices
+
+---
+
+### Rule 057: Script not executable
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** best-practice
+
+**Description:**
+Per agentskills.io specification, scripts should have executable permissions set. This allows agents to run scripts directly.
+
+**Pass Criteria:**
+- Script files have executable bit set (mode & 0111)
+
+**Fail Message:**
+`Script 'scripts/{filename}' is not executable (chmod +x)`
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Script best practices
+
+---
+
+### Rule 058: Reference file too large
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** structural
+
+**Description:**
+Per agentskills.io specification, reference files should be smaller than the main SKILL.md to ensure efficient context loading. Smaller files mean less context waste per Read() call.
+
+**Pass Criteria:**
+- Files in `references/` have fewer lines than SKILL.md
+
+**Fail Message:**
+`Reference file '{path}' ({n} lines) is larger than SKILL.md ({m} lines) - consider splitting`
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Progressive disclosure architecture
+
+---
+
+### Rule 059: Absolute path in markdown link
+
+**Severity:** warning
+**Component:** skill
+**Category:** best-practice
+
+**Description:**
+Per agentskills.io specification, file references should use relative paths from the skill root directory. Absolute paths break portability.
+
+**Pass Criteria:**
+- Markdown links don't start with `/` or `~`
+
+**Fail Message:**
+`Use relative path instead of absolute: '{path}'`
+
+**Valid example:**
+```markdown
+See [reference guide](references/REFERENCE.md) for details.
+```
+
+**Invalid example:**
+```markdown
+See [reference guide](/Users/foo/.claude/skills/my-skill/references/REFERENCE.md)
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - File references
+
+---
+
+### Rule 060: Reference chain too deep
+
+**Severity:** suggestion
+**Component:** skill
+**Category:** best-practice
+
+**Description:**
+Per agentskills.io specification, file references should be kept one level deep from SKILL.md. Nested reference chains require multiple Read() calls and waste context.
+
+**Pass Criteria:**
+- Referenced files don't contain links to other reference files
+
+**Fail Message:**
+`Reference chain detected: SKILL.md → {ref1} → {ref2} (keep references 1 level deep)`
+
+**Good example:**
+```
+SKILL.md → references/REFERENCE.md  ✅
+SKILL.md → references/advanced/TOPIC.md  ✅
+```
+
+**Bad example:**
+```
+SKILL.md → references/REFERENCE.md → references/DEEP.md  ❌
+```
+
+**Source:** [agentskills.io specification](https://agentskills.io/specification) - Progressive disclosure architecture
+
+---
+
+## New Frontmatter Fields
+
+### Claude Code Fields (v2.1.0+)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -300,12 +614,23 @@ Claude Code 2.1.0 introduced several new optional frontmatter fields for skills:
 | `user-invocable` | bool | Show in slash command menu (default: true for /skills/) |
 | `hooks` | object | Lifecycle hooks scoped to skill execution |
 
-### Example with New Fields
+### agentskills.io Fields
+
+Per [agentskills.io specification](https://agentskills.io/specification):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `license` | string | SPDX identifier (e.g., "MIT", "Apache-2.0") or license file reference |
+| `compatibility` | string | Environment requirements (max 500 chars) |
+| `metadata` | object | Arbitrary key-value mapping for additional properties |
+
+### Example with All Fields
 
 ```yaml
 ---
 name: my-skill
-description: Example skill with v2.1.0 fields
+description: Example skill demonstrating all optional fields. Use when working with PDF documents.
+# Claude Code fields
 context: fork
 agent: refactor-specialist
 user-invocable: true
@@ -316,6 +641,12 @@ hooks:
         - type: command
           command: echo "Before bash"
           once: true
+# agentskills.io fields
+license: MIT
+compatibility: Designed for Claude Code. Requires git.
+metadata:
+  author: example-org
+  version: "1.0"
 ---
 ```
 
@@ -336,9 +667,11 @@ A well-structured skill should include:
 
 ### Size Guidelines
 
+Per [agentskills.io specification](https://agentskills.io/specification):
+
 | Component | Lines | Action |
 |-----------|-------|--------|
-| SKILL.md | <550 | Core methodology only |
+| SKILL.md | <500 | Core methodology only |
 | references/ | unlimited | Heavy docs, schemas, examples |
 
 ### Description Guidelines
