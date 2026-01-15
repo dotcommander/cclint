@@ -2,11 +2,13 @@ package output
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/cue"
-	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
 )
 
 // ConsoleFormatter formats output for console display
@@ -239,7 +241,13 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 			componentType = "files"
 		}
 		msg := fmt.Sprintf("✓ All %d %s passed", summary.TotalFiles, componentType)
-		if f.colorize {
+
+		// Perfect success: 0 errors, 0 warnings, 0 suggestions → celebration
+		perfectSuccess := summary.TotalErrors == 0 && summary.TotalWarnings == 0 && summary.TotalSuggestions == 0
+
+		if f.colorize && perfectSuccess && f.isTTY() {
+			f.printCelebration(msg)
+		} else if f.colorize {
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 			fmt.Printf("%s\n", style.Render(msg))
 		} else {
@@ -248,5 +256,39 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 	}
 
 	// Add blank line after each component group for better readability
+	fmt.Println()
+}
+
+// isTTY returns true if stdout is a terminal
+func (f *ConsoleFormatter) isTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// printCelebration shows a sparkle animation for perfect success
+func (f *ConsoleFormatter) printCelebration(msg string) {
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	bold := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+
+	frames := []struct {
+		text  string
+		delay time.Duration
+	}{
+		{green.Render(msg), 200 * time.Millisecond},
+		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
+		{bold.Render("🎉 " + msg + " 🎉"), 400 * time.Millisecond},
+		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
+		{green.Render(msg), 0},
+	}
+
+	for i, frame := range frames {
+		if i > 0 {
+			fmt.Print("\r\033[K")
+		}
+		fmt.Print(frame.text)
+		if frame.delay > 0 {
+			time.Sleep(frame.delay)
+		}
+	}
 	fmt.Println()
 }

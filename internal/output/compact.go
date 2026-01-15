@@ -2,12 +2,14 @@ package output
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/cue"
+	"golang.org/x/term"
 )
 
 // CompactFormatter formats output in a compact, summary-first style.
@@ -177,7 +179,11 @@ func (f *CompactFormatter) FormatAll(summaries []*cli.LintSummary) error {
 	}
 	summaryText += fmt.Sprintf(" (%s)", formatDuration(duration))
 
-	if f.colorize {
+	// Perfect success: celebrate!
+	perfectSuccess := totalErrors == 0 && totalSuggestions == 0
+	if f.colorize && perfectSuccess && f.isTTY() {
+		f.printCelebration(summaryText)
+	} else if f.colorize {
 		if totalErrors > 0 {
 			fmt.Printf("%s\n", redStyle.Render(summaryText))
 		} else {
@@ -188,6 +194,40 @@ func (f *CompactFormatter) FormatAll(summaries []*cli.LintSummary) error {
 	}
 
 	return nil
+}
+
+// isTTY returns true if stdout is a terminal
+func (f *CompactFormatter) isTTY() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// printCelebration shows a sparkle animation for perfect success
+func (f *CompactFormatter) printCelebration(msg string) {
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	bold := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
+	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+
+	frames := []struct {
+		text  string
+		delay time.Duration
+	}{
+		{green.Render(msg), 200 * time.Millisecond},
+		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
+		{bold.Render("🎉 " + msg + " 🎉"), 400 * time.Millisecond},
+		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
+		{green.Render(msg), 0},
+	}
+
+	for i, frame := range frames {
+		if i > 0 {
+			fmt.Print("\r\033[K")
+		}
+		fmt.Print(frame.text)
+		if frame.delay > 0 {
+			time.Sleep(frame.delay)
+		}
+	}
+	fmt.Println()
 }
 
 // Format implements Formatter interface for single summary (falls back to verbose style).
