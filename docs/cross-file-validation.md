@@ -163,6 +163,70 @@ Agent File
             └─→ No: Error: "Skill: X references non-existent skill"
 ```
 
+## Agent Reference Detection (Skills)
+
+Skills can reference agents using multiple patterns. All are validated:
+
+| Pattern | Example | Validated |
+|---------|---------|-----------|
+| Task() specialist | `Task(foo-specialist)` | Yes |
+| Task() generic | `Task(agent-name)` | Yes |
+| Task() quoted | `Task("agent-name")` | Yes |
+| Delegate via | `delegate via agent-name` | Yes |
+| Agent handles | `foo-agent handles...` | Yes |
+| Use/See specialist | `use foo-specialist` | Yes |
+
+### Built-in Agents
+
+Built-in agents and model names are automatically excluded from validation:
+
+**Subagent Types:**
+- `Explore` - File exploration subagent
+- `Plan` - Planning subagent
+- `general-purpose` - General purpose subagent
+- `claude-code-guide` - Claude Code guide
+- `statusline-setup` - Statusline setup
+
+**Model Names:**
+- `haiku` - Claude Haiku model
+- `sonnet` - Claude Sonnet model
+- `opus` - Claude Opus model
+
+### Dynamic References
+
+Dynamic/variable references are skipped:
+
+```markdown
+Task(args.agent)        # Skipped - contains dot
+Task(subagent_type)     # Skipped - dynamic type
+Task(items[0])          # Skipped - contains bracket
+```
+
+## Skill Reference Detection (All Components)
+
+Both agents and commands can reference skills. All patterns are validated:
+
+| Pattern | Example | Validated In |
+|---------|---------|--------------|
+| Colon | `Skill: foo-bar` | Agents, Commands |
+| Function | `Skill(foo-bar)` | Agents, Commands |
+| Quoted | `Skill("foo-bar")` | Agents, Commands |
+| List | `Skills:\n- foo-bar` | Agents, Commands |
+
+### Error Messages
+
+When a non-existent skill is referenced:
+
+```bash
+$ cclint agents
+✗ agents/my-agent.md
+    ✘ Skill: missing-skill references non-existent skill. Create skills/missing-skill/SKILL.md
+
+$ cclint commands
+✗ commands/my-command.md
+    ✘ References non-existent skill 'missing-skill'. Create skills/missing-skill/SKILL.md
+```
+
 ## Common Issues
 
 ### False Positives (Fixed in v1.1.0)

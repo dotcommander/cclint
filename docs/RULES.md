@@ -461,18 +461,18 @@ If an agent has structured sections (Foundation, Workflow) but no skill referenc
 
 #### Rule 021: Missing PROACTIVELY Pattern
 
-**Severity:** suggestion
+**Severity:** error
 **Component:** agent
 **Category:** documentation
 
 **Description:**
-Agent descriptions should include "Use PROACTIVELY when..." pattern to clarify automatic activation scenarios, per Anthropic best practices.
+Agent descriptions MUST include "Use PROACTIVELY when..." pattern for agent discoverability. This enables semantic routing and future automated activation.
 
 **Pass Criteria:**
 - `description` field contains the word `PROACTIVELY`
 
 **Fail Message:**
-`Description lacks 'Use PROACTIVELY when...' pattern. Add to clarify activation scenarios.`
+`Description MUST include 'Use PROACTIVELY when...' pattern for agent discoverability.`
 
 **Source:** anthropic-docs
 
