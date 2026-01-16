@@ -11,6 +11,7 @@ package schemas
 #HookType: "command" | "prompt" | "agent"
 
 // Hook command definition
+// PreToolUse hooks can return additionalContext to the model (v2.1.9+)
 #HookCommand: {
 	type:     #HookType
 	command:  string
@@ -40,7 +41,13 @@ package schemas
 	// Per-project control over @-mention file picker behavior
 	respectGitignore?: bool
 
+	// Plans directory (v2.1.9+)
+	// Customize where plan files are stored (default: .claude/plans)
+	plansDirectory?: string
+
 	// All other fields are allowed - settings.json is extensible
+	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
+	// where N is the context window percentage (0-100)
 	// Common fields include:
 	// - model: string
 	// - permissions: object

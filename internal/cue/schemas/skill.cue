@@ -5,6 +5,8 @@ import "strings"
 // ============================================================================
 // Skill Schema
 // Source: https://code.claude.com/docs/en/skills
+// String substitutions available in skills:
+//   ${CLAUDE_SESSION_ID} - current session ID (v2.1.9+)
 // ============================================================================
 
 // Valid model options for Claude Code
