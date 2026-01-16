@@ -16,18 +16,11 @@ func ValidateSkillDirectory(skillPath, contents string) []cue.ValidationError {
 	var issues []cue.ValidationError
 
 	skillDir := filepath.Dir(skillPath)
-	skillLines := len(strings.Split(contents, "\n"))
 
 	// Check scripts/ directory
 	scriptsDir := filepath.Join(skillDir, "scripts")
 	if stat, err := os.Stat(scriptsDir); err == nil && stat.IsDir() {
 		issues = append(issues, validateScriptsDirectory(scriptsDir, skillPath)...)
-	}
-
-	// Check references/ directory
-	refsDir := filepath.Join(skillDir, "references")
-	if stat, err := os.Stat(refsDir); err == nil && stat.IsDir() {
-		issues = append(issues, validateReferencesDirectory(refsDir, skillPath, skillLines)...)
 	}
 
 	// Check for absolute paths in markdown links
@@ -96,47 +89,6 @@ func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationErro
 				})
 			}
 		}
-	}
-
-	return issues
-}
-
-// validateReferencesDirectory checks that reference files are smaller than SKILL.md.
-func validateReferencesDirectory(refsDir, skillPath string, skillLines int) []cue.ValidationError {
-	var issues []cue.ValidationError
-
-	err := filepath.WalkDir(refsDir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-
-		// Only check markdown files
-		if !strings.HasSuffix(strings.ToLower(path), ".md") {
-			return nil
-		}
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-
-		refLines := len(strings.Split(string(content), "\n"))
-		relPath, _ := filepath.Rel(filepath.Dir(skillPath), path)
-
-		if refLines > skillLines {
-			issues = append(issues, cue.ValidationError{
-				File:     skillPath,
-				Message:  fmt.Sprintf("Reference file '%s' (%d lines) is larger than SKILL.md (%d lines) - consider splitting", relPath, refLines, skillLines),
-				Severity: "suggestion",
-				Source:   cue.SourceAgentSkillsIO,
-			})
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return issues
 	}
 
 	return issues

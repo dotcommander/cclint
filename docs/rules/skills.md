@@ -525,26 +525,7 @@ Per agentskills.io specification, scripts should have executable permissions set
 
 ---
 
-### Rule 058: Reference file too large
-
-**Severity:** suggestion
-**Component:** skill
-**Category:** structural
-
-**Description:**
-Per agentskills.io specification, reference files should be smaller than the main SKILL.md to ensure efficient context loading. Smaller files mean less context waste per Read() call.
-
-**Pass Criteria:**
-- Files in `references/` have fewer lines than SKILL.md
-
-**Fail Message:**
-`Reference file '{path}' ({n} lines) is larger than SKILL.md ({m} lines) - consider splitting`
-
-**Source:** [agentskills.io specification](https://agentskills.io/specification) - Progressive disclosure architecture
-
----
-
-### Rule 059: Absolute path in markdown link
+### Rule 058: Absolute path in markdown link
 
 **Severity:** warning
 **Component:** skill
@@ -573,7 +554,7 @@ See [reference guide](/Users/foo/.claude/skills/my-skill/references/REFERENCE.md
 
 ---
 
-### Rule 060: Reference chain too deep
+### Rule 059: Reference chain too deep
 
 **Severity:** suggestion
 **Component:** skill
