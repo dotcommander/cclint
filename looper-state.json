@@ -246,18 +246,79 @@
     },
     {
       "id": "us-20",
-      "passes": false,
-      "attempts": 1
+      "passes": true,
+      "attempts": 1,
+      "pass_history": [
+        true
+      ],
+      "commit_hash": "32b095e"
     },
     {
       "id": "us-21",
       "passes": false,
-      "attempts": 0
+      "attempts": 3,
+      "last_errors": [
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 102]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line",
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 102]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line",
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag"
+      ],
+      "pass_history": [
+        false,
+        false,
+        false
+      ],
+      "learnings": [
+        {
+          "attempt": 1,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:3:81 error MD013/line-length Line length [Expected: 80; Actual: 102]",
+          "suggestion": "Review the error message and check related code"
+        },
+        {
+          "attempt": 2,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:3:81 error MD013/line-length Line length [Expected: 80; Actual: 102]",
+          "suggestion": "Review the error message and check related code"
+        },
+        {
+          "attempt": 3,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Looking at the error pattern - **same line, same error, repeated attempts** - this suggests:\n\n**Root Cause**: Markdownlint is checking the raw Markdown source, but your fix attempts may be:\n1. Editing the wrong line (line 3 vs line 81 confusion)\n2. Only wrapping visible text, not the underlying Markdown link syntax\n3. The link itself is inherently long (URL length issue)\n\n**Alternative Approach**: \n```markdown\n\u003c!-- Use markdownlint-disable --\u003e\n\u003c!-- markdownlint-disable-next-line MD013 --\u003e\n[long link here](url)\n```\n\nOr refactor: move URL to reference link at bottom."
+        }
+      ]
     },
     {
       "id": "us-22",
       "passes": false,
-      "attempts": 0
+      "attempts": 3,
+      "last_errors": [
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag",
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag"
+      ],
+      "pass_history": [
+        false,
+        false
+      ],
+      "learnings": [
+        {
+          "attempt": 1,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Review the error message and check related code"
+        },
+        {
+          "attempt": 2,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Review the error message and check related code"
+        }
+      ]
     },
     {
       "id": "us-23",
@@ -296,24 +357,25 @@
     ]
   },
   "metrics": {
-    "total_iterations": 36,
-    "total_successes": 17,
-    "total_failures": 36,
-    "last_run": "2026-01-19T00:15:23.31408-05:00"
+    "total_iterations": 47,
+    "total_successes": 18,
+    "total_failures": 47,
+    "last_run": "2026-01-19T01:36:43.462018-05:00"
   },
   "reflection_context": {
-    "iteration": 6,
-    "progress": "17/28 tasks complete (61%)",
-    "success_rate": 60.71428571428571,
+    "iteration": 9,
+    "progress": "18/28 tasks complete (64%)",
+    "success_rate": 64.28571428571429,
     "struggling_tasks": [
       "us-7",
-      "us-13"
+      "us-13",
+      "us-21"
     ],
     "patterns": [
       "repeat_attempt: us-7"
     ],
     "insights": [
-      "I've been chipping away at this task list for 35 iterations now, with 17 tasks under my belt. The success rate isn't great - exactly 50% - but I'm making forward progress. Honestly, us-7 has become something of a nemesis; that repeat_attempt pattern tells me I've been banging my head against the same wall over and over. Same story with us-13. There's something stubborn about those two that I haven't quite figured out yet."
+      "Almost two-thirds done, though the numbers look worse than they feel. Eighteen tasks complete feels solid even if I failed forty times getting here - honestly, some of these tasks just needed me to bang my head against them repeatedly before something clicked. That us-7 task has turned into my personal nemesis; I keep attempting it the same way and getting the same result, which is definitely on me at this point."
     ]
   }
 }
