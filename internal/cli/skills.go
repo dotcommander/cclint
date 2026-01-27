@@ -10,19 +10,21 @@ import (
 
 // knownSkillFields lists valid frontmatter fields per Anthropic docs and agentskills.io spec
 // Sources:
-//   - https://docs.anthropic.com/en/docs/claude-code/skills
+//   - https://code.claude.com/docs/en/skills
 //   - https://agentskills.io/specification
 var knownSkillFields = map[string]bool{
 	// Required fields
-	"name":        true, // Required: skill identifier
-	"description": true, // Required: what the skill does (critical for discovery)
+	"name":        true, // Optional: skill identifier (defaults to directory name)
+	"description": true, // Recommended: what the skill does (critical for discovery)
 	// Optional Claude Code fields
-	"allowed-tools":   true, // Optional: tool access permissions
-	"model":           true, // Optional: model to use when skill is active
-	"context":         true, // Optional: "fork" for sub-agent context
-	"agent":           true, // Optional: agent type for execution
-	"user-invocable":  true, // Optional: show in slash command menu
-	"hooks":           true, // Optional: skill-level hooks
+	"argument-hint":            true, // Optional: hint shown during autocomplete (e.g., "[issue-number]")
+	"disable-model-invocation": true, // Optional: prevent Claude from auto-loading this skill
+	"user-invocable":           true, // Optional: show in slash command menu (default true)
+	"allowed-tools":            true, // Optional: tool access permissions
+	"model":                    true, // Optional: model to use when skill is active
+	"context":                  true, // Optional: "fork" for sub-agent context
+	"agent":                    true, // Optional: agent type for execution
+	"hooks":                    true, // Optional: skill-level hooks (PreToolUse, PostToolUse, Stop)
 	// Optional agentskills.io fields
 	"license":       true, // Optional: SPDX identifier or license file reference
 	"compatibility": true, // Optional: environment requirements (max 500 chars)

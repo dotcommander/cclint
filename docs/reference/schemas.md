@@ -48,10 +48,11 @@ internal/cue/schemas/
 |-------|------|--------|-------------|
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit` | Model preference |
 | `color` | string | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` | Terminal color |
-| `tools` | `*`, string, array | `*` for all, or tool names | Available tools (agents use `tools:` not `allowed-tools:`) |
-| `permissionMode` | string | `default`, `acceptEdits`, `bypassPermissions`, `plan`, `ignore` | Permission handling |
-| `skills` | string | comma-separated skill names | Auto-load skills on agent spawn |
-| `hooks` | object | Event → hooks mapping | Agent-level hooks (PreToolUse, PostToolUse, Stop, Start) |
+| `tools` | `*`, string, array | `*` for all, or tool names | Tool access allowlist (agents use `tools:` not `allowed-tools:`) |
+| `disallowedTools` | `*`, string, array | Tool names | Tool access denylist |
+| `permissionMode` | string | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` | Permission handling |
+| `skills` | string | comma-separated skill names | Skills to preload into agent context |
+| `hooks` | object | Event → hooks mapping | Agent-level hooks (PreToolUse, PostToolUse, Stop) |
 
 ### Known Tools
 
@@ -178,12 +179,14 @@ hooks:
 
 | Field | Type | Values | Description |
 |-------|------|--------|-------------|
+| `argument-hint` | string | e.g., `[issue-number]` | Hint shown during autocomplete |
+| `disable-model-invocation` | bool | `false` (default) | Prevent Claude from auto-loading this skill |
+| `user-invocable` | bool | `true` (default) | Include in slash command menu |
 | `allowed-tools` | `*`, string, array | `*` for all, or tool names | Tools available (skills use `allowed-tools:` not `tools:`) |
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit`, or full model name | Model preference |
 | `context` | string | `fork` | Run in forked sub-agent context |
 | `agent` | string | Agent name | Agent type for execution |
-| `user-invocable` | bool | `true` (default) | Include in slash command menu |
-| `hooks` | object | Event → hooks mapping | Skill-level hooks |
+| `hooks` | object | Event → hooks mapping | Skill-level hooks (PreToolUse, PostToolUse, Stop) |
 
 ### Optional AgentSkills.io Fields
 

@@ -57,11 +57,13 @@ import "strings"
 	description: string & !="" & strings.MaxRunes(1024)       // non-empty description, max 1024 chars
 
 	// Optional Claude Code fields
+	"argument-hint"?: string                                  // hint shown during autocomplete (e.g., "[issue-number]")
+	"disable-model-invocation"?: bool                         // prevent Claude from auto-loading this skill
+	"user-invocable"?: bool                                   // show in slash command menu (default true)
 	"allowed-tools"?: "*" | string | [...#KnownTool]          // skills use 'allowed-tools:', NOT 'tools:'
 	model?: #Model                                            // model to use when skill is active
 	context?: "fork"                                          // run skill in forked sub-agent context
 	agent?: string                                            // agent type for execution
-	"user-invocable"?: bool                                   // opt-out of slash command menu (default true)
 	hooks?: #SkillHooks                                       // skill-level hooks (PreToolUse, PostToolUse, Stop)
 
 	// Optional agentskills.io fields

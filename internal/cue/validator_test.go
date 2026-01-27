@@ -183,6 +183,27 @@ func TestValidateAgent(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "valid with Setup hook",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with Setup hook",
+				"hooks": map[string]any{
+					"Setup": []map[string]any{
+						{
+							"matcher": "init",
+							"hooks": []map[string]any{
+								{
+									"type":    "command",
+									"command": "echo 'setup'",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
 	}
 
 	v := NewValidator()
