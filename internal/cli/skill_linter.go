@@ -151,6 +151,11 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 		}
 	}
 
+	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
+	if hooks, ok := data["hooks"]; ok {
+		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
+	}
+
 	// Frontmatter suggestion
 	if !strings.HasPrefix(contents, "---") {
 		skillName := extractSkillName(contents, filePath)

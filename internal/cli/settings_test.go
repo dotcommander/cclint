@@ -191,6 +191,74 @@ func TestValidateHooks(t *testing.T) {
 			},
 			wantErrorCount: 0,
 		},
+		{
+			name: "valid Setup hook with init matcher",
+			hooks: map[string]interface{}{
+				"Setup": []interface{}{
+					map[string]interface{}{
+						"matcher": "init",
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo setup init",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid Setup hook with maintenance matcher",
+			hooks: map[string]interface{}{
+				"Setup": []interface{}{
+					map[string]interface{}{
+						"matcher": "maintenance",
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo setup maintenance",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid SubagentStart hook",
+			hooks: map[string]interface{}{
+				"SubagentStart": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo subagent started",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid PostToolUseFailure hook",
+			hooks: map[string]interface{}{
+				"PostToolUseFailure": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo tool failed",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -351,6 +419,81 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			errors := validateSettingsSpecific(tt.data, "settings.json")
 			if len(errors) != tt.wantErrorCount {
 				t.Errorf("validateSettingsSpecific() error count = %d, want %d", len(errors), tt.wantErrorCount)
+			}
+		})
+	}
+}
+
+func TestValidateComponentHooks(t *testing.T) {
+	validHook := []interface{}{
+		map[string]interface{}{
+			"matcher": map[string]interface{}{},
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": "echo test",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		hooks          interface{}
+		wantErrorCount int
+	}{
+		{
+			name: "accepts PreToolUse",
+			hooks: map[string]interface{}{
+				"PreToolUse": validHook,
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "accepts PostToolUse",
+			hooks: map[string]interface{}{
+				"PostToolUse": validHook,
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "accepts Stop",
+			hooks: map[string]interface{}{
+				"Stop": validHook,
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "rejects SessionStart",
+			hooks: map[string]interface{}{
+				"SessionStart": validHook,
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "rejects Setup",
+			hooks: map[string]interface{}{
+				"Setup": validHook,
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "rejects SubagentStart",
+			hooks: map[string]interface{}{
+				"SubagentStart": validHook,
+			},
+			wantErrorCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := ValidateComponentHooks(tt.hooks, "agent.md")
+			if len(errors) != tt.wantErrorCount {
+				t.Errorf("ValidateComponentHooks() error count = %d, want %d", len(errors), tt.wantErrorCount)
+				for _, err := range errors {
+					t.Logf("  - %s: %s", err.Severity, err.Message)
+				}
 			}
 		})
 	}

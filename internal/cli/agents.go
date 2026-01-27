@@ -48,15 +48,17 @@ func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*
 }
 
 // knownAgentFields lists valid frontmatter fields per Anthropic docs
-// Source: https://docs.anthropic.com/en/docs/claude-code/sub-agents
+// Source: https://code.claude.com/docs/en/sub-agents
 var knownAgentFields = map[string]bool{
-	"name":           true, // Required: unique identifier
-	"description":    true, // Required: what the agent does
-	"model":          true, // Optional: sonnet, opus, haiku, etc.
-	"color":          true, // Optional: display color in UI
-	"tools":          true, // Optional: tool access
-	"permissionMode": true, // Optional: permission handling
-	"skills":         true, // Optional: comma-separated skill names
+	"name":            true, // Required: unique identifier
+	"description":     true, // Required: what the agent does
+	"model":           true, // Optional: sonnet, opus, haiku, inherit
+	"color":           true, // Optional: display color in UI (set via /agents wizard)
+	"tools":           true, // Optional: tool access allowlist
+	"disallowedTools": true, // Optional: tool access denylist
+	"permissionMode":  true, // Optional: default, acceptEdits, dontAsk, bypassPermissions, plan
+	"skills":          true, // Optional: skills to preload into context
+	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
 }
 
 // validateAgentSpecific implements agent-specific validation rules
@@ -68,7 +70,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 		if !knownAgentFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, permissionMode, skills", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, disallowedTools, permissionMode, skills, hooks", key),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, key),
@@ -186,6 +188,11 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 
 	// Validate tool field naming (agents use 'tools:', not 'allowed-tools:')
 	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "agent")...)
+
+	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
+	if hooks, ok := data["hooks"]; ok {
+		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
+	}
 
 	// Best practice checks
 	errors = append(errors, validateAgentBestPractices(filePath, contents, data)...)

@@ -245,7 +245,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "permissionMode", "skills"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "skills", "hooks"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)

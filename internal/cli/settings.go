@@ -19,16 +19,27 @@ func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool) 
 
 // Valid hook events according to Anthropic documentation
 var validHookEvents = map[string]bool{
-	"PreToolUse":        true,
-	"PermissionRequest": true,
-	"PostToolUse":       true,
-	"Notification":      true,
-	"UserPromptSubmit":  true,
-	"Stop":              true,
-	"SubagentStop":      true,
-	"PreCompact":        true,
-	"SessionStart":      true,
-	"SessionEnd":        true,
+	"PreToolUse":          true,
+	"PermissionRequest":   true,
+	"PostToolUse":         true,
+	"PostToolUseFailure":  true,
+	"Notification":        true,
+	"UserPromptSubmit":    true,
+	"Stop":                true,
+	"SubagentStart":       true,
+	"SubagentStop":        true,
+	"PreCompact":          true,
+	"Setup":               true, // matcher values: "init", "maintenance" (not tool names)
+	"SessionStart":        true,
+	"SessionEnd":          true,
+}
+
+// validComponentHookEvents lists hook events valid for agents and skills.
+// Components only support PreToolUse, PostToolUse, and Stop per Claude Code docs.
+var validComponentHookEvents = map[string]bool{
+	"PreToolUse":  true,
+	"PostToolUse": true,
+	"Stop":        true,
 }
 
 // Hook events that support prompt hooks
@@ -58,8 +69,18 @@ func validateSettingsSpecific(data map[string]interface{}, filePath string) []cu
 	return errors
 }
 
-// validateHooks validates the hooks section of settings.json
+// validateHooks validates hooks for settings (full event set)
 func validateHooks(hooks interface{}, filePath string) []cue.ValidationError {
+	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd")
+}
+
+// ValidateComponentHooks validates hooks for agents and skills (scoped event set)
+func ValidateComponentHooks(hooks interface{}, filePath string) []cue.ValidationError {
+	return validateHooksWithEvents(hooks, filePath, validComponentHookEvents, "PreToolUse, PostToolUse, Stop")
+}
+
+// validateHooksWithEvents validates the hooks section with specified allowed events
+func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents map[string]bool, eventLabel string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	hooksMap, ok := hooks.(map[string]interface{})
@@ -76,10 +97,10 @@ func validateHooks(hooks interface{}, filePath string) []cue.ValidationError {
 	// Validate each event name and its hooks
 	for eventName, eventConfig := range hooksMap {
 		// Check if event name is valid
-		if !validHookEvents[eventName] {
+		if !allowedEvents[eventName] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown hook event '%s'. Valid events: PreToolUse, PostToolUse, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd", eventName),
+				Message:  fmt.Sprintf("Unknown hook event '%s'. Valid events: %s", eventName, eventLabel),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 			})
