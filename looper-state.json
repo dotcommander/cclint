@@ -360,30 +360,68 @@
     },
     {
       "id": "us-27",
-      "passes": false,
-      "attempts": 1
+      "passes": true,
+      "attempts": 1,
+      "pass_history": [
+        true
+      ],
+      "commit_hash": "6b47cfe"
     },
     {
       "id": "us-28",
       "passes": false,
-      "attempts": 0
+      "attempts": 3,
+      "last_errors": [
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag",
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag",
+        "CLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 83]\nCLAUDE.md:N:81 error MD013/line-length Line length [Expected: 80; Actual: 95]\nCLAUDE.md:59 error MD040/fenced-code-languag"
+      ],
+      "pass_history": [
+        false,
+        false,
+        false
+      ],
+      "learnings": [
+        {
+          "attempt": 1,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Review the error message and check related code"
+        },
+        {
+          "attempt": 2,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Review the error message and check related code"
+        },
+        {
+          "attempt": 3,
+          "gate": "markdownlint",
+          "error_type": "unknown",
+          "summary": "CLAUDE.md:12:81 error MD013/line-length Line length [Expected: 80; Actual: 83]",
+          "suggestion": "Review the error message and check related code"
+        }
+      ]
     }
   ],
   "stuck_patterns": {
     "repeat_attempts": [
-      "us-7"
+      "us-7",
+      "us-28"
     ]
   },
   "metrics": {
-    "total_iterations": 52,
-    "total_successes": 23,
-    "total_failures": 52,
-    "last_run": "2026-01-19T01:53:26.947455-05:00"
+    "total_iterations": 58,
+    "total_successes": 24,
+    "total_failures": 58,
+    "last_run": "2026-01-19T02:07:57.590418-05:00"
   },
   "reflection_context": {
-    "iteration": 3,
-    "progress": "21/28 tasks complete (75%)",
-    "success_rate": 75,
+    "iteration": 6,
+    "progress": "24/28 tasks complete (86%)",
+    "success_rate": 85.71428571428571,
     "struggling_tasks": [
       "us-7",
       "us-13",
