@@ -343,7 +343,7 @@ func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
 	var orphans []cue.ValidationError
 	referencedSkills := make(map[string]bool)
 
-	// Check commands for skill references via Task()
+	// Check commands for skill references via Task() and Skill() patterns
 	for _, cmd := range v.commands {
 		taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
 		matches := taskPattern.FindAllStringSubmatch(cmd.Contents, -1)
@@ -359,6 +359,11 @@ func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
 			if _, exists := v.skills[agentRef]; exists {
 				referencedSkills[agentRef] = true
 			}
+		}
+		// Also check Skill() and Skill: references in commands
+		skillRefs := findSkillReferences(cmd.Contents)
+		for _, skillRef := range skillRefs {
+			referencedSkills[skillRef] = true
 		}
 	}
 
