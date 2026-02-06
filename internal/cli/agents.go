@@ -59,6 +59,7 @@ var knownAgentFields = map[string]bool{
 	"permissionMode":  true, // Optional: default, acceptEdits, dontAsk, bypassPermissions, plan
 	"skills":          true, // Optional: skills to preload into context
 	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
+	"memory":          true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
 }
 
 // validateAgentSpecific implements agent-specific validation rules
@@ -182,6 +183,24 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				Message:  fmt.Sprintf("Invalid color '%s'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan", color),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+
+	// Validate memory scope (v2.1.33+)
+	if memory, ok := data["memory"].(string); ok {
+		validMemoryScopes := map[string]bool{
+			"user":    true,
+			"project": true,
+			"local":   true,
+		}
+		if !validMemoryScopes[memory] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Invalid memory scope '%s'. Valid scopes: user, project, local", memory),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "memory"),
 			})
 		}
 	}

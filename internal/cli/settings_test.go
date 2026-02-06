@@ -259,6 +259,40 @@ func TestValidateHooks(t *testing.T) {
 			},
 			wantErrorCount: 0,
 		},
+		{
+			name: "valid TeammateIdle hook",
+			hooks: map[string]interface{}{
+				"TeammateIdle": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo teammate idle",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid TaskCompleted hook",
+			hooks: map[string]interface{}{
+				"TaskCompleted": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo task done",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -481,6 +515,20 @@ func TestValidateComponentHooks(t *testing.T) {
 			name: "rejects SubagentStart",
 			hooks: map[string]interface{}{
 				"SubagentStart": validHook,
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "rejects TeammateIdle for components",
+			hooks: map[string]interface{}{
+				"TeammateIdle": validHook,
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "rejects TaskCompleted for components",
+			hooks: map[string]interface{}{
+				"TaskCompleted": validHook,
 			},
 			wantErrorCount: 1,
 		},

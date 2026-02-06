@@ -32,6 +32,8 @@ var validHookEvents = map[string]bool{
 	"Setup":               true, // matcher values: "init", "maintenance" (not tool names)
 	"SessionStart":        true,
 	"SessionEnd":          true,
+	"TeammateIdle":        true, // multi-agent workflow event (v2.1.33+)
+	"TaskCompleted":       true, // multi-agent workflow event (v2.1.33+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.
@@ -71,7 +73,7 @@ func validateSettingsSpecific(data map[string]interface{}, filePath string) []cu
 
 // validateHooks validates hooks for settings (full event set)
 func validateHooks(hooks interface{}, filePath string) []cue.ValidationError {
-	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd")
+	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted")
 }
 
 // ValidateComponentHooks validates hooks for agents and skills (scoped event set)

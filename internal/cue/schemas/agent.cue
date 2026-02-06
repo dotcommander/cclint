@@ -12,6 +12,9 @@ import (
 // Valid Claude Code colors - limited to 8 standard colors
 #Color: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan"
 
+// Valid memory scopes for persistent agent memory (v2.1.33+)
+#MemoryScope: "user" | "project" | "local"
+
 // Valid model options for Claude Code
 #Model: "sonnet" | "opus" | "haiku" | "sonnet[1m]" | "opusplan" | "inherit"
 
@@ -22,8 +25,11 @@ import (
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"LSP" | "Skill" | "DBClient"
 
-// Tools specification - can be "*" for all, comma-separated string, or array of specific tools
-#Tools: "*" | string | [...#KnownTool]
+// Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
+#TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"
+
+// Tools specification - can be "*" for all, comma-separated string, or array of specific tools/Task(agent) refs
+#Tools: "*" | string | [...(#KnownTool | #TaskAgentTool)]
 
 // ============================================================================
 // Agent Hook Definitions
@@ -69,6 +75,7 @@ import (
 	permissionMode?: "default" | "acceptEdits" | "dontAsk" | "bypassPermissions" | "plan"
 	skills?: string                                           // skills to preload into agent context
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)
+	memory?: #MemoryScope                                     // persistent memory scope (v2.1.33+)
 
 	// Allow additional fields
 	...
