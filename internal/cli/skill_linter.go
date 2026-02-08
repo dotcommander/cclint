@@ -151,6 +151,72 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 		}
 	}
 
+	// Validate context field: only valid value is "fork"
+	if ctxVal, ok := data["context"]; ok {
+		ctxStr, isStr := ctxVal.(string)
+		if !isStr || ctxStr != "fork" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("context field must be 'fork' (got '%v')", ctxVal),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "context"),
+			})
+		}
+	}
+
+	// Validate agent field: non-empty string; warn if context is not "fork"
+	if agentVal, ok := data["agent"]; ok {
+		agentStr, isStr := agentVal.(string)
+		if !isStr || strings.TrimSpace(agentStr) == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "agent field must be a non-empty string",
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "agent"),
+			})
+		} else {
+			// Warn if agent is set but context is not "fork"
+			ctxStr, _ := data["context"].(string)
+			if ctxStr != "fork" {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  "agent field is set but context is not 'fork' - consider adding 'context: fork' for sub-agent execution",
+					Severity: "warning",
+					Source:   cue.SourceAnthropicDocs,
+					Line:     FindFrontmatterFieldLine(contents, "agent"),
+				})
+			}
+		}
+	}
+
+	// Validate user-invocable field: must be boolean
+	if uiVal, ok := data["user-invocable"]; ok {
+		if _, isBool := uiVal.(bool); !isBool {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("user-invocable field must be a boolean (got '%v')", uiVal),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "user-invocable"),
+			})
+		}
+	}
+
+	// Validate disable-model-invocation field: must be boolean
+	if dmiVal, ok := data["disable-model-invocation"]; ok {
+		if _, isBool := dmiVal.(bool); !isBool {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("disable-model-invocation field must be a boolean (got '%v')", dmiVal),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "disable-model-invocation"),
+			})
+		}
+	}
+
 	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
 	if hooks, ok := data["hooks"]; ok {
 		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
@@ -184,7 +250,7 @@ func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 	if crossValidator == nil {
 		return nil
 	}
-	return crossValidator.ValidateSkill(filePath, contents)
+	return crossValidator.ValidateSkill(filePath, contents, data)
 }
 
 // Score implements Scorable interface

@@ -240,6 +240,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		data             map[string]interface{}
 		contents         string
 		wantErrCount     int
+		wantWarnings     int
 		wantSuggestions  int
 	}{
 		{
@@ -257,6 +258,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			},
 			contents:     "---\nname: claude\n---\n",
 			wantErrCount: 1,
+			wantWarnings: 1, // name-directory mismatch
 		},
 		{
 			name: "reserved word anthropic",
@@ -265,6 +267,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			},
 			contents:     "---\nname: anthropic\n---\n",
 			wantErrCount: 1,
+			wantWarnings: 1, // name-directory mismatch
 		},
 		{
 			name:            "no frontmatter suggestion",
@@ -275,9 +278,9 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		{
 			name: "with frontmatter",
 			data: map[string]interface{}{
-				"name": "valid-name",
+				"name": "test",
 			},
-			contents:     "---\nname: valid-name\n---\nContent",
+			contents:     "---\nname: test\n---\nContent",
 			wantErrCount: 0,
 		},
 		{
@@ -289,6 +292,90 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			contents:        "---\nunknown1: val1\nunknown2: val2\n---\n",
 			wantSuggestions: 2,
 		},
+		{
+			name: "valid context fork",
+			data: map[string]interface{}{
+				"name":    "test",
+				"context": "fork",
+			},
+			contents:     "---\nname: test\ncontext: fork\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid context value",
+			data: map[string]interface{}{
+				"name":    "test",
+				"context": "invalid",
+			},
+			contents:     "---\nname: test\ncontext: invalid\n---\nContent",
+			wantErrCount: 1,
+		},
+		{
+			name: "agent without context fork warns",
+			data: map[string]interface{}{
+				"name":  "test",
+				"agent": "poet-agent",
+			},
+			contents:     "---\nname: test\nagent: poet-agent\n---\nContent",
+			wantErrCount: 0,
+			wantWarnings: 1,
+		},
+		{
+			name: "agent with context fork no warning",
+			data: map[string]interface{}{
+				"name":    "test",
+				"context": "fork",
+				"agent":   "poet-agent",
+			},
+			contents:     "---\nname: test\ncontext: fork\nagent: poet-agent\n---\nContent",
+			wantErrCount: 0,
+			wantWarnings: 0,
+		},
+		{
+			name: "valid user-invocable true",
+			data: map[string]interface{}{
+				"name":           "test",
+				"user-invocable": true,
+			},
+			contents:     "---\nname: test\nuser-invocable: true\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "valid user-invocable false",
+			data: map[string]interface{}{
+				"name":           "test",
+				"user-invocable": false,
+			},
+			contents:     "---\nname: test\nuser-invocable: false\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid user-invocable type string",
+			data: map[string]interface{}{
+				"name":           "test",
+				"user-invocable": "yes",
+			},
+			contents:     "---\nname: test\nuser-invocable: \"yes\"\n---\nContent",
+			wantErrCount: 1,
+		},
+		{
+			name: "valid disable-model-invocation",
+			data: map[string]interface{}{
+				"name":                     "test",
+				"disable-model-invocation": true,
+			},
+			contents:     "---\nname: test\ndisable-model-invocation: true\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "invalid disable-model-invocation type string",
+			data: map[string]interface{}{
+				"name":                     "test",
+				"disable-model-invocation": "true",
+			},
+			contents:     "---\nname: test\ndisable-model-invocation: \"true\"\n---\nContent",
+			wantErrCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -296,11 +383,15 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			errors := linter.ValidateSpecific(tt.data, "skills/test/SKILL.md", tt.contents)
 
 			errCount := 0
+			warnCount := 0
 			suggCount := 0
 			for _, e := range errors {
-				if e.Severity == "error" {
+				switch e.Severity {
+				case "error":
 					errCount++
-				} else if e.Severity == "suggestion" {
+				case "warning":
+					warnCount++
+				case "suggestion":
 					suggCount++
 				}
 			}
@@ -310,6 +401,15 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 				for _, e := range errors {
 					if e.Severity == "error" {
 						t.Logf("  Error: %s", e.Message)
+					}
+				}
+			}
+
+			if warnCount != tt.wantWarnings {
+				t.Errorf("ValidateSpecific() warnings = %d, want %d", warnCount, tt.wantWarnings)
+				for _, e := range errors {
+					if e.Severity == "warning" {
+						t.Logf("  Warning: %s", e.Message)
 					}
 				}
 			}
