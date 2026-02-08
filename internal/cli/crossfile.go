@@ -180,7 +180,7 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Flag '--%s' documented but not found in agent '%s' or its skills - may be fake", flag, primaryAgent),
-				Severity: "warning",
+				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 			})
 		}

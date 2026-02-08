@@ -257,11 +257,13 @@ func TestCommandsReferenceMarkdownLint(t *testing.T) {
 		}
 	}
 
-	// Verify all code blocks have language specified
+	// Verify all code blocks have language specified on opening fences
 	inCodeBlock := false
 	for i, line := range lines {
 		if strings.HasPrefix(line, "```") {
-			if strings.TrimSpace(line) == "```" {
+			trimmed := strings.TrimSpace(line)
+			if !inCodeBlock && trimmed == "```" {
+				// Opening fence without language specification
 				t.Errorf("Line %d: Code block missing language specification", i+1)
 			}
 			inCodeBlock = !inCodeBlock
@@ -327,7 +329,8 @@ func TestPluginsReferenceJSONStructure(t *testing.T) {
 // TestPluginsReferenceSizeLimit verifies 5KB size limit is documented
 func TestPluginsReferenceSizeLimit(t *testing.T) {
 	// Given docs/reference/commands/plugins.md exists
-	path := "docs/reference/commands/plugins.md"
+	root := repoRoot(t)
+	path := filepath.Join(root, "docs/reference/commands/plugins.md")
 	content, err := os.ReadFile(path)
 	require.NoError(t, err)
 
@@ -371,7 +374,8 @@ func TestPluginsReferenceSizeLimit(t *testing.T) {
 // TestPluginsReferenceFileExists verifies the file was created
 func TestPluginsReferenceFileExists(t *testing.T) {
 	// Given the docs structure
-	path := "docs/reference/commands/plugins.md"
+	root := repoRoot(t)
+	path := filepath.Join(root, "docs/reference/commands/plugins.md")
 
 	// When checking if file exists
 	info, err := os.Stat(path)

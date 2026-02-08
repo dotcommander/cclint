@@ -814,6 +814,7 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 			errors := v.ValidateCommand("commands/test.md", tt.contents, tt.frontmatter)
 			errCount := 0
 			warnCount := 0
+			suggestionCount := 0
 			infoCount := 0
 
 			for _, e := range errors {
@@ -822,6 +823,8 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 					errCount++
 				case "warning":
 					warnCount++
+				case "suggestion":
+					suggestionCount++
 				case "info":
 					infoCount++
 				}
@@ -830,8 +833,8 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 			if tt.wantErrCount > 0 && errCount < tt.wantErrCount {
 				t.Errorf("ValidateCommand() errors = %d, want at least %d", errCount, tt.wantErrCount)
 			}
-			if tt.wantWarnings > 0 && (warnCount+infoCount) < tt.wantWarnings {
-				t.Errorf("ValidateCommand() warnings+info = %d, want at least %d", warnCount+infoCount, tt.wantWarnings)
+			if tt.wantWarnings > 0 && (warnCount+suggestionCount+infoCount) < tt.wantWarnings {
+				t.Errorf("ValidateCommand() warnings+suggestions+info = %d, want at least %d", warnCount+suggestionCount+infoCount, tt.wantWarnings)
 			}
 		})
 	}

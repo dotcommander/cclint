@@ -152,7 +152,7 @@ func lintFileCore(filePath, contents string, linter ComponentLinter, validator *
 	if crossValidator != nil {
 		if cfv, ok := linter.(CrossFileValidatable); ok {
 			if crossErrors := cfv.ValidateCrossFile(crossValidator, filePath, contents, data); crossErrors != nil {
-				result.Errors = append(result.Errors, crossErrors...)
+				categorizeIssues(&result, crossErrors)
 			}
 		}
 	}

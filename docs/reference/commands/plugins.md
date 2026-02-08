@@ -57,8 +57,8 @@ etc.).
 
 ```text
 my-plugin/.claude-plugin/plugin.json:1
-suggestion: Plugin manifest is 8KB. Best practice: keep plugin.json under
-5KB for optimal loading - move documentation to README.md.
+suggestion: Plugin manifest is 8KB. Best practice: keep plugin.json under 5KB
+for optimal loading - move documentation to README.md.
 ```
 
 ---
