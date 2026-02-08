@@ -60,6 +60,28 @@ var validHookTypes = map[string]bool{
 	"agent":   true,
 }
 
+// knownToolNames lists the tool names recognized by Claude Code.
+var knownToolNames = map[string]bool{
+	"Bash":          true,
+	"Read":          true,
+	"Write":         true,
+	"Edit":          true,
+	"Glob":          true,
+	"Grep":          true,
+	"Task":          true,
+	"Skill":         true,
+	"WebSearch":     true,
+	"WebFetch":      true,
+	"TodoRead":      true,
+	"TodoWrite":     true,
+	"TaskOutput":    true,
+	"AskUser":       true,
+	"mcp__":         true, // MCP tool prefix (matched specially)
+	"computer":      true,
+	"text_editor":   true,
+	"MultiModelTool": true,
+}
+
 // validateSettingsSpecific implements settings-specific validation rules
 func validateSettingsSpecific(data map[string]interface{}, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
@@ -67,6 +89,246 @@ func validateSettingsSpecific(data map[string]interface{}, filePath string) []cu
 	// Check hooks structure if present
 	if hooks, ok := data["hooks"]; ok {
 		errors = append(errors, validateHooks(hooks, filePath)...)
+	}
+
+	// Check permissions structure if present
+	if perms, ok := data["permissions"]; ok {
+		errors = append(errors, validatePermissions(perms, filePath)...)
+	}
+
+	// Check mcpServers structure if present
+	if mcpServers, ok := data["mcpServers"]; ok {
+		errors = append(errors, validateMCPServers(mcpServers, filePath)...)
+	}
+
+	return errors
+}
+
+// validatePermissions validates the permissions section of settings.json.
+// Expected structure: {"allow": ["Bash(npm*)", ...], "deny": ["Bash(rm*)", ...]}
+func validatePermissions(perms interface{}, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	permsMap, ok := perms.(map[string]interface{})
+	if !ok {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "permissions must be an object with optional 'allow' and 'deny' arrays",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+		return errors
+	}
+
+	for key, val := range permsMap {
+		if key != "allow" && key != "deny" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("permissions: unknown key '%s'. Only 'allow' and 'deny' are supported", key),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		errors = append(errors, validatePermissionEntries(val, key, filePath)...)
+	}
+
+	return errors
+}
+
+// validatePermissionEntries validates a single permission list (allow or deny).
+func validatePermissionEntries(entries interface{}, listName string, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	arr, ok := entries.([]interface{})
+	if !ok {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("permissions.%s must be an array of tool permission strings", listName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+		return errors
+	}
+
+	for i, entry := range arr {
+		str, ok := entry.(string)
+		if !ok || str == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("permissions.%s[%d]: each entry must be a non-empty string", listName, i),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		// Extract tool name from patterns like "Bash(npm*)" or plain "Read"
+		toolName := extractToolName(str)
+		if !isKnownTool(toolName) {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("permissions.%s[%d]: unrecognized tool name '%s' in '%s'", listName, i, toolName, str),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+
+	return errors
+}
+
+// extractToolName returns the tool name portion from a permission entry.
+// "Bash(npm*)" -> "Bash", "Read" -> "Read", "mcp__foo" -> "mcp__"
+func extractToolName(entry string) string {
+	// Handle parenthesized patterns like "Bash(npm*)"
+	if idx := strings.Index(entry, "("); idx > 0 {
+		return entry[:idx]
+	}
+	// Handle MCP tool prefix like "mcp__server_tool"
+	if strings.HasPrefix(entry, "mcp__") {
+		return "mcp__"
+	}
+	return entry
+}
+
+// isKnownTool checks whether a tool name is in the known tools set.
+func isKnownTool(name string) bool {
+	return knownToolNames[name]
+}
+
+// validateMCPServers validates the mcpServers configuration map.
+// Each entry maps a server name to an object with command, args, env, and cwd fields.
+func validateMCPServers(mcpServers interface{}, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	serversMap, ok := mcpServers.(map[string]interface{})
+	if !ok {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "mcpServers must be an object mapping server names to configurations",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+		return errors
+	}
+
+	for serverName, serverConfig := range serversMap {
+		if serverName == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "mcpServers: server name must not be empty",
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		serverMap, ok := serverConfig.(map[string]interface{})
+		if !ok {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': server configuration must be an object", serverName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		errors = append(errors, validateMCPServerEntry(serverName, serverMap, filePath)...)
+	}
+
+	return errors
+}
+
+// validateMCPServerEntry validates a single MCP server configuration entry.
+func validateMCPServerEntry(serverName string, serverMap map[string]interface{}, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	// Validate command field (required, non-empty string)
+	cmdVal, cmdExists := serverMap["command"]
+	if !cmdExists {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("mcpServers '%s': missing required field 'command'", serverName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	} else if cmdStr, ok := cmdVal.(string); !ok {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("mcpServers '%s': 'command' must be a string", serverName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	} else if cmdStr == "" {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("mcpServers '%s': 'command' must not be empty", serverName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
+
+	// Validate args field (optional, must be array of strings)
+	if argsVal, argsExists := serverMap["args"]; argsExists {
+		argsArray, ok := argsVal.([]interface{})
+		if !ok {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': 'args' must be an array of strings", serverName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		} else {
+			for i, arg := range argsArray {
+				if _, ok := arg.(string); !ok {
+					errors = append(errors, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("mcpServers '%s': args[%d] must be a string", serverName, i),
+						Severity: "error",
+						Source:   cue.SourceAnthropicDocs,
+					})
+				}
+			}
+		}
+	}
+
+	// Validate env field (optional, must be object with string values)
+	if envVal, envExists := serverMap["env"]; envExists {
+		envMap, ok := envVal.(map[string]interface{})
+		if !ok {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': 'env' must be an object with string values", serverName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		} else {
+			for envKey, envValue := range envMap {
+				if _, ok := envValue.(string); !ok {
+					errors = append(errors, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("mcpServers '%s': env '%s' value must be a string", serverName, envKey),
+						Severity: "error",
+						Source:   cue.SourceAnthropicDocs,
+					})
+				}
+			}
+		}
+	}
+
+	// Validate cwd field (optional, must be a string)
+	if cwdVal, cwdExists := serverMap["cwd"]; cwdExists {
+		if _, ok := cwdVal.(string); !ok {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': 'cwd' must be a string", serverName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
 	}
 
 	return errors

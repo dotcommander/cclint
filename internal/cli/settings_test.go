@@ -496,6 +496,75 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			},
 			wantErrorCount: 1,
 		},
+		{
+			name: "valid permissions with allow and deny",
+			data: map[string]interface{}{
+				"permissions": map[string]interface{}{
+					"allow": []interface{}{"Bash(npm*)", "Read", "Edit"},
+					"deny":  []interface{}{"Bash(rm*)"},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "invalid permissions structure",
+			data: map[string]interface{}{
+				"permissions": "not an object",
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "valid hooks and valid permissions together",
+			data: map[string]interface{}{
+				"hooks": map[string]interface{}{
+					"PreToolUse": []interface{}{
+						map[string]interface{}{
+							"matcher": map[string]interface{}{},
+							"hooks": []interface{}{
+								map[string]interface{}{
+									"type":    "command",
+									"command": "echo test",
+								},
+							},
+						},
+					},
+				},
+				"permissions": map[string]interface{}{
+					"allow": []interface{}{"Bash(npm*)"},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid mcpServers with command and args",
+			data: map[string]interface{}{
+				"mcpServers": map[string]interface{}{
+					"my-server": map[string]interface{}{
+						"command": "npx",
+						"args":   []interface{}{"-y", "@modelcontextprotocol/server-filesystem"},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "invalid mcpServers structure",
+			data: map[string]interface{}{
+				"mcpServers": "not an object",
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "mcpServers missing command",
+			data: map[string]interface{}{
+				"mcpServers": map[string]interface{}{
+					"bad-server": map[string]interface{}{
+						"args": []interface{}{"--flag"},
+					},
+				},
+			},
+			wantErrorCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -503,6 +572,400 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			errors := validateSettingsSpecific(tt.data, "settings.json")
 			if len(errors) != tt.wantErrorCount {
 				t.Errorf("validateSettingsSpecific() error count = %d, want %d", len(errors), tt.wantErrorCount)
+				for _, err := range errors {
+					t.Logf("  - %s: %s", err.Severity, err.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateMCPServers(t *testing.T) {
+	tests := []struct {
+		name           string
+		mcpServers     interface{}
+		wantErrorCount int
+	}{
+		{
+			name:           "not an object",
+			mcpServers:     "not an object",
+			wantErrorCount: 1,
+		},
+		{
+			name:           "nil value",
+			mcpServers:     nil,
+			wantErrorCount: 1,
+		},
+		{
+			name:           "empty object is valid",
+			mcpServers:     map[string]interface{}{},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid server with command and args",
+			mcpServers: map[string]interface{}{
+				"filesystem": map[string]interface{}{
+					"command": "npx",
+					"args":   []interface{}{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid server with command only",
+			mcpServers: map[string]interface{}{
+				"simple-server": map[string]interface{}{
+					"command": "/usr/local/bin/mcp-server",
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid server with env vars",
+			mcpServers: map[string]interface{}{
+				"api-server": map[string]interface{}{
+					"command": "node",
+					"args":   []interface{}{"server.js"},
+					"env": map[string]interface{}{
+						"API_KEY":  "sk-test-123",
+						"NODE_ENV": "production",
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid server with cwd",
+			mcpServers: map[string]interface{}{
+				"local-server": map[string]interface{}{
+					"command": "python",
+					"args":   []interface{}{"server.py"},
+					"cwd":    "/home/user/mcp-servers",
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid server with all fields",
+			mcpServers: map[string]interface{}{
+				"full-server": map[string]interface{}{
+					"command": "node",
+					"args":   []interface{}{"index.js", "--port", "3000"},
+					"env": map[string]interface{}{
+						"DEBUG": "true",
+					},
+					"cwd": "/opt/mcp",
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "missing command field",
+			mcpServers: map[string]interface{}{
+				"no-cmd": map[string]interface{}{
+					"args": []interface{}{"--flag"},
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "empty command string",
+			mcpServers: map[string]interface{}{
+				"empty-cmd": map[string]interface{}{
+					"command": "",
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "command is not a string",
+			mcpServers: map[string]interface{}{
+				"bad-cmd": map[string]interface{}{
+					"command": 42,
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "server config is not an object",
+			mcpServers: map[string]interface{}{
+				"bad-server": "not an object",
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "args is not an array",
+			mcpServers: map[string]interface{}{
+				"bad-args": map[string]interface{}{
+					"command": "node",
+					"args":   "not an array",
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "args contains non-string element",
+			mcpServers: map[string]interface{}{
+				"bad-arg-elem": map[string]interface{}{
+					"command": "node",
+					"args":   []interface{}{"valid", 42, "also-valid"},
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "env is not an object",
+			mcpServers: map[string]interface{}{
+				"bad-env": map[string]interface{}{
+					"command": "node",
+					"env":    "not an object",
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "env value is not a string",
+			mcpServers: map[string]interface{}{
+				"bad-env-val": map[string]interface{}{
+					"command": "node",
+					"env": map[string]interface{}{
+						"GOOD_KEY": "good-value",
+						"BAD_KEY":  42,
+					},
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "cwd is not a string",
+			mcpServers: map[string]interface{}{
+				"bad-cwd": map[string]interface{}{
+					"command": "node",
+					"cwd":    42,
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "multiple servers mixed valid and invalid",
+			mcpServers: map[string]interface{}{
+				"good-server": map[string]interface{}{
+					"command": "npx",
+					"args":   []interface{}{"-y", "mcp-server"},
+				},
+				"bad-server": map[string]interface{}{
+					"args": []interface{}{"--flag"},
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "multiple errors in one server",
+			mcpServers: map[string]interface{}{
+				"very-bad": map[string]interface{}{
+					"command": 42,
+					"args":   "not array",
+					"env":    "not object",
+					"cwd":    123,
+				},
+			},
+			wantErrorCount: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateMCPServers(tt.mcpServers, "settings.json")
+			if len(errs) != tt.wantErrorCount {
+				t.Errorf("validateMCPServers() error count = %d, want %d", len(errs), tt.wantErrorCount)
+				for _, e := range errs {
+					t.Logf("  - [%s] %s (source: %s)", e.Severity, e.Message, e.Source)
+				}
+			}
+			// Verify all errors use anthropic-docs source
+			for _, e := range errs {
+				if e.Source != "anthropic-docs" {
+					t.Errorf("expected source 'anthropic-docs', got %q for: %s", e.Source, e.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestValidatePermissions(t *testing.T) {
+	tests := []struct {
+		name       string
+		perms      interface{}
+		wantErrors int
+		wantSeverity string // if set, check first error has this severity
+	}{
+		{
+			name:       "nil permissions",
+			perms:      nil,
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name:       "not an object",
+			perms:      "not an object",
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name:       "not an object (array)",
+			perms:      []interface{}{"Bash"},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name:       "empty object is valid",
+			perms:      map[string]interface{}{},
+			wantErrors: 0,
+		},
+		{
+			name: "valid allow only",
+			perms: map[string]interface{}{
+				"allow": []interface{}{"Bash(npm*)", "Read", "Write"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "valid deny only",
+			perms: map[string]interface{}{
+				"deny": []interface{}{"Bash(rm*)", "Bash(sudo*)"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "valid allow and deny",
+			perms: map[string]interface{}{
+				"allow": []interface{}{"Bash(npm*)", "Read", "Edit", "Glob", "Grep"},
+				"deny":  []interface{}{"Bash(rm*)"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "unknown key in permissions",
+			perms: map[string]interface{}{
+				"allow":  []interface{}{"Read"},
+				"permit": []interface{}{"Write"},
+			},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name: "allow not an array",
+			perms: map[string]interface{}{
+				"allow": "Read",
+			},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name: "deny not an array",
+			perms: map[string]interface{}{
+				"deny": 42,
+			},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name: "empty string entry",
+			perms: map[string]interface{}{
+				"allow": []interface{}{""},
+			},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name: "non-string entry",
+			perms: map[string]interface{}{
+				"allow": []interface{}{42},
+			},
+			wantErrors: 1,
+			wantSeverity: "error",
+		},
+		{
+			name: "unknown tool name is suggestion",
+			perms: map[string]interface{}{
+				"allow": []interface{}{"FakeTool"},
+			},
+			wantErrors: 1,
+			wantSeverity: "suggestion",
+		},
+		{
+			name: "unknown tool with pattern is suggestion",
+			perms: map[string]interface{}{
+				"deny": []interface{}{"FakeTool(rm*)"},
+			},
+			wantErrors: 1,
+			wantSeverity: "suggestion",
+		},
+		{
+			name: "MCP tool is valid",
+			perms: map[string]interface{}{
+				"allow": []interface{}{"mcp__my_server_tool"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "all known tools are valid",
+			perms: map[string]interface{}{
+				"allow": []interface{}{
+					"Bash", "Read", "Write", "Edit", "Glob", "Grep",
+					"Task", "Skill", "WebSearch", "WebFetch",
+					"TodoRead", "TodoWrite", "TaskOutput", "AskUser",
+				},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "mixed valid and unknown",
+			perms: map[string]interface{}{
+				"allow": []interface{}{"Read", "UnknownTool", "Edit"},
+			},
+			wantErrors: 1,
+			wantSeverity: "suggestion",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validatePermissions(tt.perms, "settings.json")
+			if len(errs) != tt.wantErrors {
+				t.Errorf("validatePermissions() error count = %d, want %d", len(errs), tt.wantErrors)
+				for _, e := range errs {
+					t.Logf("  - [%s] %s (source: %s)", e.Severity, e.Message, e.Source)
+				}
+			}
+			if tt.wantSeverity != "" && len(errs) > 0 {
+				if errs[0].Severity != tt.wantSeverity {
+					t.Errorf("first error severity = %q, want %q", errs[0].Severity, tt.wantSeverity)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractToolName(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"Bash", "Bash"},
+		{"Bash(npm*)", "Bash"},
+		{"Read", "Read"},
+		{"Write(/path/**)", "Write"},
+		{"mcp__my_server_tool", "mcp__"},
+		{"mcp__foo", "mcp__"},
+		{"Edit", "Edit"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := extractToolName(tt.input)
+			if got != tt.want {
+				t.Errorf("extractToolName(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
