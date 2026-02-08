@@ -10,6 +10,11 @@ import (
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
+// validModelPattern matches known Claude Code model values.
+// Bare names: haiku, sonnet, opus, inherit, opusplan.
+// Optional version suffix in brackets: sonnet[1m], haiku[2].
+var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan)(\[\w+\])?$`)
+
 // LintResult represents a single linting result
 type LintResult struct {
 	File         string
@@ -207,6 +212,19 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 		}
 	}
 
+	// Validate model value - must be a known model name with optional version suffix
+	if model, ok := data["model"].(string); ok {
+		if !validModelPattern.MatchString(model) {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m])", model),
+				Severity: "warning",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindFrontmatterFieldLine(contents, "model"),
+			})
+		}
+	}
+
 	// Validate mcpServers - must be an array of non-empty strings
 	if mcpServers, ok := data["mcpServers"]; ok {
 		if arr, isArr := mcpServers.([]interface{}); isArr {
@@ -283,6 +301,19 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", maxTurns),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+			})
+		}
+	}
+
+	// Info: maxTurns + dontAsk is a common autonomous agent pattern
+	if _, hasMaxTurns := data["maxTurns"]; hasMaxTurns {
+		if permMode, ok := data["permissionMode"].(string); ok && permMode == "dontAsk" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "Agent uses maxTurns with permissionMode 'dontAsk' - this is a common pattern for autonomous sub-agents.",
+				Severity: "info",
+				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
 			})
 		}

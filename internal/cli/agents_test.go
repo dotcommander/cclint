@@ -293,6 +293,78 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantErrCount:  1,
 			wantSuggCount: 0,
 		},
+		{
+			name: "valid model sonnet",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "sonnet",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: sonnet\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid model haiku",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "haiku",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: haiku\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid model opus",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "opus",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: opus\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid model inherit",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "inherit",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: inherit\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid model with version suffix",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "sonnet[1m]",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: sonnet[1m]\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid model opusplan",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "opusplan",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: opusplan\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -560,6 +632,168 @@ func TestAgentLinterPostProcessBatch(t *testing.T) {
 
 			if summary.SuccessfulFiles != tt.wantSuccessFiles {
 				t.Errorf("PostProcessBatch() SuccessfulFiles = %d, want %d", summary.SuccessfulFiles, tt.wantSuccessFiles)
+			}
+		})
+	}
+}
+
+func TestValidateAgentModelValues(t *testing.T) {
+	tests := []struct {
+		name         string
+		model        string
+		wantWarnings int
+	}{
+		{"valid haiku", "haiku", 0},
+		{"valid sonnet", "sonnet", 0},
+		{"valid opus", "opus", 0},
+		{"valid inherit", "inherit", 0},
+		{"valid opusplan", "opusplan", 0},
+		{"valid sonnet with version", "sonnet[1m]", 0},
+		{"valid haiku with version", "haiku[2]", 0},
+		{"valid opus with version", "opus[v3]", 0},
+		{"invalid unknown-model", "unknown-model", 1},
+		{"invalid empty", "", 1},
+		{"invalid random", "fast", 1},
+		{"invalid arbitrary string", "turbo-3", 1},
+		{"invalid partial", "son", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       tt.model,
+			}
+			contents := "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: " + tt.model + "\n---\n"
+
+			errors := validateAgentSpecific(data, "agents/test.md", contents)
+
+			warnings := 0
+			for _, e := range errors {
+				if e.Severity == "warning" && strings.Contains(e.Message, "Unknown model") {
+					warnings++
+				}
+			}
+
+			if warnings != tt.wantWarnings {
+				t.Errorf("validateAgentSpecific() model warnings = %d, want %d for model %q", warnings, tt.wantWarnings, tt.model)
+				for _, e := range errors {
+					if e.Severity == "warning" {
+						t.Logf("  Warning: %s", e.Message)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     map[string]interface{}
+		wantInfo bool
+	}{
+		{
+			name: "maxTurns with dontAsk emits info",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"maxTurns":       10,
+				"permissionMode": "dontAsk",
+			},
+			wantInfo: true,
+		},
+		{
+			name: "maxTurns without dontAsk no info",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"maxTurns":       10,
+				"permissionMode": "default",
+			},
+			wantInfo: false,
+		},
+		{
+			name: "dontAsk without maxTurns no info",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"permissionMode": "dontAsk",
+			},
+			wantInfo: false,
+		},
+		{
+			name: "neither maxTurns nor dontAsk no info",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+			},
+			wantInfo: false,
+		},
+		{
+			name: "maxTurns with bypassPermissions no info",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"maxTurns":       5,
+				"permissionMode": "bypassPermissions",
+			},
+			wantInfo: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contents := "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\n---\n"
+			errors := validateAgentSpecific(tt.data, "agents/test.md", contents)
+
+			foundInfo := false
+			for _, e := range errors {
+				if e.Severity == "info" && strings.Contains(e.Message, "maxTurns with permissionMode 'dontAsk'") {
+					foundInfo = true
+					break
+				}
+			}
+
+			if foundInfo != tt.wantInfo {
+				t.Errorf("validateAgentSpecific() info about maxTurns+dontAsk = %v, want %v", foundInfo, tt.wantInfo)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestValidModelPattern(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"haiku", true},
+		{"sonnet", true},
+		{"opus", true},
+		{"inherit", true},
+		{"opusplan", true},
+		{"sonnet[1m]", true},
+		{"haiku[2]", true},
+		{"opus[v3]", true},
+		{"sonnet[latest]", true},
+		{"unknown-model", false},
+		{"turbo-3", false},
+		{"", false},
+		{"SONNET", false},
+		{"Haiku", false},
+		{"sonnet[]", false},
+		{"fast", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			got := validModelPattern.MatchString(tt.model)
+			if got != tt.want {
+				t.Errorf("validModelPattern.MatchString(%q) = %v, want %v", tt.model, got, tt.want)
 			}
 		})
 	}

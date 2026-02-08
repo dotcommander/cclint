@@ -255,8 +255,9 @@ func (v *CrossFileValidator) checkSkillReferences(filePath string, contents stri
 	return errors
 }
 
-// ValidateAgent checks agent references to skills.
-// It validates both in-body Skill: references and frontmatter skills array.
+// ValidateAgent checks agent references to skills and team agent references.
+// It validates in-body Skill: references, frontmatter skills array, and
+// Task() agent references in the frontmatter tools field (agent teams).
 func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -275,7 +276,75 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, fro
 	// Validate frontmatter skills array (preloaded skills)
 	errors = append(errors, v.validateFrontmatterSkills(filePath, frontmatter)...)
 
+	// Validate Task() agent references in frontmatter tools field (agent teams)
+	errors = append(errors, v.validateToolsAgentRefs(filePath, frontmatter)...)
+
 	return errors
+}
+
+// validateToolsAgentRefs extracts Task(agent-name) patterns from the frontmatter
+// tools field and validates that referenced agents exist.
+// This validates agent team semantics where agents spawn sub-agents via Task().
+func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+	if frontmatter == nil {
+		return nil
+	}
+
+	agentRefs := extractTaskAgentRefs(frontmatter["tools"])
+	if len(agentRefs) == 0 {
+		return nil
+	}
+
+	var errors []cue.ValidationError
+	for _, agentRef := range agentRefs {
+		if builtInSubagentTypes[agentRef] {
+			continue
+		}
+		if _, exists := v.agents[agentRef]; !exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("tools field Task(%s) references non-existent agent. Create agents/%s.md", agentRef, agentRef),
+				Severity: "warning",
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+	return errors
+}
+
+// extractTaskAgentRefs extracts agent names from Task(agent-name) patterns
+// in the tools field. Handles both string and array formats.
+func extractTaskAgentRefs(tools interface{}) []string {
+	if tools == nil {
+		return nil
+	}
+
+	taskPattern := regexp.MustCompile(`Task\(([a-z0-9][a-z0-9-]*)\)`)
+	var refs []string
+	seen := make(map[string]bool)
+
+	addMatches := func(s string) {
+		matches := taskPattern.FindAllStringSubmatch(s, -1)
+		for _, m := range matches {
+			if len(m) >= 2 && !seen[m[1]] {
+				refs = append(refs, m[1])
+				seen[m[1]] = true
+			}
+		}
+	}
+
+	switch v := tools.(type) {
+	case string:
+		addMatches(v)
+	case []interface{}:
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				addMatches(s)
+			}
+		}
+	}
+
+	return refs
 }
 
 // validateFrontmatterSkills validates the skills array in agent frontmatter.

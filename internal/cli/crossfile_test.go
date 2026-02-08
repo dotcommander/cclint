@@ -1325,6 +1325,205 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 	}
 }
 
+// TestExtractTaskAgentRefs tests extraction of Task(agent-name) from tools field
+func TestExtractTaskAgentRefs(t *testing.T) {
+	tests := []struct {
+		name  string
+		tools interface{}
+		want  []string
+	}{
+		{
+			name:  "nil tools",
+			tools: nil,
+			want:  nil,
+		},
+		{
+			name:  "wildcard string",
+			tools: "*",
+			want:  nil,
+		},
+		{
+			name:  "string with single Task ref",
+			tools: "Read, Task(helper-agent), Write",
+			want:  []string{"helper-agent"},
+		},
+		{
+			name:  "string with multiple Task refs",
+			tools: "Task(agent-a), Task(agent-b), Read",
+			want:  []string{"agent-a", "agent-b"},
+		},
+		{
+			name:  "array with Task refs",
+			tools: []interface{}{"Read", "Task(worker-agent)", "Write", "Task(reviewer-agent)"},
+			want:  []string{"worker-agent", "reviewer-agent"},
+		},
+		{
+			name:  "array with no Task refs",
+			tools: []interface{}{"Read", "Write", "Bash"},
+			want:  nil,
+		},
+		{
+			name:  "string with no Task refs",
+			tools: "Read, Write, Bash",
+			want:  nil,
+		},
+		{
+			name:  "deduplicates repeated refs",
+			tools: "Task(same-agent), Task(same-agent)",
+			want:  []string{"same-agent"},
+		},
+		{
+			name:  "non-string non-array type",
+			tools: 42,
+			want:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractTaskAgentRefs(tt.tools)
+
+			if tt.want == nil && got != nil {
+				t.Errorf("extractTaskAgentRefs() = %v, want nil", got)
+				return
+			}
+			if tt.want != nil && got == nil {
+				t.Errorf("extractTaskAgentRefs() = nil, want %v", tt.want)
+				return
+			}
+			if len(got) != len(tt.want) {
+				t.Errorf("extractTaskAgentRefs() = %v (len %d), want %v (len %d)", got, len(got), tt.want, len(tt.want))
+				return
+			}
+
+			gotMap := make(map[string]bool)
+			for _, ref := range got {
+				gotMap[ref] = true
+			}
+			for _, w := range tt.want {
+				if !gotMap[w] {
+					t.Errorf("extractTaskAgentRefs() missing %q in %v", w, got)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateAgent_ToolsAgentRefs tests cross-file validation of Task() refs in tools field
+func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "agents/helper-agent.md", Type: discovery.FileTypeAgent, Contents: "Agent content"},
+		{RelPath: "agents/worker-agent.md", Type: discovery.FileTypeAgent, Contents: "Worker content"},
+		{RelPath: "skills/real-skill/SKILL.md", Type: discovery.FileTypeSkill, Contents: "Skill content"},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name        string
+		contents    string
+		frontmatter map[string]interface{}
+		wantWarns   int
+		wantMessage string
+	}{
+		{
+			name:     "tools with existing agent Task ref",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": []interface{}{"Read", "Task(helper-agent)", "Write"},
+			},
+			wantWarns: 0,
+		},
+		{
+			name:     "tools with missing agent Task ref",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": []interface{}{"Read", "Task(ghost-agent)", "Write"},
+			},
+			wantWarns:   1,
+			wantMessage: "Task(ghost-agent) references non-existent agent",
+		},
+		{
+			name:     "tools string with missing agent",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": "Read, Task(missing-agent), Write",
+			},
+			wantWarns:   1,
+			wantMessage: "Task(missing-agent) references non-existent agent",
+		},
+		{
+			name:     "tools with built-in agent ref",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": []interface{}{"Task(sonnet)", "Task(Explore)"},
+			},
+			wantWarns: 0,
+		},
+		{
+			name:     "tools with mixed existing and missing",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": []interface{}{"Task(helper-agent)", "Task(nonexistent-agent)"},
+			},
+			wantWarns:   1,
+			wantMessage: "Task(nonexistent-agent) references non-existent agent",
+		},
+		{
+			name:        "no tools field",
+			contents:    "Agent content",
+			frontmatter: map[string]interface{}{},
+			wantWarns:   0,
+		},
+		{
+			name:        "nil frontmatter",
+			contents:    "Agent content",
+			frontmatter: nil,
+			wantWarns:   0,
+		},
+		{
+			name:     "tools wildcard no warnings",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"tools": "*",
+			},
+			wantWarns: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.ValidateAgent("agents/test.md", tt.contents, tt.frontmatter)
+
+			// Filter to tools-agent-ref warnings
+			toolsWarns := 0
+			for _, e := range errors {
+				if strings.Contains(e.Message, "tools field Task(") {
+					toolsWarns++
+				}
+			}
+
+			if toolsWarns != tt.wantWarns {
+				t.Errorf("ValidateAgent() tools agent ref warnings = %d, want %d", toolsWarns, tt.wantWarns)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+			if tt.wantMessage != "" && toolsWarns > 0 {
+				found := false
+				for _, e := range errors {
+					if strings.Contains(e.Message, tt.wantMessage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected warning containing %q, not found", tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
 // TestValidateAgent_FrontmatterSkills tests the frontmatter skills array validation
 func TestValidateAgent_FrontmatterSkills(t *testing.T) {
 	files := []discovery.File{
