@@ -255,8 +255,9 @@ func (v *CrossFileValidator) checkSkillReferences(filePath string, contents stri
 	return errors
 }
 
-// ValidateAgent checks agent references to skills
-func (v *CrossFileValidator) ValidateAgent(filePath string, contents string) []cue.ValidationError {
+// ValidateAgent checks agent references to skills.
+// It validates both in-body Skill: references and frontmatter skills array.
+func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	skillRefs := findSkillReferences(contents)
@@ -271,11 +272,52 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string) []c
 		}
 	}
 
+	// Validate frontmatter skills array (preloaded skills)
+	errors = append(errors, v.validateFrontmatterSkills(filePath, frontmatter)...)
+
 	return errors
 }
 
-// ValidateSkill checks skill references to agents
-func (v *CrossFileValidator) ValidateSkill(filePath string, contents string) []cue.ValidationError {
+// validateFrontmatterSkills validates the skills array in agent frontmatter.
+// Each entry should reference an existing skill.
+func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+	if frontmatter == nil {
+		return nil
+	}
+
+	var errors []cue.ValidationError
+
+	skillsVal, ok := frontmatter["skills"]
+	if !ok {
+		return nil
+	}
+
+	skillsList, ok := skillsVal.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, item := range skillsList {
+		skillName, ok := item.(string)
+		if !ok {
+			continue
+		}
+		if _, exists := v.skills[skillName]; !exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Frontmatter skills references non-existent skill '%s'. Create skills/%s/SKILL.md", skillName, skillName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+	}
+
+	return errors
+}
+
+// ValidateSkill checks skill references to agents.
+// It validates both in-body agent references and frontmatter agent field.
+func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Agent reference patterns - ordered from most specific to least specific
@@ -335,7 +377,39 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string) []c
 		}
 	}
 
+	// Validate frontmatter agent field
+	errors = append(errors, v.validateFrontmatterAgent(filePath, frontmatter)...)
+
 	return errors
+}
+
+// validateFrontmatterAgent validates the agent field in skill frontmatter.
+// The agent field references a specific agent type for execution.
+func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+	if frontmatter == nil {
+		return nil
+	}
+
+	agentName, ok := frontmatter["agent"].(string)
+	if !ok || agentName == "" {
+		return nil
+	}
+
+	// Skip built-in agent types
+	if builtInSubagentTypes[agentName] {
+		return nil
+	}
+
+	if _, exists := v.agents[agentName]; !exists {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Frontmatter agent field references non-existent agent '%s'. Create agents/%s.md", agentName, agentName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	return nil
 }
 
 // FindOrphanedSkills finds skills that aren't referenced by any command, agent, or other skill

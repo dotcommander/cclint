@@ -128,7 +128,7 @@ func TestValidateAgent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors := v.ValidateAgent(tt.filePath, tt.contents)
+			errors := v.ValidateAgent(tt.filePath, tt.contents, nil)
 
 			if len(errors) != tt.wantErrCount {
 				t.Errorf("ValidateAgent() errors = %d, want %d", len(errors), tt.wantErrCount)
@@ -174,7 +174,7 @@ func TestValidateSkill(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors := v.ValidateSkill(tt.filePath, tt.contents)
+			errors := v.ValidateSkill(tt.filePath, tt.contents, nil)
 
 			if len(errors) != tt.wantErrCount {
 				t.Errorf("ValidateSkill() errors = %d, want %d", len(errors), tt.wantErrCount)
@@ -1067,7 +1067,7 @@ func TestValidateSkill_BroadAgentPatterns(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			errors := v.ValidateSkill("skills/test/SKILL.md", tt.contents)
+			errors := v.ValidateSkill("skills/test/SKILL.md", tt.contents, nil)
 
 			if len(errors) != tt.wantErrors {
 				t.Errorf("ValidateSkill() errors = %d, want %d", len(errors), tt.wantErrors)
@@ -1177,7 +1177,7 @@ func TestCrossFileValidation_EndToEnd(t *testing.T) {
 	validator := NewCrossFileValidator(files)
 
 	// Test agent validation - should error on 'another-skill' (missing)
-	agentErrors := validator.ValidateAgent("agents/test-agent.md", files[0].Contents)
+	agentErrors := validator.ValidateAgent("agents/test-agent.md", files[0].Contents, nil)
 	if len(agentErrors) != 1 {
 		t.Errorf("ValidateAgent() errors = %d, want 1", len(agentErrors))
 		for _, e := range agentErrors {
@@ -1204,11 +1204,219 @@ func TestCrossFileValidation_EndToEnd(t *testing.T) {
 	}
 
 	// Test skill validation - helper-agent exists
-	skillErrors := validator.ValidateSkill("skills/real-skill/SKILL.md", files[2].Contents)
+	skillErrors := validator.ValidateSkill("skills/real-skill/SKILL.md", files[2].Contents, nil)
 	if len(skillErrors) != 0 {
 		t.Errorf("ValidateSkill() errors = %d, want 0", len(skillErrors))
 		for _, e := range skillErrors {
 			t.Logf("  Error: %s", e.Message)
 		}
+	}
+}
+
+// TestValidateSkill_FrontmatterAgent tests the frontmatter agent field validation
+func TestValidateSkill_FrontmatterAgent(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "agents/my-agent.md", Type: discovery.FileTypeAgent, Contents: "Agent content"},
+		{RelPath: "agents/helper-agent.md", Type: discovery.FileTypeAgent, Contents: "Helper content"},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name        string
+		contents    string
+		frontmatter map[string]interface{}
+		wantErrors  int
+		wantMessage string
+	}{
+		{
+			name:     "skill with existing agent in frontmatter",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "my-agent",
+			},
+			wantErrors: 0,
+		},
+		{
+			name:     "skill with non-existent agent in frontmatter",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "ghost-agent",
+			},
+			wantErrors:  1,
+			wantMessage: "non-existent agent 'ghost-agent'",
+		},
+		{
+			name:     "skill with built-in agent Explore in frontmatter",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "Explore",
+			},
+			wantErrors: 0,
+		},
+		{
+			name:     "skill with built-in agent Plan in frontmatter",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "Plan",
+			},
+			wantErrors: 0,
+		},
+		{
+			name:     "skill with built-in agent general-purpose in frontmatter",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "general-purpose",
+			},
+			wantErrors: 0,
+		},
+		{
+			name:        "skill with no agent in frontmatter",
+			contents:    "Skill methodology content",
+			frontmatter: map[string]interface{}{},
+			wantErrors:  0,
+		},
+		{
+			name:        "skill with nil frontmatter",
+			contents:    "Skill methodology content",
+			frontmatter: nil,
+			wantErrors:  0,
+		},
+		{
+			name:     "skill with empty agent string",
+			contents: "Skill methodology content",
+			frontmatter: map[string]interface{}{
+				"agent": "",
+			},
+			wantErrors: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.ValidateSkill("skills/test/SKILL.md", tt.contents, tt.frontmatter)
+
+			// Filter to frontmatter-agent-specific errors
+			fmErrors := 0
+			for _, e := range errors {
+				if strings.Contains(e.Message, "Frontmatter agent") {
+					fmErrors++
+				}
+			}
+
+			if fmErrors != tt.wantErrors {
+				t.Errorf("ValidateSkill() frontmatter agent errors = %d, want %d", fmErrors, tt.wantErrors)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+			if tt.wantMessage != "" && fmErrors > 0 {
+				found := false
+				for _, e := range errors {
+					if strings.Contains(e.Message, tt.wantMessage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error containing %q, not found", tt.wantMessage)
+				}
+			}
+		})
+	}
+}
+
+// TestValidateAgent_FrontmatterSkills tests the frontmatter skills array validation
+func TestValidateAgent_FrontmatterSkills(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "skills/real-skill/SKILL.md", Type: discovery.FileTypeSkill, Contents: "Skill content"},
+		{RelPath: "skills/another-skill/SKILL.md", Type: discovery.FileTypeSkill, Contents: "Another skill"},
+	}
+	v := NewCrossFileValidator(files)
+
+	tests := []struct {
+		name        string
+		contents    string
+		frontmatter map[string]interface{}
+		wantErrors  int
+		wantMessage string
+	}{
+		{
+			name:     "agent with existing skills in frontmatter",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"skills": []interface{}{"real-skill", "another-skill"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name:     "agent with non-existent skill in frontmatter",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"skills": []interface{}{"real-skill", "missing-skill"},
+			},
+			wantErrors:  1,
+			wantMessage: "non-existent skill 'missing-skill'",
+		},
+		{
+			name:     "agent with all non-existent skills in frontmatter",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"skills": []interface{}{"ghost-a", "ghost-b"},
+			},
+			wantErrors: 2,
+		},
+		{
+			name:        "agent with no skills in frontmatter",
+			contents:    "Agent content",
+			frontmatter: map[string]interface{}{},
+			wantErrors:  0,
+		},
+		{
+			name:        "agent with nil frontmatter",
+			contents:    "Agent content",
+			frontmatter: nil,
+			wantErrors:  0,
+		},
+		{
+			name:     "agent with empty skills array",
+			contents: "Agent content",
+			frontmatter: map[string]interface{}{
+				"skills": []interface{}{},
+			},
+			wantErrors: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := v.ValidateAgent("agents/test.md", tt.contents, tt.frontmatter)
+
+			// Filter to frontmatter-skills-specific errors
+			fmErrors := 0
+			for _, e := range errors {
+				if strings.Contains(e.Message, "Frontmatter skills") {
+					fmErrors++
+				}
+			}
+
+			if fmErrors != tt.wantErrors {
+				t.Errorf("ValidateAgent() frontmatter skills errors = %d, want %d", fmErrors, tt.wantErrors)
+				for _, e := range errors {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
+			}
+			if tt.wantMessage != "" && fmErrors > 0 {
+				found := false
+				for _, e := range errors {
+					if strings.Contains(e.Message, tt.wantMessage) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("Expected error containing %q, not found", tt.wantMessage)
+				}
+			}
+		})
 	}
 }
