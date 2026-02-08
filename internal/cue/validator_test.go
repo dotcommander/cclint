@@ -184,6 +184,78 @@ func TestValidateAgent(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid with memory user scope",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with user memory",
+				"memory":      "user",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid with memory project scope",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with project memory",
+				"memory":      "project",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid with memory local scope",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with local memory",
+				"memory":      "local",
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid memory scope",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with bad memory scope",
+				"memory":      "global",
+			},
+			wantError: true,
+		},
+		{
+			name: "valid tools with Task(agent_type)",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with restricted sub-agents",
+				"tools":       []string{"Read", "Write", "Task(poet-agent)"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid tools with multiple Task refs",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with multiple sub-agent restrictions",
+				"tools":       []string{"Read", "Task(bee-agent)", "Task(quality-agent)"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid tools Task-only",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with only Task refs",
+				"tools":       []string{"Task(worker-1)"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid tools string with Task syntax",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with Task in comma string",
+				"tools":       "Read,Write,Task(poet-agent)",
+			},
+			wantError: false,
+		},
+		{
 			name: "valid with Setup hook",
 			data: map[string]any{
 				"name":        "test-agent",

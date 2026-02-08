@@ -114,7 +114,19 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantSuggCount: 0,
 		},
 		{
-			name: "valid memory scope",
+			name: "valid memory scope user",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"memory":      "user",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmemory: user\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid memory scope project",
 			data: map[string]interface{}{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
@@ -122,6 +134,18 @@ func TestValidateAgentSpecific(t *testing.T) {
 			},
 			filePath:      "agents/test.md",
 			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmemory: project\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid memory scope local",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"memory":      "local",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmemory: local\n---\n",
 			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
