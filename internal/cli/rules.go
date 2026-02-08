@@ -27,10 +27,13 @@ type RuleLinter struct {
 	BaseLinter
 }
 
-// Compile-time interface compliance check
-var _ ComponentLinter = (*RuleLinter)(nil)
-var _ PreValidator = (*RuleLinter)(nil)
-var _ BestPracticeValidator = (*RuleLinter)(nil)
+// Compile-time interface compliance checks
+var (
+	_ ComponentLinter    = (*RuleLinter)(nil)
+	_ PreValidator       = (*RuleLinter)(nil)
+	_ BestPracticeValidator = (*RuleLinter)(nil)
+	_ BatchPostProcessor = (*RuleLinter)(nil)
+)
 
 // NewRuleLinter creates a new RuleLinter.
 func NewRuleLinter() *RuleLinter {
@@ -312,23 +315,51 @@ func validateImports(contents, filePath string) []cue.ValidationError {
 		}
 	}
 
-	// Check for circular imports (simplified - just detect self-reference)
-	// Full circular detection would require building an import graph
-	absPath, _ := filepath.Abs(filePath)
-	for lineNum, line := range lines {
-		if strings.Contains(line, "@") && !inCodeBlock {
-			if strings.Contains(line, filepath.Base(filePath)) {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  "Possible self-import detected",
-					Severity: "warning",
-					Source:   cue.SourceCClintObserve,
-					Line:     lineNum + 1,
-				})
-			}
-			_ = absPath // suppress unused warning
-		}
-	}
+	// Circular import detection is handled at batch level by PostProcessBatch,
+	// which builds a full import graph and runs DFS cycle detection.
 
 	return errors
+}
+
+// PostProcessBatch implements BatchPostProcessor for import cycle detection.
+// It builds an import graph across all rule files and reports circular @import chains.
+func (l *RuleLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
+	if ctx.NoCycleCheck {
+		return
+	}
+
+	// Build file map: absolute path -> contents
+	fileMap := make(map[string]string)
+	for _, file := range ctx.FilterFilesByType(discovery.FileTypeRule) {
+		absPath := file.Path
+		if absPath == "" {
+			absPath = filepath.Join(ctx.RootPath, file.RelPath)
+		}
+		fileMap[absPath] = file.Contents
+	}
+
+	if len(fileMap) == 0 {
+		return
+	}
+
+	cycleErrors := DetectImportCycles(fileMap)
+	for _, cycleErr := range cycleErrors {
+		// Find the matching result and attach the error
+		for i, result := range summary.Results {
+			absResult := result.File
+			if !filepath.IsAbs(absResult) {
+				absResult = filepath.Join(ctx.RootPath, absResult)
+			}
+			if absResult == cycleErr.File {
+				summary.Results[i].Errors = append(summary.Results[i].Errors, cycleErr)
+				summary.TotalErrors++
+				if summary.Results[i].Success {
+					summary.Results[i].Success = false
+					summary.SuccessfulFiles--
+					summary.FailedFiles++
+				}
+				break
+			}
+		}
+	}
 }

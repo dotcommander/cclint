@@ -472,7 +472,7 @@ func TestValidateImportsEdgeCases(t *testing.T) {
 		{
 			name:         "possible self-import",
 			contents:     "@./test.md",
-			wantWarnings: 1, // Self-import warning
+			wantWarnings: 1, // File does not exist on disk (circular detection at batch level)
 		},
 	}
 
