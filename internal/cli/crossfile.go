@@ -65,7 +65,7 @@ func NewCrossFileValidator(files []discovery.File) *CrossFileValidator {
 }
 
 // ValidateCommand checks command references to agents
-func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
 	seenAgentErrors := make(map[string]bool)
 
@@ -190,7 +190,7 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 }
 
 // checkUnusedAllowedTools detects tools declared in allowed-tools but never used.
-func (v *CrossFileValidator) checkUnusedAllowedTools(filePath, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) checkUnusedAllowedTools(filePath, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	allowedTools, ok := frontmatter["allowed-tools"].(string)
@@ -258,7 +258,7 @@ func (v *CrossFileValidator) checkSkillReferences(filePath string, contents stri
 // ValidateAgent checks agent references to skills and team agent references.
 // It validates in-body Skill: references, frontmatter skills array, and
 // Task() agent references in the frontmatter tools field (agent teams).
-func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	skillRefs := findSkillReferences(contents)
@@ -285,7 +285,7 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, fro
 // validateToolsAgentRefs extracts Task(agent-name) patterns from the frontmatter
 // tools field and validates that referenced agents exist.
 // This validates agent team semantics where agents spawn sub-agents via Task().
-func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter map[string]any) []cue.ValidationError {
 	if frontmatter == nil {
 		return nil
 	}
@@ -314,7 +314,7 @@ func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter
 
 // extractTaskAgentRefs extracts agent names from Task(agent-name) patterns
 // in the tools field. Handles both string and array formats.
-func extractTaskAgentRefs(tools interface{}) []string {
+func extractTaskAgentRefs(tools any) []string {
 	if tools == nil {
 		return nil
 	}
@@ -336,7 +336,7 @@ func extractTaskAgentRefs(tools interface{}) []string {
 	switch v := tools.(type) {
 	case string:
 		addMatches(v)
-	case []interface{}:
+	case []any:
 		for _, item := range v {
 			if s, ok := item.(string); ok {
 				addMatches(s)
@@ -349,7 +349,7 @@ func extractTaskAgentRefs(tools interface{}) []string {
 
 // validateFrontmatterSkills validates the skills array in agent frontmatter.
 // Each entry should reference an existing skill.
-func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmatter map[string]any) []cue.ValidationError {
 	if frontmatter == nil {
 		return nil
 	}
@@ -361,7 +361,7 @@ func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmat
 		return nil
 	}
 
-	skillsList, ok := skillsVal.([]interface{})
+	skillsList, ok := skillsVal.([]any)
 	if !ok {
 		return nil
 	}
@@ -386,7 +386,7 @@ func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmat
 
 // ValidateSkill checks skill references to agents.
 // It validates both in-body agent references and frontmatter agent field.
-func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Agent reference patterns - ordered from most specific to least specific
@@ -454,7 +454,7 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, fro
 
 // validateFrontmatterAgent validates the agent field in skill frontmatter.
 // The agent field references a specific agent type for execution.
-func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatter map[string]interface{}) []cue.ValidationError {
+func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatter map[string]any) []cue.ValidationError {
 	if frontmatter == nil {
 		return nil
 	}

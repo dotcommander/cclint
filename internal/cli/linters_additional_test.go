@@ -10,7 +10,7 @@ import (
 // TestPluginLinterScore tests plugin linter scoring
 func TestPluginLinterScore(t *testing.T) {
 	linter := NewPluginLinter("")
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":        "test-plugin",
 		"description": "A comprehensive test plugin",
 		"version":     "1.0.0",
@@ -25,7 +25,7 @@ func TestPluginLinterScore(t *testing.T) {
 // TestPluginLinterGetImprovements tests plugin linter improvements
 func TestPluginLinterGetImprovements(t *testing.T) {
 	linter := NewPluginLinter("")
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":        "test-plugin",
 		"description": "Short",
 	}
@@ -41,7 +41,7 @@ func TestPluginLinterValidateCUE(t *testing.T) {
 	linter := NewPluginLinter("")
 	validator := cue.NewValidator()
 
-	errors, _ := linter.ValidateCUE(validator, map[string]interface{}{"name": "test"})
+	errors, _ := linter.ValidateCUE(validator, map[string]any{"name": "test"})
 	// Should return empty slice (no CUE validation for plugins)
 	if len(errors) != 0 {
 		t.Errorf("ValidateCUE() returned %d errors, want 0", len(errors))
@@ -53,7 +53,7 @@ func TestSettingsLinterValidateCUE(t *testing.T) {
 	linter := NewSettingsLinter()
 	validator := cue.NewValidator()
 
-	errors, _ := linter.ValidateCUE(validator, map[string]interface{}{"theme": "dark"})
+	errors, _ := linter.ValidateCUE(validator, map[string]any{"theme": "dark"})
 	// Should return empty slice (no CUE validation for settings)
 	if len(errors) != 0 {
 		t.Errorf("ValidateCUE() returned %d errors, want 0", len(errors))
@@ -65,7 +65,7 @@ func TestContextLinterValidateCUE(t *testing.T) {
 	linter := NewContextLinter()
 	validator := cue.NewValidator()
 
-	errors, _ := linter.ValidateCUE(validator, map[string]interface{}{"sections": []interface{}{}})
+	errors, _ := linter.ValidateCUE(validator, map[string]any{"sections": []any{}})
 	// Should return empty slice (no CUE validation for context)
 	if len(errors) != 0 {
 		t.Errorf("ValidateCUE() returned %d errors, want 0", len(errors))

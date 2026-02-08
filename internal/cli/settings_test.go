@@ -18,7 +18,7 @@ func TestLintSettings(t *testing.T) {
 func TestValidateHooks(t *testing.T) {
 	tests := []struct {
 		name           string
-		hooks          interface{}
+		hooks          any
 		wantErrorCount int
 	}{
 		{
@@ -33,24 +33,24 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "unknown event",
-			hooks: map[string]interface{}{
-				"UnknownEvent": []interface{}{},
+			hooks: map[string]any{
+				"UnknownEvent": []any{},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "invalid hook configuration",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"PreToolUse": "not an array",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "missing matcher",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"hooks": []interface{}{},
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"hooks": []any{},
 					},
 				},
 			},
@@ -58,10 +58,10 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "missing hooks field",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
 					},
 				},
 			},
@@ -69,10 +69,10 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "invalid hooks type",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
 						"hooks":   "not an array",
 					},
 				},
@@ -81,12 +81,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "missing hook type",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{},
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{},
 						},
 					},
 				},
@@ -95,12 +95,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "invalid hook type value",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "invalid",
 							},
 						},
@@ -111,12 +111,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "command hook missing command",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "command",
 							},
 						},
@@ -127,12 +127,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "prompt hook on unsupported event",
-			hooks: map[string]interface{}{
-				"PostToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PostToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "prompt",
 							},
 						},
@@ -143,12 +143,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "prompt hook missing prompt",
-			hooks: map[string]interface{}{
-				"Stop": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"Stop": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "prompt",
 							},
 						},
@@ -159,12 +159,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid command hook",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo test",
 							},
@@ -176,12 +176,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid prompt hook",
-			hooks: map[string]interface{}{
-				"Stop": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"Stop": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":   "prompt",
 								"prompt": "Test prompt",
 							},
@@ -193,12 +193,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid Setup hook with init matcher",
-			hooks: map[string]interface{}{
-				"Setup": []interface{}{
-					map[string]interface{}{
+			hooks: map[string]any{
+				"Setup": []any{
+					map[string]any{
 						"matcher": "init",
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo setup init",
 							},
@@ -210,12 +210,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid Setup hook with maintenance matcher",
-			hooks: map[string]interface{}{
-				"Setup": []interface{}{
-					map[string]interface{}{
+			hooks: map[string]any{
+				"Setup": []any{
+					map[string]any{
 						"matcher": "maintenance",
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo setup maintenance",
 							},
@@ -227,12 +227,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid SubagentStart hook",
-			hooks: map[string]interface{}{
-				"SubagentStart": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"SubagentStart": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo subagent started",
 							},
@@ -244,12 +244,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid PostToolUseFailure hook",
-			hooks: map[string]interface{}{
-				"PostToolUseFailure": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PostToolUseFailure": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo tool failed",
 							},
@@ -261,12 +261,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid TeammateIdle hook",
-			hooks: map[string]interface{}{
-				"TeammateIdle": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"TeammateIdle": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo teammate idle",
 							},
@@ -278,12 +278,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid TaskCompleted hook",
-			hooks: map[string]interface{}{
-				"TaskCompleted": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"TaskCompleted": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo task done",
 							},
@@ -295,12 +295,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "valid agent hook",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "agent",
 							},
 						},
@@ -311,12 +311,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "command hook with async true",
-			hooks: map[string]interface{}{
-				"PostToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PostToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo async test",
 								"async":   true,
@@ -329,12 +329,12 @@ func TestValidateHooks(t *testing.T) {
 		},
 		{
 			name: "invalid hook type rejected",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type": "webhook",
 							},
 						},
@@ -462,23 +462,23 @@ func TestValidateHookCommandSecurity(t *testing.T) {
 func TestValidateSettingsSpecific(t *testing.T) {
 	tests := []struct {
 		name           string
-		data           map[string]interface{}
+		data           map[string]any
 		wantErrorCount int
 	}{
 		{
 			name:           "no hooks",
-			data:           map[string]interface{}{},
+			data:           map[string]any{},
 			wantErrorCount: 0,
 		},
 		{
 			name: "valid hooks",
-			data: map[string]interface{}{
-				"hooks": map[string]interface{}{
-					"PreToolUse": []interface{}{
-						map[string]interface{}{
-							"matcher": map[string]interface{}{},
-							"hooks": []interface{}{
-								map[string]interface{}{
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PreToolUse": []any{
+						map[string]any{
+							"matcher": map[string]any{},
+							"hooks": []any{
+								map[string]any{
 									"type":    "command",
 									"command": "echo test",
 								},
@@ -491,37 +491,37 @@ func TestValidateSettingsSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid hooks",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"hooks": "not an object",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "valid permissions with allow and deny",
-			data: map[string]interface{}{
-				"permissions": map[string]interface{}{
-					"allow": []interface{}{"Bash(npm*)", "Read", "Edit"},
-					"deny":  []interface{}{"Bash(rm*)"},
+			data: map[string]any{
+				"permissions": map[string]any{
+					"allow": []any{"Bash(npm*)", "Read", "Edit"},
+					"deny":  []any{"Bash(rm*)"},
 				},
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "invalid permissions structure",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"permissions": "not an object",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "valid hooks and valid permissions together",
-			data: map[string]interface{}{
-				"hooks": map[string]interface{}{
-					"PreToolUse": []interface{}{
-						map[string]interface{}{
-							"matcher": map[string]interface{}{},
-							"hooks": []interface{}{
-								map[string]interface{}{
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PreToolUse": []any{
+						map[string]any{
+							"matcher": map[string]any{},
+							"hooks": []any{
+								map[string]any{
 									"type":    "command",
 									"command": "echo test",
 								},
@@ -529,19 +529,19 @@ func TestValidateSettingsSpecific(t *testing.T) {
 						},
 					},
 				},
-				"permissions": map[string]interface{}{
-					"allow": []interface{}{"Bash(npm*)"},
+				"permissions": map[string]any{
+					"allow": []any{"Bash(npm*)"},
 				},
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "valid mcpServers with command and args",
-			data: map[string]interface{}{
-				"mcpServers": map[string]interface{}{
-					"my-server": map[string]interface{}{
+			data: map[string]any{
+				"mcpServers": map[string]any{
+					"my-server": map[string]any{
 						"command": "npx",
-						"args":   []interface{}{"-y", "@modelcontextprotocol/server-filesystem"},
+						"args":   []any{"-y", "@modelcontextprotocol/server-filesystem"},
 					},
 				},
 			},
@@ -549,17 +549,17 @@ func TestValidateSettingsSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid mcpServers structure",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"mcpServers": "not an object",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "mcpServers missing command",
-			data: map[string]interface{}{
-				"mcpServers": map[string]interface{}{
-					"bad-server": map[string]interface{}{
-						"args": []interface{}{"--flag"},
+			data: map[string]any{
+				"mcpServers": map[string]any{
+					"bad-server": map[string]any{
+						"args": []any{"--flag"},
 					},
 				},
 			},
@@ -583,7 +583,7 @@ func TestValidateSettingsSpecific(t *testing.T) {
 func TestValidateMCPServers(t *testing.T) {
 	tests := []struct {
 		name           string
-		mcpServers     interface{}
+		mcpServers     any
 		wantErrorCount int
 	}{
 		{
@@ -598,23 +598,23 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name:           "empty object is valid",
-			mcpServers:     map[string]interface{}{},
+			mcpServers:     map[string]any{},
 			wantErrorCount: 0,
 		},
 		{
 			name: "valid server with command and args",
-			mcpServers: map[string]interface{}{
-				"filesystem": map[string]interface{}{
+			mcpServers: map[string]any{
+				"filesystem": map[string]any{
 					"command": "npx",
-					"args":   []interface{}{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
+					"args":   []any{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
 				},
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "valid server with command only",
-			mcpServers: map[string]interface{}{
-				"simple-server": map[string]interface{}{
+			mcpServers: map[string]any{
+				"simple-server": map[string]any{
 					"command": "/usr/local/bin/mcp-server",
 				},
 			},
@@ -622,11 +622,11 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "valid server with env vars",
-			mcpServers: map[string]interface{}{
-				"api-server": map[string]interface{}{
+			mcpServers: map[string]any{
+				"api-server": map[string]any{
 					"command": "node",
-					"args":   []interface{}{"server.js"},
-					"env": map[string]interface{}{
+					"args":   []any{"server.js"},
+					"env": map[string]any{
 						"API_KEY":  "sk-test-123",
 						"NODE_ENV": "production",
 					},
@@ -636,10 +636,10 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "valid server with cwd",
-			mcpServers: map[string]interface{}{
-				"local-server": map[string]interface{}{
+			mcpServers: map[string]any{
+				"local-server": map[string]any{
 					"command": "python",
-					"args":   []interface{}{"server.py"},
+					"args":   []any{"server.py"},
 					"cwd":    "/home/user/mcp-servers",
 				},
 			},
@@ -647,11 +647,11 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "valid server with all fields",
-			mcpServers: map[string]interface{}{
-				"full-server": map[string]interface{}{
+			mcpServers: map[string]any{
+				"full-server": map[string]any{
 					"command": "node",
-					"args":   []interface{}{"index.js", "--port", "3000"},
-					"env": map[string]interface{}{
+					"args":   []any{"index.js", "--port", "3000"},
+					"env": map[string]any{
 						"DEBUG": "true",
 					},
 					"cwd": "/opt/mcp",
@@ -661,17 +661,17 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "missing command field",
-			mcpServers: map[string]interface{}{
-				"no-cmd": map[string]interface{}{
-					"args": []interface{}{"--flag"},
+			mcpServers: map[string]any{
+				"no-cmd": map[string]any{
+					"args": []any{"--flag"},
 				},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "empty command string",
-			mcpServers: map[string]interface{}{
-				"empty-cmd": map[string]interface{}{
+			mcpServers: map[string]any{
+				"empty-cmd": map[string]any{
 					"command": "",
 				},
 			},
@@ -679,8 +679,8 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "command is not a string",
-			mcpServers: map[string]interface{}{
-				"bad-cmd": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-cmd": map[string]any{
 					"command": 42,
 				},
 			},
@@ -688,15 +688,15 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "server config is not an object",
-			mcpServers: map[string]interface{}{
+			mcpServers: map[string]any{
 				"bad-server": "not an object",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "args is not an array",
-			mcpServers: map[string]interface{}{
-				"bad-args": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-args": map[string]any{
 					"command": "node",
 					"args":   "not an array",
 				},
@@ -705,18 +705,18 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "args contains non-string element",
-			mcpServers: map[string]interface{}{
-				"bad-arg-elem": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-arg-elem": map[string]any{
 					"command": "node",
-					"args":   []interface{}{"valid", 42, "also-valid"},
+					"args":   []any{"valid", 42, "also-valid"},
 				},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "env is not an object",
-			mcpServers: map[string]interface{}{
-				"bad-env": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-env": map[string]any{
 					"command": "node",
 					"env":    "not an object",
 				},
@@ -725,10 +725,10 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "env value is not a string",
-			mcpServers: map[string]interface{}{
-				"bad-env-val": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-env-val": map[string]any{
 					"command": "node",
-					"env": map[string]interface{}{
+					"env": map[string]any{
 						"GOOD_KEY": "good-value",
 						"BAD_KEY":  42,
 					},
@@ -738,8 +738,8 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "cwd is not a string",
-			mcpServers: map[string]interface{}{
-				"bad-cwd": map[string]interface{}{
+			mcpServers: map[string]any{
+				"bad-cwd": map[string]any{
 					"command": "node",
 					"cwd":    42,
 				},
@@ -748,21 +748,21 @@ func TestValidateMCPServers(t *testing.T) {
 		},
 		{
 			name: "multiple servers mixed valid and invalid",
-			mcpServers: map[string]interface{}{
-				"good-server": map[string]interface{}{
+			mcpServers: map[string]any{
+				"good-server": map[string]any{
 					"command": "npx",
-					"args":   []interface{}{"-y", "mcp-server"},
+					"args":   []any{"-y", "mcp-server"},
 				},
-				"bad-server": map[string]interface{}{
-					"args": []interface{}{"--flag"},
+				"bad-server": map[string]any{
+					"args": []any{"--flag"},
 				},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "multiple errors in one server",
-			mcpServers: map[string]interface{}{
-				"very-bad": map[string]interface{}{
+			mcpServers: map[string]any{
+				"very-bad": map[string]any{
 					"command": 42,
 					"args":   "not array",
 					"env":    "not object",
@@ -795,7 +795,7 @@ func TestValidateMCPServers(t *testing.T) {
 func TestValidatePermissions(t *testing.T) {
 	tests := []struct {
 		name       string
-		perms      interface{}
+		perms      any
 		wantErrors int
 		wantSeverity string // if set, check first error has this severity
 	}{
@@ -813,49 +813,49 @@ func TestValidatePermissions(t *testing.T) {
 		},
 		{
 			name:       "not an object (array)",
-			perms:      []interface{}{"Bash"},
+			perms:      []any{"Bash"},
 			wantErrors: 1,
 			wantSeverity: "error",
 		},
 		{
 			name:       "empty object is valid",
-			perms:      map[string]interface{}{},
+			perms:      map[string]any{},
 			wantErrors: 0,
 		},
 		{
 			name: "valid allow only",
-			perms: map[string]interface{}{
-				"allow": []interface{}{"Bash(npm*)", "Read", "Write"},
+			perms: map[string]any{
+				"allow": []any{"Bash(npm*)", "Read", "Write"},
 			},
 			wantErrors: 0,
 		},
 		{
 			name: "valid deny only",
-			perms: map[string]interface{}{
-				"deny": []interface{}{"Bash(rm*)", "Bash(sudo*)"},
+			perms: map[string]any{
+				"deny": []any{"Bash(rm*)", "Bash(sudo*)"},
 			},
 			wantErrors: 0,
 		},
 		{
 			name: "valid allow and deny",
-			perms: map[string]interface{}{
-				"allow": []interface{}{"Bash(npm*)", "Read", "Edit", "Glob", "Grep"},
-				"deny":  []interface{}{"Bash(rm*)"},
+			perms: map[string]any{
+				"allow": []any{"Bash(npm*)", "Read", "Edit", "Glob", "Grep"},
+				"deny":  []any{"Bash(rm*)"},
 			},
 			wantErrors: 0,
 		},
 		{
 			name: "unknown key in permissions",
-			perms: map[string]interface{}{
-				"allow":  []interface{}{"Read"},
-				"permit": []interface{}{"Write"},
+			perms: map[string]any{
+				"allow":  []any{"Read"},
+				"permit": []any{"Write"},
 			},
 			wantErrors: 1,
 			wantSeverity: "error",
 		},
 		{
 			name: "allow not an array",
-			perms: map[string]interface{}{
+			perms: map[string]any{
 				"allow": "Read",
 			},
 			wantErrors: 1,
@@ -863,7 +863,7 @@ func TestValidatePermissions(t *testing.T) {
 		},
 		{
 			name: "deny not an array",
-			perms: map[string]interface{}{
+			perms: map[string]any{
 				"deny": 42,
 			},
 			wantErrors: 1,
@@ -871,47 +871,47 @@ func TestValidatePermissions(t *testing.T) {
 		},
 		{
 			name: "empty string entry",
-			perms: map[string]interface{}{
-				"allow": []interface{}{""},
+			perms: map[string]any{
+				"allow": []any{""},
 			},
 			wantErrors: 1,
 			wantSeverity: "error",
 		},
 		{
 			name: "non-string entry",
-			perms: map[string]interface{}{
-				"allow": []interface{}{42},
+			perms: map[string]any{
+				"allow": []any{42},
 			},
 			wantErrors: 1,
 			wantSeverity: "error",
 		},
 		{
 			name: "unknown tool name is suggestion",
-			perms: map[string]interface{}{
-				"allow": []interface{}{"FakeTool"},
+			perms: map[string]any{
+				"allow": []any{"FakeTool"},
 			},
 			wantErrors: 1,
 			wantSeverity: "suggestion",
 		},
 		{
 			name: "unknown tool with pattern is suggestion",
-			perms: map[string]interface{}{
-				"deny": []interface{}{"FakeTool(rm*)"},
+			perms: map[string]any{
+				"deny": []any{"FakeTool(rm*)"},
 			},
 			wantErrors: 1,
 			wantSeverity: "suggestion",
 		},
 		{
 			name: "MCP tool is valid",
-			perms: map[string]interface{}{
-				"allow": []interface{}{"mcp__my_server_tool"},
+			perms: map[string]any{
+				"allow": []any{"mcp__my_server_tool"},
 			},
 			wantErrors: 0,
 		},
 		{
 			name: "all known tools are valid",
-			perms: map[string]interface{}{
-				"allow": []interface{}{
+			perms: map[string]any{
+				"allow": []any{
 					"Bash", "Read", "Write", "Edit", "Glob", "Grep",
 					"Task", "Skill", "WebSearch", "WebFetch",
 					"TodoRead", "TodoWrite", "TaskOutput", "AskUser",
@@ -921,8 +921,8 @@ func TestValidatePermissions(t *testing.T) {
 		},
 		{
 			name: "mixed valid and unknown",
-			perms: map[string]interface{}{
-				"allow": []interface{}{"Read", "UnknownTool", "Edit"},
+			perms: map[string]any{
+				"allow": []any{"Read", "UnknownTool", "Edit"},
 			},
 			wantErrors: 1,
 			wantSeverity: "suggestion",
@@ -974,7 +974,7 @@ func TestExtractToolName(t *testing.T) {
 func TestValidateRules(t *testing.T) {
 	tests := []struct {
 		name           string
-		rules          interface{}
+		rules          any
 		wantErrorCount int
 		wantSeverity   string // check first error severity if set
 	}{
@@ -992,73 +992,73 @@ func TestValidateRules(t *testing.T) {
 		},
 		{
 			name:           "empty array is valid",
-			rules:          []interface{}{},
+			rules:          []any{},
 			wantErrorCount: 0,
 		},
 		{
 			name:           "valid simple glob",
-			rules:          []interface{}{"rules/*.md"},
+			rules:          []any{"rules/*.md"},
 			wantErrorCount: 0,
 		},
 		{
 			name:           "valid doublestar glob",
-			rules:          []interface{}{"**/*.md"},
+			rules:          []any{"**/*.md"},
 			wantErrorCount: 0,
 		},
 		{
 			name:           "valid multiple patterns",
-			rules:          []interface{}{"rules/*.md", "**/*.md", "docs/rules.md"},
+			rules:          []any{"rules/*.md", "**/*.md", "docs/rules.md"},
 			wantErrorCount: 0,
 		},
 		{
 			name:           "valid brace expansion",
-			rules:          []interface{}{"rules/*.{md,txt}"},
+			rules:          []any{"rules/*.{md,txt}"},
 			wantErrorCount: 0,
 		},
 		{
 			name:           "empty string entry",
-			rules:          []interface{}{""},
+			rules:          []any{""},
 			wantErrorCount: 1,
 			wantSeverity:   "error",
 		},
 		{
 			name:           "non-string entry",
-			rules:          []interface{}{42},
+			rules:          []any{42},
 			wantErrorCount: 1,
 			wantSeverity:   "error",
 		},
 		{
 			name:           "absolute path warns",
-			rules:          []interface{}{"/etc/rules/*.md"},
+			rules:          []any{"/etc/rules/*.md"},
 			wantErrorCount: 1,
 			wantSeverity:   "warning",
 		},
 		{
 			name:           "leading slash warns",
-			rules:          []interface{}{"/rules/*.md"},
+			rules:          []any{"/rules/*.md"},
 			wantErrorCount: 1,
 			wantSeverity:   "warning",
 		},
 		{
 			name:           "invalid glob syntax unmatched bracket",
-			rules:          []interface{}{"rules/[*.md"},
+			rules:          []any{"rules/[*.md"},
 			wantErrorCount: 1,
 			wantSeverity:   "error",
 		},
 		{
 			name:           "invalid glob syntax unbalanced brace",
-			rules:          []interface{}{"rules/{a,b.md"},
+			rules:          []any{"rules/{a,b.md"},
 			wantErrorCount: 1,
 			wantSeverity:   "error",
 		},
 		{
 			name:           "mixed valid and invalid",
-			rules:          []interface{}{"rules/*.md", "", "**/*.txt"},
+			rules:          []any{"rules/*.md", "", "**/*.txt"},
 			wantErrorCount: 1, // empty string
 		},
 		{
 			name:           "mixed valid and absolute",
-			rules:          []interface{}{"rules/*.md", "/absolute/path.md"},
+			rules:          []any{"rules/*.md", "/absolute/path.md"},
 			wantErrorCount: 1, // absolute path warning
 			wantSeverity:   "warning",
 		},
@@ -1202,19 +1202,19 @@ func TestValidateMatcherToolName(t *testing.T) {
 func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 	tests := []struct {
 		name           string
-		hooks          interface{}
+		hooks          any
 		wantErrorCount int
 	}{
 		{
 			name: "valid hook with known toolName in matcher",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{
 							"toolName": "Bash(npm*)",
 						},
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo pre-tool",
 							},
@@ -1226,14 +1226,14 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 		},
 		{
 			name: "hook with unknown toolName in matcher produces suggestion",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{
 							"toolName": "UnknownTool",
 						},
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo test",
 							},
@@ -1245,14 +1245,14 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 		},
 		{
 			name: "hook with unclosed paren in toolName matcher",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{
 							"toolName": "Bash(npm*",
 						},
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo test",
 							},
@@ -1264,12 +1264,12 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 		},
 		{
 			name: "hook with string matcher skips toolName validation",
-			hooks: map[string]interface{}{
-				"Setup": []interface{}{
-					map[string]interface{}{
+			hooks: map[string]any{
+				"Setup": []any{
+					map[string]any{
 						"matcher": "init",
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo setup",
 							},
@@ -1281,12 +1281,12 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 		},
 		{
 			name: "hook with empty matcher object skips toolName validation",
-			hooks: map[string]interface{}{
-				"PreToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{},
-						"hooks": []interface{}{
-							map[string]interface{}{
+			hooks: map[string]any{
+				"PreToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo test",
 							},
@@ -1298,14 +1298,14 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 		},
 		{
 			name: "hook with valid MCP toolName in matcher",
-			hooks: map[string]interface{}{
-				"PostToolUse": []interface{}{
-					map[string]interface{}{
-						"matcher": map[string]interface{}{
+			hooks: map[string]any{
+				"PostToolUse": []any{
+					map[string]any{
+						"matcher": map[string]any{
 							"toolName": "mcp__my_server_tool",
 						},
-						"hooks": []interface{}{
-							map[string]interface{}{
+						"hooks": []any{
+							map[string]any{
 								"type":    "command",
 								"command": "echo post-tool",
 							},
@@ -1333,54 +1333,54 @@ func TestValidateHooksWithToolNameMatcher(t *testing.T) {
 func TestValidateSettingsSpecificWithRules(t *testing.T) {
 	tests := []struct {
 		name           string
-		data           map[string]interface{}
+		data           map[string]any
 		wantErrorCount int
 	}{
 		{
 			name: "valid rules array",
-			data: map[string]interface{}{
-				"rules": []interface{}{"rules/*.md", "**/*.md"},
+			data: map[string]any{
+				"rules": []any{"rules/*.md", "**/*.md"},
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "invalid rules type",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"rules": "not an array",
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rules with absolute path",
-			data: map[string]interface{}{
-				"rules": []interface{}{"/etc/rules/*.md"},
+			data: map[string]any{
+				"rules": []any{"/etc/rules/*.md"},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rules with invalid glob",
-			data: map[string]interface{}{
-				"rules": []interface{}{"rules/[*.md"},
+			data: map[string]any{
+				"rules": []any{"rules/[*.md"},
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "no rules key is valid",
-			data: map[string]interface{}{},
+			data: map[string]any{},
 			wantErrorCount: 0,
 		},
 		{
 			name: "rules combined with hooks",
-			data: map[string]interface{}{
-				"rules": []interface{}{"rules/*.md"},
-				"hooks": map[string]interface{}{
-					"PreToolUse": []interface{}{
-						map[string]interface{}{
-							"matcher": map[string]interface{}{
+			data: map[string]any{
+				"rules": []any{"rules/*.md"},
+				"hooks": map[string]any{
+					"PreToolUse": []any{
+						map[string]any{
+							"matcher": map[string]any{
 								"toolName": "Bash(npm*)",
 							},
-							"hooks": []interface{}{
-								map[string]interface{}{
+							"hooks": []any{
+								map[string]any{
 									"type":    "command",
 									"command": "echo test",
 								},
@@ -1407,11 +1407,11 @@ func TestValidateSettingsSpecificWithRules(t *testing.T) {
 }
 
 func TestValidateComponentHooks(t *testing.T) {
-	validHook := []interface{}{
-		map[string]interface{}{
-			"matcher": map[string]interface{}{},
-			"hooks": []interface{}{
-				map[string]interface{}{
+	validHook := []any{
+		map[string]any{
+			"matcher": map[string]any{},
+			"hooks": []any{
+				map[string]any{
 					"type":    "command",
 					"command": "echo test",
 				},
@@ -1421,61 +1421,61 @@ func TestValidateComponentHooks(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		hooks          interface{}
+		hooks          any
 		wantErrorCount int
 	}{
 		{
 			name: "accepts PreToolUse",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"PreToolUse": validHook,
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "accepts PostToolUse",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"PostToolUse": validHook,
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "accepts Stop",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"Stop": validHook,
 			},
 			wantErrorCount: 0,
 		},
 		{
 			name: "rejects SessionStart",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"SessionStart": validHook,
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rejects Setup",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"Setup": validHook,
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rejects SubagentStart",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"SubagentStart": validHook,
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rejects TeammateIdle for components",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"TeammateIdle": validHook,
 			},
 			wantErrorCount: 1,
 		},
 		{
 			name: "rejects TaskCompleted for components",
-			hooks: map[string]interface{}{
+			hooks: map[string]any{
 				"TaskCompleted": validHook,
 			},
 			wantErrorCount: 1,

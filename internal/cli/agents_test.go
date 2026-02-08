@@ -11,7 +11,7 @@ import (
 func TestValidateAgentSpecific(t *testing.T) {
 	tests := []struct {
 		name          string
-		data          map[string]interface{}
+		data          map[string]any
 		filePath      string
 		contents      string
 		wantErrCount  int
@@ -19,7 +19,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 	}{
 		{
 			name: "valid agent",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-agent",
 				"description": "A test agent. Use PROACTIVELY when testing.",
 				"model":       "sonnet",
@@ -31,7 +31,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name:          "missing name",
-			data:          map[string]interface{}{"description": "test. Use PROACTIVELY when testing."},
+			data:          map[string]any{"description": "test. Use PROACTIVELY when testing."},
 			filePath:      "agents/test.md",
 			contents:      "---\ndescription: test. Use PROACTIVELY when testing.\n---\n",
 			wantErrCount:  1,
@@ -39,7 +39,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name:          "missing description",
-			data:          map[string]interface{}{"name": "test"},
+			data:          map[string]any{"name": "test"},
 			filePath:      "agents/test.md",
 			contents:      "---\nname: test\n---\n",
 			wantErrCount:  1,
@@ -47,7 +47,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid name format",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "TestAgent",
 				"description": "test. Use PROACTIVELY when testing.",
 			},
@@ -58,7 +58,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "reserved word",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "claude",
 				"description": "test. Use PROACTIVELY when testing.",
 			},
@@ -69,7 +69,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "name doesn't match filename",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-agent",
 				"description": "test. Use PROACTIVELY when testing.",
 			},
@@ -80,7 +80,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid color",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"color":       "rainbow",
@@ -92,7 +92,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "unknown field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"foo":         "bar",
@@ -104,7 +104,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "missing PROACTIVELY in description",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "A test agent for doing things.",
 			},
@@ -115,7 +115,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid memory scope user",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"memory":      "user",
@@ -127,7 +127,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid memory scope project",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"memory":      "project",
@@ -139,7 +139,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid memory scope local",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"memory":      "local",
@@ -151,7 +151,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid memory scope",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"memory":      "global",
@@ -163,7 +163,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid permissionMode default",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"permissionMode": "default",
@@ -175,7 +175,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid permissionMode bypassPermissions",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"permissionMode": "bypassPermissions",
@@ -187,7 +187,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid permissionMode delegate",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"permissionMode": "delegate",
@@ -199,7 +199,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid permissionMode",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"permissionMode": "yolo",
@@ -211,7 +211,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid maxTurns positive integer",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"maxTurns":    10,
@@ -223,7 +223,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid maxTurns zero",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"maxTurns":    0,
@@ -235,7 +235,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid maxTurns negative",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"maxTurns":    -5,
@@ -247,7 +247,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid maxTurns string",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"maxTurns":    "ten",
@@ -259,10 +259,10 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid mcpServers array",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
-				"mcpServers":  []interface{}{"filesystem", "github"},
+				"mcpServers":  []any{"filesystem", "github"},
 			},
 			filePath:      "agents/test.md",
 			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmcpServers:\n  - filesystem\n  - github\n---\n",
@@ -271,10 +271,10 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "mcpServers with empty string element",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
-				"mcpServers":  []interface{}{"filesystem", ""},
+				"mcpServers":  []any{"filesystem", ""},
 			},
 			filePath:      "agents/test.md",
 			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmcpServers:\n  - filesystem\n  - \"\"\n---\n",
@@ -283,7 +283,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "mcpServers as string instead of array",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"mcpServers":  "filesystem",
@@ -295,7 +295,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model sonnet",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "sonnet",
@@ -307,7 +307,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model haiku",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "haiku",
@@ -319,7 +319,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model opus",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "opus",
@@ -331,7 +331,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model inherit",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "inherit",
@@ -343,7 +343,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model with version suffix",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "sonnet[1m]",
@@ -355,7 +355,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 		},
 		{
 			name: "valid model opusplan",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       "opusplan",
@@ -399,7 +399,7 @@ func TestValidateAgentSpecific(t *testing.T) {
 func TestHasEditingTools(t *testing.T) {
 	tests := []struct {
 		name  string
-		tools interface{}
+		tools any
 		want  bool
 	}{
 		{"wildcard", "*", true},
@@ -407,8 +407,8 @@ func TestHasEditingTools(t *testing.T) {
 		{"string with Write", "Write", true},
 		{"string with MultiEdit", "MultiEdit", true},
 		{"string without editing", "Read, Bash", false},
-		{"array with Edit", []interface{}{"Read", "Edit"}, true},
-		{"array without editing", []interface{}{"Read", "Bash"}, false},
+		{"array with Edit", []any{"Read", "Edit"}, true},
+		{"array without editing", []any{"Read", "Bash"}, false},
 		{"empty string", "", false},
 		{"nil", nil, false},
 	}
@@ -428,14 +428,14 @@ func TestValidateAgentBestPractices(t *testing.T) {
 		name         string
 		filePath     string
 		contents     string
-		data         map[string]interface{}
+		data         map[string]any
 		wantContains []string
 	}{
 		{
 			name:     "XML tags in description",
 			filePath: "agents/test.md",
 			contents: "---\ndescription: Test <xml>tag</xml>\n---\n",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"description": "Test <xml>tag</xml>",
 			},
 			wantContains: []string{"XML-like tags"},
@@ -444,7 +444,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 			name:     "bloat section Quick Reference",
 			filePath: "agents/test.md",
 			contents: "---\nname: test\ndescription: test\n---\n## Quick Reference\n",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test",
 			},
@@ -454,7 +454,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 			name:     "missing model",
 			filePath: "agents/test.md",
 			contents: "---\nname: test\ndescription: test\n---\n",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test",
 			},
@@ -464,7 +464,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 			name:     "editing tools without permissionMode",
 			filePath: "agents/test.md",
 			contents: "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\ntools: Edit\n---\n",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"tools":       "Edit",
@@ -660,7 +660,7 @@ func TestValidateAgentModelValues(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := map[string]interface{}{
+			data := map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 				"model":       tt.model,
@@ -691,12 +691,12 @@ func TestValidateAgentModelValues(t *testing.T) {
 func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		wantInfo bool
 	}{
 		{
 			name: "maxTurns with dontAsk emits info",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"maxTurns":       10,
@@ -706,7 +706,7 @@ func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 		},
 		{
 			name: "maxTurns without dontAsk no info",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"maxTurns":       10,
@@ -716,7 +716,7 @@ func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 		},
 		{
 			name: "dontAsk without maxTurns no info",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"permissionMode": "dontAsk",
@@ -725,7 +725,7 @@ func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 		},
 		{
 			name: "neither maxTurns nor dontAsk no info",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "test. Use PROACTIVELY when testing.",
 			},
@@ -733,7 +733,7 @@ func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 		},
 		{
 			name: "maxTurns with bypassPermissions no info",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
 				"maxTurns":       5,

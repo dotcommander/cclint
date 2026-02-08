@@ -79,7 +79,7 @@ func (l *OutputStyleLinter) PreValidate(filePath, contents string) []cue.Validat
 	return errors
 }
 
-func (l *OutputStyleLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *OutputStyleLinter) ParseContent(contents string) (map[string]any, string, error) {
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 	if err != nil {
 		return nil, "", fmt.Errorf("Error parsing frontmatter: %v", err)
@@ -87,12 +87,12 @@ func (l *OutputStyleLinter) ParseContent(contents string) (map[string]interface{
 	return fm.Data, fm.Body, nil
 }
 
-func (l *OutputStyleLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *OutputStyleLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	// Output styles don't use CUE validation
 	return nil, nil
 }
 
-func (l *OutputStyleLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields
@@ -187,7 +187,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]interface{}, filePa
 }
 
 // Score implements Scorable interface.
-func (l *OutputStyleLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
+func (l *OutputStyleLinter) Score(contents string, data map[string]any, body string) *scoring.QualityScore {
 	scorer := scoring.NewOutputStyleScorer()
 	score := scorer.Score(contents, data, body)
 	return &score

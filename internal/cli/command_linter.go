@@ -35,15 +35,15 @@ func (l *CommandLinter) FileType() discovery.FileType {
 	return discovery.FileTypeCommand
 }
 
-func (l *CommandLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *CommandLinter) ParseContent(contents string) (map[string]any, string, error) {
 	return parseFrontmatter(contents)
 }
 
-func (l *CommandLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *CommandLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	return validator.ValidateCommand(data)
 }
 
-func (l *CommandLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *CommandLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	errors := validateCommandSpecific(data, filePath, contents)
 
 	// Validate allowed-tools
@@ -54,12 +54,12 @@ func (l *CommandLinter) ValidateSpecific(data map[string]interface{}, filePath, 
 }
 
 // ValidateBestPractices implements BestPracticeValidator interface
-func (l *CommandLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *CommandLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
 	return validateCommandBestPractices(filePath, contents, data)
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}
@@ -67,13 +67,13 @@ func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, fi
 }
 
 // Score implements Scorable interface
-func (l *CommandLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
+func (l *CommandLinter) Score(contents string, data map[string]any, body string) *scoring.QualityScore {
 	scorer := scoring.NewCommandScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
 // GetImprovements implements Improvable interface
-func (l *CommandLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
+func (l *CommandLinter) GetImprovements(contents string, data map[string]any) []ImprovementRecommendation {
 	return GetCommandImprovements(contents, data)
 }

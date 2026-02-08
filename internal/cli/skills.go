@@ -43,7 +43,7 @@ func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*
 }
 
 // validateSkillBestPractices checks opinionated best practices for skills
-func validateSkillBestPractices(filePath string, contents string, fmData map[string]interface{}) []cue.ValidationError {
+func validateSkillBestPractices(filePath string, contents string, fmData map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 	var warnings []cue.ValidationError
 	lowerContents := strings.ToLower(contents)
@@ -209,7 +209,7 @@ func validateSkillBestPractices(filePath string, contents string, fmData map[str
 
 	// Rule 055: Metadata field structure (agentskills.io spec)
 	if metadata, ok := fmData["metadata"]; ok {
-		metaMap, isMap := metadata.(map[string]interface{})
+		metaMap, isMap := metadata.(map[string]any)
 		if !isMap {
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,

@@ -15,7 +15,7 @@ func TestNewSkillScorer(t *testing.T) {
 func TestSkillScorer_Score(t *testing.T) {
 	tests := []struct {
 		name          string
-		frontmatter   map[string]interface{}
+		frontmatter   map[string]any
 		bodyContent   string
 		wantTier      string
 		wantStructMin int
@@ -25,7 +25,7 @@ func TestSkillScorer_Score(t *testing.T) {
 	}{
 		{
 			name: "Perfect methodology skill",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test-patterns",
 				"description": strings.Repeat("Comprehensive skill description that provides detailed information about the methodology and its application in various contexts. ", 2),
 			},
@@ -73,7 +73,7 @@ Scoring formula: score = coverage * quality
 		},
 		{
 			name: "Perfect reference/pattern skill",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "go-patterns",
 				"description": strings.Repeat("Comprehensive pattern library with detailed examples and best practices for Go development. ", 2),
 			},
@@ -113,7 +113,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Minimal skill - missing features",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name": "minimal",
 			},
 			bodyContent: "Basic content",
@@ -121,7 +121,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Skill with semantic routing",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -135,7 +135,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Skill with phase-based workflow",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -151,7 +151,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Skill with anti-patterns table",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -164,7 +164,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Skill with Best Practices fallback for anti-patterns",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -180,7 +180,7 @@ Scoring formula: quality = correctness * readability
 		},
 		{
 			name: "Skill with HARD GATE markers",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -192,7 +192,7 @@ HARD GATE: Must validate
 		},
 		{
 			name: "Skill with checkboxes",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -205,7 +205,7 @@ HARD GATE: Must validate
 		},
 		{
 			name: "Skill with references",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -217,7 +217,7 @@ Also references/examples.md
 		},
 		{
 			name: "Skill with scoring formula",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			},
@@ -229,7 +229,7 @@ Scoring formula: points / maxPoints
 		},
 		{
 			name: "Large skill - over 550 lines",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "large-skill",
 				"description": "Large skill",
 			},
@@ -238,7 +238,7 @@ Scoring formula: points / maxPoints
 		},
 		{
 			name: "Excellent size skill - under 250 lines",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "concise-skill",
 				"description": strings.Repeat("Good description here. ", 5),
 			},
@@ -320,7 +320,7 @@ Pattern library
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			}
@@ -387,7 +387,7 @@ func TestSkillScorer_DescriptionQuality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": tt.desc,
 			}
@@ -461,7 +461,7 @@ func TestSkillScorer_CodeExamples(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			}
@@ -514,7 +514,7 @@ func TestSkillScorer_CompositionScoring(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			}
@@ -579,7 +579,7 @@ func TestSkillScorer_SemanticRouting(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			}
@@ -661,7 +661,7 @@ Bad things
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test skill",
 			}
@@ -690,7 +690,7 @@ Bad things
 func TestSkillScorer_AllPracticesMetrics(t *testing.T) {
 	scorer := NewSkillScorer()
 
-	frontmatter := map[string]interface{}{
+	frontmatter := map[string]any{
 		"name":        "comprehensive-skill",
 		"description": strings.Repeat("Comprehensive description. ", 10),
 	}

@@ -31,7 +31,7 @@ var knownCommandFields = map[string]bool{
 }
 
 // validateCommandSpecific implements command-specific validation rules
-func validateCommandSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+func validateCommandSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
@@ -74,7 +74,7 @@ func validateCommandSpecific(data map[string]interface{}, filePath string, conte
 }
 
 // validateCommandBestPractices checks opinionated best practices
-func validateCommandBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
+func validateCommandBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
 	// XML tag detection in text fields - FROM ANTHROPIC DOCS
@@ -280,7 +280,7 @@ var argumentsPattern = regexp.MustCompile(`\$ARGUMENTS`)
 // validateCommandSubstitution checks $ARGUMENTS and $N substitution variable usage.
 // Commands using substitution should declare argument-hint for discoverability,
 // positional args should be sequential, and high positional args are likely unintended.
-func validateCommandSubstitution(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
+func validateCommandSubstitution(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var issues []cue.ValidationError
 
 	// Extract body (skip frontmatter) for scanning

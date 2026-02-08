@@ -8,7 +8,7 @@ import (
 func TestValidateCommandSpecific(t *testing.T) {
 	tests := []struct {
 		name          string
-		data          map[string]interface{}
+		data          map[string]any
 		filePath      string
 		contents      string
 		wantErrCount  int
@@ -16,7 +16,7 @@ func TestValidateCommandSpecific(t *testing.T) {
 	}{
 		{
 			name: "valid command",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":          "test-cmd",
 				"description":   "Test command",
 				"allowed-tools": "Task",
@@ -28,7 +28,7 @@ func TestValidateCommandSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid name format",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "TestCmd",
 			},
 			filePath:      "commands/test.md",
@@ -38,7 +38,7 @@ func TestValidateCommandSpecific(t *testing.T) {
 		},
 		{
 			name: "unknown field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test",
 				"foo":  "bar",
 			},
@@ -49,7 +49,7 @@ func TestValidateCommandSpecific(t *testing.T) {
 		},
 		{
 			name: "valid without name (derived from filename)",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"description": "Test",
 			},
 			filePath:      "commands/test.md",
@@ -93,14 +93,14 @@ func TestValidateCommandBestPractices(t *testing.T) {
 		name         string
 		filePath     string
 		contents     string
-		data         map[string]interface{}
+		data         map[string]any
 		wantContains []string
 	}{
 		{
 			name:     "XML tags in description",
 			filePath: "commands/test.md",
 			contents: "---\ndescription: Test <tag>content</tag>\n---\n",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"description": "Test <tag>content</tag>",
 			},
 			wantContains: []string{"XML-like tags"},
@@ -109,35 +109,35 @@ func TestValidateCommandBestPractices(t *testing.T) {
 			name:         "implementation section",
 			filePath:     "commands/test.md",
 			contents:     "---\nname: test\n---\n## Implementation\nSteps here",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantContains: []string{"implementation steps"},
 		},
 		{
 			name:         "Task() without allowed-tools",
 			filePath:     "commands/test.md",
 			contents:     "---\nname: test\n---\nTask(agent): do something",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantContains: []string{"allowed-tools"},
 		},
 		{
 			name:         "bloat sections in thin command",
 			filePath:     "commands/test.md",
 			contents:     "---\nname: test\n---\nTask(agent): do\n## Quick Reference\n",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantContains: []string{"Quick Reference"},
 		},
 		{
 			name:         "excessive examples",
 			filePath:     "commands/test.md",
 			contents:     "---\nname: test\n---\n```bash\nfoo\n```\n```bash\nbar\n```\n```bash\nbaz\n```",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantContains: []string{"code examples"},
 		},
 		{
 			name:         "success criteria without checkboxes",
 			filePath:     "commands/test.md",
 			contents:     "---\nname: test\n---\n## Success\nAll tests pass",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantContains: []string{"checkbox format"},
 		},
 	}
@@ -302,7 +302,7 @@ func TestValidateCommandSubstitution(t *testing.T) {
 	tests := []struct {
 		name         string
 		contents     string
-		data         map[string]interface{}
+		data         map[string]any
 		wantWarnings int
 		wantSuggs    int
 		wantContains []string
@@ -310,21 +310,21 @@ func TestValidateCommandSubstitution(t *testing.T) {
 		{
 			name:         "no substitution variables",
 			contents:     "---\nname: test\n---\nJust a normal body",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantWarnings: 0,
 			wantSuggs:    0,
 		},
 		{
 			name:         "$ARGUMENTS with argument-hint",
 			contents:     "---\nname: test\nargument-hint: <query>\n---\nSearch for $ARGUMENTS",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<query>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<query>"},
 			wantWarnings: 0,
 			wantSuggs:    0,
 		},
 		{
 			name:         "$ARGUMENTS without argument-hint",
 			contents:     "---\nname: test\n---\nSearch for $ARGUMENTS",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantWarnings: 0,
 			wantSuggs:    1,
 			wantContains: []string{"argument-hint"},
@@ -332,14 +332,14 @@ func TestValidateCommandSubstitution(t *testing.T) {
 		{
 			name:         "sequential $1 $2 $3 with hint",
 			contents:     "---\nname: test\nargument-hint: <a> <b> <c>\n---\nUse $1 then $2 then $3",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<a> <b> <c>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<a> <b> <c>"},
 			wantWarnings: 0,
 			wantSuggs:    0,
 		},
 		{
 			name:         "sequential $1 $2 without hint",
 			contents:     "---\nname: test\n---\nUse $1 then $2",
-			data:         map[string]interface{}{"name": "test"},
+			data:         map[string]any{"name": "test"},
 			wantWarnings: 0,
 			wantSuggs:    1,
 			wantContains: []string{"argument-hint"},
@@ -347,7 +347,7 @@ func TestValidateCommandSubstitution(t *testing.T) {
 		{
 			name:         "$2 without $1 (gap from start)",
 			contents:     "---\nname: test\nargument-hint: <a> <b>\n---\nUse $2 here",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<a> <b>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<a> <b>"},
 			wantWarnings: 1,
 			wantSuggs:    0,
 			wantContains: []string{"$2 used without $1"},
@@ -355,7 +355,7 @@ func TestValidateCommandSubstitution(t *testing.T) {
 		{
 			name:         "$1 and $3 without $2 (gap in middle)",
 			contents:     "---\nname: test\nargument-hint: <a> <b> <c>\n---\nUse $1 and $3",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<a> <b> <c>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<a> <b> <c>"},
 			wantWarnings: 1,
 			wantSuggs:    0,
 			wantContains: []string{"gap"},
@@ -363,35 +363,35 @@ func TestValidateCommandSubstitution(t *testing.T) {
 		{
 			name:         "high positional arg $10",
 			contents:     "---\nname: test\nargument-hint: many args\n---\nUse $1 $2 $3 $4 $5 $6 $7 $8 $9 $10",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "many args"},
+			data:         map[string]any{"name": "test", "argument-hint": "many args"},
 			wantWarnings: 1,
 			wantContains: []string{"High positional argument $10"},
 		},
 		{
 			name:         "high positional arg $15",
 			contents:     "---\nname: test\nargument-hint: many args\n---\nUse $1 $2 $3 $4 $5 $6 $7 $8 $9 $10 $11 $12 $13 $14 $15",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "many args"},
+			data:         map[string]any{"name": "test", "argument-hint": "many args"},
 			wantWarnings: 1,
 			wantContains: []string{"High positional argument $15"},
 		},
 		{
 			name:         "$0 is ignored (not user positional)",
 			contents:     "---\nname: test\nargument-hint: <a>\n---\nUse $0 and $1",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<a>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<a>"},
 			wantWarnings: 0,
 			wantSuggs:    0,
 		},
 		{
 			name:         "mixed $ARGUMENTS and $1 with hint",
 			contents:     "---\nname: test\nargument-hint: <query>\n---\nAll: $ARGUMENTS, first: $1",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<query>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<query>"},
 			wantWarnings: 0,
 			wantSuggs:    0,
 		},
 		{
 			name:         "$5 without $1 (gap from start, high jump)",
 			contents:     "---\nname: test\nargument-hint: <a>\n---\nUse $5 here",
-			data:         map[string]interface{}{"name": "test", "argument-hint": "<a>"},
+			data:         map[string]any{"name": "test", "argument-hint": "<a>"},
 			wantWarnings: 1,
 			wantContains: []string{"$5 used without $1"},
 		},

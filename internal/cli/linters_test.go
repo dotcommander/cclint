@@ -33,7 +33,7 @@ func TestAgentLinter(t *testing.T) {
 	}
 
 	// Test ValidateSpecific
-	_ = linter.ValidateSpecific(map[string]interface{}{"name": "test", "description": "test"}, "test.md", contents)
+	_ = linter.ValidateSpecific(map[string]any{"name": "test", "description": "test"}, "test.md", contents)
 }
 
 func TestCommandLinter(t *testing.T) {
@@ -61,7 +61,7 @@ func TestCommandLinter(t *testing.T) {
 	}
 
 	// Test ValidateSpecific
-	_ = linter.ValidateSpecific(map[string]interface{}{"name": "test"}, "test.md", contents)
+	_ = linter.ValidateSpecific(map[string]any{"name": "test"}, "test.md", contents)
 }
 
 func TestSkillLinter(t *testing.T) {
@@ -104,19 +104,19 @@ func TestSkillLinter(t *testing.T) {
 	}
 
 	// Test ValidateSpecific
-	_ = linter.ValidateSpecific(map[string]interface{}{"name": "test"}, "SKILL.md", contents)
+	_ = linter.ValidateSpecific(map[string]any{"name": "test"}, "SKILL.md", contents)
 
 	// Test ValidateBestPractices
-	_ = linter.ValidateBestPractices("SKILL.md", contents, map[string]interface{}{"name": "test"})
+	_ = linter.ValidateBestPractices("SKILL.md", contents, map[string]any{"name": "test"})
 
 	// Test Score
-	score := linter.Score(contents, map[string]interface{}{"name": "test"}, "body")
+	score := linter.Score(contents, map[string]any{"name": "test"}, "body")
 	if score == nil {
 		t.Error("SkillLinter.Score() returned nil")
 	}
 
 	// Test GetImprovements
-	improvements := linter.GetImprovements(contents, map[string]interface{}{"name": "test"})
+	improvements := linter.GetImprovements(contents, map[string]any{"name": "test"})
 	if improvements == nil {
 		t.Error("SkillLinter.GetImprovements() returned nil")
 	}
@@ -225,7 +225,7 @@ func TestBatchPostProcessor(t *testing.T) {
 	}
 
 	// Call PostProcessBatch
-	if bpp, ok := interface{}(linter).(BatchPostProcessor); ok {
+	if bpp, ok := any(linter).(BatchPostProcessor); ok {
 		bpp.PostProcessBatch(ctx, summary)
 		// Should not panic
 	} else {

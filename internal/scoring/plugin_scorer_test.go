@@ -16,7 +16,7 @@ func TestNewPluginScorer(t *testing.T) {
 func TestPluginScorer_Score(t *testing.T) {
 	tests := []struct {
 		name          string
-		jsonData      map[string]interface{}
+		jsonData      map[string]any
 		wantTier      string
 		wantStructMin int
 		wantPractMin  int
@@ -25,17 +25,17 @@ func TestPluginScorer_Score(t *testing.T) {
 	}{
 		{
 			name: "Perfect plugin",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test-plugin",
 				"description": strings.Repeat("Comprehensive plugin description with detailed information about functionality. ", 2),
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/user/repo",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test", "plugin"},
+				"keywords":   []any{"test", "plugin"},
 				"readme":     "README.md",
 			},
 			wantTier:      "A",
@@ -46,11 +46,11 @@ func TestPluginScorer_Score(t *testing.T) {
 		},
 		{
 			name: "Minimal plugin - only required fields",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "minimal",
 				"description": "Short description",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -60,18 +60,18 @@ func TestPluginScorer_Score(t *testing.T) {
 		},
 		{
 			name: "Missing required fields",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name": "incomplete",
 			},
 			wantTier: "F",
 		},
 		{
 			name: "Plugin with homepage only",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test plugin",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
 				"homepage": "https://example.com",
@@ -81,11 +81,11 @@ func TestPluginScorer_Score(t *testing.T) {
 		},
 		{
 			name: "Plugin with repository only",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test plugin",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
 				"repository": "https://github.com/user/repo",
@@ -95,11 +95,11 @@ func TestPluginScorer_Score(t *testing.T) {
 		},
 		{
 			name: "Plugin with license only",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test plugin",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
 				"license": "Apache-2.0",
@@ -109,25 +109,25 @@ func TestPluginScorer_Score(t *testing.T) {
 		},
 		{
 			name: "Plugin with keywords only",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test plugin",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
-				"keywords": []interface{}{"testing", "automation"},
+				"keywords": []any{"testing", "automation"},
 			},
 			wantStructMin: 40,
 			wantPractMin:  10,
 		},
 		{
 			name: "Large plugin - over 10KB",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "large",
 				"description": strings.Repeat("x", 15000),
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -180,16 +180,16 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		jsonData   map[string]interface{}
+		jsonData   map[string]any
 		wantPoints int
 	}{
 		{
 			name: "All structural fields present",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -197,7 +197,7 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name: "Missing author.name",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test",
 				"version":     "1.0.0",
@@ -206,11 +206,11 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name: "Author without name",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"email": "author@example.com",
 				},
 			},
@@ -218,10 +218,10 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name: "Missing version",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":        "test",
 				"description": "Test",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -229,10 +229,10 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name: "Missing description",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"name":    "test",
 				"version": "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -240,10 +240,10 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name: "Missing name",
-			jsonData: map[string]interface{}{
+			jsonData: map[string]any{
 				"description": "Test",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			},
@@ -251,7 +251,7 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 		},
 		{
 			name:       "All fields missing",
-			jsonData:   map[string]interface{}{},
+			jsonData:   map[string]any{},
 			wantPoints: 0,
 		},
 	}
@@ -272,75 +272,75 @@ func TestPluginScorer_StructuralFields(t *testing.T) {
 func TestPluginScorer_PracticesFields(t *testing.T) {
 	scorer := NewPluginScorer()
 
-	baseData := map[string]interface{}{
+	baseData := map[string]any{
 		"name":        "test",
 		"description": "Test",
 		"version":     "1.0.0",
-		"author": map[string]interface{}{
+		"author": map[string]any{
 			"name": "Author",
 		},
 	}
 
 	tests := []struct {
 		name       string
-		extraData  map[string]interface{}
+		extraData  map[string]any
 		wantPoints int
 	}{
 		{
 			name: "All practices fields present",
-			extraData: map[string]interface{}{
+			extraData: map[string]any{
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/user/repo",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			wantPoints: 40,
 		},
 		{
 			name: "Only homepage",
-			extraData: map[string]interface{}{
+			extraData: map[string]any{
 				"homepage": "https://example.com",
 			},
 			wantPoints: 10,
 		},
 		{
 			name: "Only repository",
-			extraData: map[string]interface{}{
+			extraData: map[string]any{
 				"repository": "https://github.com/user/repo",
 			},
 			wantPoints: 10,
 		},
 		{
 			name: "Only license",
-			extraData: map[string]interface{}{
+			extraData: map[string]any{
 				"license": "Apache-2.0",
 			},
 			wantPoints: 10,
 		},
 		{
 			name: "Only keywords",
-			extraData: map[string]interface{}{
-				"keywords": []interface{}{"test", "plugin"},
+			extraData: map[string]any{
+				"keywords": []any{"test", "plugin"},
 			},
 			wantPoints: 10,
 		},
 		{
 			name: "Empty keywords array (doesn't count)",
-			extraData: map[string]interface{}{
-				"keywords": []interface{}{},
+			extraData: map[string]any{
+				"keywords": []any{},
 			},
 			wantPoints: 0,
 		},
 		{
 			name:       "No practices fields",
-			extraData:  map[string]interface{}{},
+			extraData:  map[string]any{},
 			wantPoints: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jsonData := make(map[string]interface{})
+			jsonData := make(map[string]any)
 			for k, v := range baseData {
 				jsonData[k] = v
 			}
@@ -380,11 +380,11 @@ func TestPluginScorer_CompositionScoring(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create JSON with specific size
 			desc := strings.Repeat("x", tt.size-200) // Account for other fields
-			jsonData := map[string]interface{}{
+			jsonData := map[string]any{
 				"name":        "test",
 				"description": desc,
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			}
@@ -468,11 +468,11 @@ func TestPluginScorer_DescriptionQuality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jsonData := map[string]interface{}{
+			jsonData := map[string]any{
 				"name":        "test",
 				"description": tt.desc,
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			}
@@ -511,7 +511,7 @@ func TestPluginScorer_ReadmeField(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		readme     interface{}
+		readme     any
 		wantPoints bool
 	}{
 		{"Has readme", "README.md", true},
@@ -522,11 +522,11 @@ func TestPluginScorer_ReadmeField(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			jsonData := map[string]interface{}{
+			jsonData := map[string]any{
 				"name":        "test",
 				"description": strings.Repeat("Good description here. ", 3),
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Author",
 				},
 			}
@@ -608,17 +608,17 @@ func TestValidateJSON(t *testing.T) {
 func TestPluginScorer_CategoryBreakdown(t *testing.T) {
 	scorer := NewPluginScorer()
 
-	jsonData := map[string]interface{}{
+	jsonData := map[string]any{
 		"name":        "test-plugin",
 		"description": strings.Repeat("Comprehensive description. ", 5),
 		"version":     "1.0.0",
-		"author": map[string]interface{}{
+		"author": map[string]any{
 			"name": "Test Author",
 		},
 		"homepage":   "https://example.com",
 		"repository": "https://github.com/user/repo",
 		"license":    "MIT",
-		"keywords":   []interface{}{"test", "plugin"},
+		"keywords":   []any{"test", "plugin"},
 		"readme":     "README.md",
 	}
 

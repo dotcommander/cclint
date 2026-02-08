@@ -15,7 +15,7 @@ func TestNewCommandScorer(t *testing.T) {
 func TestCommandScorer_Score(t *testing.T) {
 	tests := []struct {
 		name          string
-		frontmatter   map[string]interface{}
+		frontmatter   map[string]any
 		bodyContent   string
 		wantTier      string
 		wantStructMin int
@@ -25,7 +25,7 @@ func TestCommandScorer_Score(t *testing.T) {
 	}{
 		{
 			name: "Perfect command",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Read", "Write", "Task"},
 				"description":    "Comprehensive command that does many things effectively",
 				"argument-hint":  "file-path",
@@ -57,7 +57,7 @@ command --flag value
 		},
 		{
 			name: "Minimal command - missing features",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": []string{"Task"},
 			},
 			bodyContent: "Basic content",
@@ -65,7 +65,7 @@ command --flag value
 		},
 		{
 			name: "Command with Task delegation",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command",
 				"argument-hint":  "input",
@@ -79,7 +79,7 @@ Task(agent-type: "report-generator", prompt: "Generate report")
 		},
 		{
 			name: "Command with success criteria",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command",
 				"argument-hint":  "input",
@@ -97,7 +97,7 @@ Task(agent-type: "test", prompt: "test")
 		},
 		{
 			name: "Command with checkboxes format",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test",
 				"argument-hint":  "input",
@@ -112,7 +112,7 @@ Task(test)
 		},
 		{
 			name: "Command with flags documentation",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test",
 				"argument-hint":  "input",
@@ -129,7 +129,7 @@ Task(test)
 		},
 		{
 			name: "Command with inline flags",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test",
 				"argument-hint":  "input",
@@ -144,7 +144,7 @@ Task(test)
 		},
 		{
 			name: "Large command - over 55 lines",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Large command",
 				"argument-hint":  "input",
@@ -154,7 +154,7 @@ Task(test)
 		},
 		{
 			name: "Small command - under 30 lines",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Concise command with good description length here",
 				"argument-hint":  "input",
@@ -165,7 +165,7 @@ Task(test)
 		},
 		{
 			name: "Command with code examples",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command with examples and good description",
 				"argument-hint":  "input",
@@ -175,7 +175,7 @@ Task(test)
 		},
 		{
 			name: "Command with generic code block",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command with great description goes here now",
 				"argument-hint":  "input",
@@ -238,7 +238,7 @@ func TestCommandScorer_TaskDelegationDetection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scorer := NewCommandScorer()
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test",
 				"argument-hint":  "input",
@@ -317,7 +317,7 @@ func TestCommandScorer_DescriptionQuality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    tt.desc,
 				"argument-hint":  "input",
@@ -374,7 +374,7 @@ func TestCommandScorer_CompositionScoring(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command",
 				"argument-hint":  "input",
@@ -474,7 +474,7 @@ Task(test)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test",
 				"argument-hint":  "input",
@@ -533,7 +533,7 @@ func TestCommandScorer_CodeExamples(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"allowed-tools":  []string{"Task"},
 				"description":    "Test command with good description",
 				"argument-hint":  "input",

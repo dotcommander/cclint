@@ -8,7 +8,7 @@ import (
 
 // Frontmatter represents parsed frontmatter data
 type Frontmatter struct {
-	Data  map[string]interface{}
+	Data  map[string]any
 	Body  string
 }
 
@@ -20,7 +20,7 @@ func ParseYAMLFrontmatter(content string) (*Frontmatter, error) {
 	if !strings.HasPrefix(trimmed, "---") {
 		// No frontmatter - return content as body
 		return &Frontmatter{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 			Body: content,
 		}, nil
 	}
@@ -31,7 +31,7 @@ func ParseYAMLFrontmatter(content string) (*Frontmatter, error) {
 	// If we have less than 3 parts, there's no closing ---
 	if len(parts) < 3 {
 		return &Frontmatter{
-			Data: make(map[string]interface{}),
+			Data: make(map[string]any),
 			Body: content,
 		}, nil
 	}
@@ -41,7 +41,7 @@ func ParseYAMLFrontmatter(content string) (*Frontmatter, error) {
 	body := parts[2]
 
 	// Parse YAML content
-	var data map[string]interface{}
+	var data map[string]any
 	if err := yaml.Unmarshal([]byte(frontmatterYAML), &data); err != nil {
 		return nil, err
 	}

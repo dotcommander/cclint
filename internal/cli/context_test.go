@@ -105,7 +105,7 @@ More content`,
 
 			// Verify section structure
 			for i, section := range sections {
-				sectionMap, ok := section.(map[string]interface{})
+				sectionMap, ok := section.(map[string]any)
 				if !ok {
 					t.Errorf("Section %d is not a map", i)
 					continue
@@ -126,33 +126,33 @@ More content`,
 func TestValidateContextSpecific(t *testing.T) {
 	tests := []struct {
 		name           string
-		data           map[string]interface{}
+		data           map[string]any
 		contents       string
 		wantErrorCount int
 	}{
 		{
 			name:           "no sections",
-			data:           map[string]interface{}{},
+			data:           map[string]any{},
 			contents:       "",
 			wantErrorCount: 1, // suggestion for no sections
 		},
 		{
 			name: "empty sections array",
-			data: map[string]interface{}{
-				"sections": []interface{}{},
+			data: map[string]any{
+				"sections": []any{},
 			},
 			contents:       "",
 			wantErrorCount: 1, // suggestion for no sections
 		},
 		{
 			name: "valid sections",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Build & Run",
 						"content": "Instructions here",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"heading": "Testing",
 						"content": "Test instructions",
 					},
@@ -163,9 +163,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "section missing heading",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"content": "Content without heading",
 					},
 				},
@@ -175,9 +175,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "section missing content",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Empty Section",
 					},
 				},
@@ -187,9 +187,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "section with empty heading",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "",
 						"content": "Content",
 					},
@@ -200,9 +200,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "section with empty content",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Heading",
 						"content": "",
 					},
@@ -213,17 +213,17 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "multiple issues",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Valid",
 						"content": "Valid content",
 					},
-					map[string]interface{}{
+					map[string]any{
 						"heading": "",
 						"content": "",
 					},
-					map[string]interface{}{},
+					map[string]any{},
 				},
 			},
 			contents:       "",
@@ -232,9 +232,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		// Binary @include tests (Claude Code 2.1.2+)
 		{
 			name: "binary include - png",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Images",
 						"content": "See image below",
 					},
@@ -245,9 +245,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "binary include - multiple",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Assets",
 						"content": "Various files",
 					},
@@ -258,9 +258,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "valid include - markdown",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Docs",
 						"content": "See below",
 					},
@@ -271,9 +271,9 @@ func TestValidateContextSpecific(t *testing.T) {
 		},
 		{
 			name: "mixed includes - text and binary",
-			data: map[string]interface{}{
-				"sections": []interface{}{
-					map[string]interface{}{
+			data: map[string]any{
+				"sections": []any{
+					map[string]any{
 						"heading": "Resources",
 						"content": "Files",
 					},

@@ -29,18 +29,18 @@ func (l *ContextLinter) FileType() discovery.FileType {
 	return discovery.FileTypeContext
 }
 
-func (l *ContextLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *ContextLinter) ParseContent(contents string) (map[string]any, string, error) {
 	// Context files have optional frontmatter
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 
-	var title, description interface{}
+	var title, description any
 	if err == nil && fm != nil && fm.Data != nil {
 		title = fm.Data["title"]
 		description = fm.Data["description"]
 	}
 
 	// Build the data structure expected by CUE validator
-	data := map[string]interface{}{
+	data := map[string]any{
 		"title":       title,
 		"description": description,
 		"sections":    parseMarkdownSections(contents),
@@ -54,10 +54,10 @@ func (l *ContextLinter) ParseContent(contents string) (map[string]interface{}, s
 	return data, body, nil
 }
 
-func (l *ContextLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *ContextLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	return validator.ValidateClaudeMD(data)
 }
 
-func (l *ContextLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *ContextLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return validateContextSpecific(data, filePath, contents)
 }

@@ -180,14 +180,14 @@ func findProjectRootForFile(absPath string) (string, error) {
 	// e.g., /foo/.claude/agents/bar.md → /foo/.claude
 	// e.g., /foo/agents/bar.md → /foo
 	pathStr := absPath
-	if idx := strings.Index(pathStr, "/.claude/"); idx != -1 {
-		return pathStr[:idx+len("/.claude")], nil
+	if before, _, found := strings.Cut(pathStr, "/.claude/"); found {
+		return before + "/.claude", nil
 	}
 
 	// Check for component directories
 	for _, comp := range []string{"/agents/", "/commands/", "/skills/"} {
-		if idx := strings.Index(pathStr, comp); idx != -1 {
-			return pathStr[:idx], nil
+		if before, _, found := strings.Cut(pathStr, comp); found {
+			return before, nil
 		}
 	}
 

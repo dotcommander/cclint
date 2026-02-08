@@ -36,7 +36,7 @@ type RulesConfig struct {
 // SchemaConfig contains schema configuration
 type SchemaConfig struct {
 	Enabled       bool                   `mapstructure:"enabled"`
-	Extensions   map[string]interface{} `mapstructure:"extensions"`
+	Extensions   map[string]any `mapstructure:"extensions"`
 }
 
 // LoadConfig loads configuration from various sources

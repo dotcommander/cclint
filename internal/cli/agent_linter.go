@@ -38,15 +38,15 @@ func (l *AgentLinter) FileType() discovery.FileType {
 	return discovery.FileTypeAgent
 }
 
-func (l *AgentLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *AgentLinter) ParseContent(contents string) (map[string]any, string, error) {
 	return parseFrontmatter(contents)
 }
 
-func (l *AgentLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *AgentLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	return validator.ValidateAgent(data)
 }
 
-func (l *AgentLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *AgentLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	errors := validateAgentSpecific(data, filePath, contents)
 
 	// Validate allowed-tools
@@ -57,7 +57,7 @@ func (l *AgentLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}
@@ -65,14 +65,14 @@ func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 }
 
 // Score implements Scorable interface
-func (l *AgentLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
+func (l *AgentLinter) Score(contents string, data map[string]any, body string) *scoring.QualityScore {
 	scorer := scoring.NewAgentScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
 // GetImprovements implements Improvable interface
-func (l *AgentLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
+func (l *AgentLinter) GetImprovements(contents string, data map[string]any) []ImprovementRecommendation {
 	return GetAgentImprovements(contents, data)
 }
 

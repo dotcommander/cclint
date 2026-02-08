@@ -10,14 +10,14 @@ func TestValidateSkillBestPractices(t *testing.T) {
 		name         string
 		filePath     string
 		contents     string
-		fmData       map[string]interface{}
+		fmData       map[string]any
 		wantContains []string
 	}{
 		{
 			name:     "first person description",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\ndescription: I analyze code\n---\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"description": "I analyze code",
 			},
 			wantContains: []string{"third person"},
@@ -26,7 +26,7 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:     "addresses user",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\ndescription: You should use this\n---\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"description": "You should use this",
 			},
 			wantContains: []string{"address the user"},
@@ -35,7 +35,7 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:     "short description",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\ndescription: Short\n---\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"description": "Short",
 			},
 			wantContains: []string{"50+"},
@@ -44,7 +44,7 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:     "missing trigger phrases",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\ndescription: This is a skill that does things without triggers\n---\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"description": "This is a skill that does things without triggers",
 			},
 			wantContains: []string{"trigger phrases"},
@@ -53,7 +53,7 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:     "invalid semver",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\nversion: 1.0\n---\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"version": "1.0",
 			},
 			wantContains: []string{"semver"},
@@ -62,21 +62,21 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:         "missing anti-patterns",
 			filePath:     "skills/test/SKILL.md",
 			contents:     "---\nname: test\n---\nContent without anti-patterns",
-			fmData:       map[string]interface{}{"name": "test"},
+			fmData:       map[string]any{"name": "test"},
 			wantContains: []string{"Anti-Patterns"},
 		},
 		{
 			name:         "missing examples",
 			filePath:     "skills/test/SKILL.md",
 			contents:     "---\nname: test\n---\nContent without examples",
-			fmData:       map[string]interface{}{"name": "test"},
+			fmData:       map[string]any{"name": "test"},
 			wantContains: []string{"Examples"},
 		},
 		{
 			name:     "argument-hint too long",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\nargument-hint: " + strings.Repeat("a", 81) + "\n---\n## Anti-Patterns\n## Examples\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"argument-hint": strings.Repeat("a", 81),
 			},
 			wantContains: []string{"argument-hint", "80"},
@@ -85,7 +85,7 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			name:     "argument-hint at limit no warning",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\nargument-hint: " + strings.Repeat("a", 80) + "\n---\n## Anti-Patterns\n## Examples\n",
-			fmData: map[string]interface{}{
+			fmData: map[string]any{
 				"argument-hint": strings.Repeat("a", 80),
 			},
 			wantContains: []string{}, // no argument-hint warning expected
@@ -255,7 +255,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		data             map[string]interface{}
+		data             map[string]any
 		contents         string
 		wantErrCount     int
 		wantWarnings     int
@@ -263,7 +263,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 	}{
 		{
 			name: "unknown frontmatter field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"unknown-field": "value",
 			},
 			contents:        "---\nunknown-field: value\n---\n",
@@ -271,7 +271,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "reserved word name",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "claude",
 			},
 			contents:     "---\nname: claude\n---\n",
@@ -280,7 +280,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "reserved word anthropic",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "anthropic",
 			},
 			contents:     "---\nname: anthropic\n---\n",
@@ -289,13 +289,13 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name:            "no frontmatter suggestion",
-			data:            map[string]interface{}{},
+			data:            map[string]any{},
 			contents:        "Just content without frontmatter",
 			wantSuggestions: 1,
 		},
 		{
 			name: "with frontmatter",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test",
 			},
 			contents:     "---\nname: test\n---\nContent",
@@ -303,7 +303,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "multiple unknown fields",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"unknown1": "val1",
 				"unknown2": "val2",
 			},
@@ -312,7 +312,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "valid context fork",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":    "test",
 				"context": "fork",
 			},
@@ -321,7 +321,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid context value",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":    "test",
 				"context": "invalid",
 			},
@@ -330,7 +330,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "agent without context fork warns",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":  "test",
 				"agent": "poet-agent",
 			},
@@ -340,7 +340,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "agent with context fork no warning",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":    "test",
 				"context": "fork",
 				"agent":   "poet-agent",
@@ -351,7 +351,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "valid user-invocable true",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"user-invocable": true,
 			},
@@ -360,7 +360,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "valid user-invocable false",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"user-invocable": false,
 			},
@@ -369,7 +369,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid user-invocable type string",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":           "test",
 				"user-invocable": "yes",
 			},
@@ -378,7 +378,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "valid disable-model-invocation",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":                     "test",
 				"disable-model-invocation": true,
 			},
@@ -387,7 +387,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid disable-model-invocation type string",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":                     "test",
 				"disable-model-invocation": "true",
 			},
@@ -396,7 +396,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "valid argument-hint",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":          "test",
 				"argument-hint": "PR number or URL",
 			},
@@ -406,7 +406,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "argument-hint non-string type",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":          "test",
 				"argument-hint": 42,
 			},
@@ -415,7 +415,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "argument-hint empty string",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":          "test",
 				"argument-hint": "",
 			},
@@ -425,7 +425,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 		},
 		{
 			name: "argument-hint whitespace only",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":          "test",
 				"argument-hint": "   ",
 			},

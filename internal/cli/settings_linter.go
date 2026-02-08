@@ -28,14 +28,14 @@ func (l *SettingsLinter) FileType() discovery.FileType {
 	return discovery.FileTypeSettings
 }
 
-func (l *SettingsLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *SettingsLinter) ParseContent(contents string) (map[string]any, string, error) {
 	return parseJSONContent(contents)
 }
 
-func (l *SettingsLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *SettingsLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	return validator.ValidateSettings(data)
 }
 
-func (l *SettingsLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *SettingsLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return validateSettingsSpecific(data, filePath)
 }

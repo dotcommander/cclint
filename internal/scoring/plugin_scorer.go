@@ -14,7 +14,7 @@ func NewPluginScorer() *PluginScorer {
 
 // Score evaluates a plugin manifest and returns a QualityScore
 // For plugins, frontmatter is the parsed JSON data, bodyContent is unused
-func (s *PluginScorer) Score(content string, frontmatter map[string]interface{}, bodyContent string) QualityScore {
+func (s *PluginScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
 	var details []ScoringMetric
 
 	// === STRUCTURAL (40 points max) ===
@@ -65,7 +65,7 @@ func (s *PluginScorer) Score(content string, frontmatter map[string]interface{},
 
 	// author.name (10 points)
 	hasAuthorName := false
-	if author, ok := frontmatter["author"].(map[string]interface{}); ok {
+	if author, ok := frontmatter["author"].(map[string]any); ok {
 		if authorName, ok := author["name"].(string); ok && authorName != "" {
 			structural += 10
 			hasAuthorName = true
@@ -126,7 +126,7 @@ func (s *PluginScorer) Score(content string, frontmatter map[string]interface{},
 
 	// keywords (10 points)
 	hasKeywords := false
-	if keywords, ok := frontmatter["keywords"].([]interface{}); ok && len(keywords) > 0 {
+	if keywords, ok := frontmatter["keywords"].([]any); ok && len(keywords) > 0 {
 		practices += 10
 		hasKeywords = true
 	}
@@ -227,6 +227,6 @@ func (s *PluginScorer) Score(content string, frontmatter map[string]interface{},
 
 // ValidateJSON checks if content is valid JSON
 func ValidateJSON(content string) error {
-	var data map[string]interface{}
+	var data map[string]any
 	return json.Unmarshal([]byte(content), &data)
 }

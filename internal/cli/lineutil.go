@@ -139,7 +139,7 @@ type ImprovementRecommendation struct {
 }
 
 // GetAgentImprovements returns specific improvement recommendations for agents
-func GetAgentImprovements(content string, data map[string]interface{}) []ImprovementRecommendation {
+func GetAgentImprovements(content string, data map[string]any) []ImprovementRecommendation {
 	var recs []ImprovementRecommendation
 	lines := CountLines(content)
 
@@ -194,7 +194,7 @@ func GetAgentImprovements(content string, data map[string]interface{}) []Improve
 }
 
 // GetCommandImprovements returns specific improvement recommendations for commands
-func GetCommandImprovements(content string, data map[string]interface{}) []ImprovementRecommendation {
+func GetCommandImprovements(content string, data map[string]any) []ImprovementRecommendation {
 	var recs []ImprovementRecommendation
 	lines := CountLines(content)
 
@@ -238,7 +238,7 @@ func GetCommandImprovements(content string, data map[string]interface{}) []Impro
 }
 
 // GetSkillImprovements returns specific improvement recommendations for skills
-func GetSkillImprovements(content string, data map[string]interface{}) []ImprovementRecommendation {
+func GetSkillImprovements(content string, data map[string]any) []ImprovementRecommendation {
 	var recs []ImprovementRecommendation
 	lines := CountLines(content)
 
@@ -291,7 +291,7 @@ func GetSkillImprovements(content string, data map[string]interface{}) []Improve
 }
 
 // ValidateAllowedTools validates that allowed-tools and tools fields contain known tool names
-func ValidateAllowedTools(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+func ValidateAllowedTools(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var warnings []cue.ValidationError
 
 	// Known tools from Claude Code documentation
@@ -319,8 +319,7 @@ func ValidateAllowedTools(data map[string]interface{}, filePath string, contents
 	for _, field := range toolsFields {
 		if tools, ok := data[field].(string); ok && tools != "" {
 			// Parse comma-separated tools
-			toolList := strings.Split(tools, ",")
-			for _, tool := range toolList {
+			for tool := range strings.SplitSeq(tools, ",") {
 				tool = strings.TrimSpace(tool)
 				if tool == "" {
 					continue
@@ -354,7 +353,7 @@ func ValidateAllowedTools(data map[string]interface{}, filePath string, contents
 // ValidateToolFieldName ensures components use correct field name (tools vs allowed-tools)
 // - Agents MUST use 'tools:', not 'allowed-tools:'
 // - Commands and Skills MUST use 'allowed-tools:', not 'tools:'
-func ValidateToolFieldName(data map[string]interface{}, filePath string, contents string, componentType string) []cue.ValidationError {
+func ValidateToolFieldName(data map[string]any, filePath string, contents string, componentType string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	switch componentType {

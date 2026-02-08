@@ -20,24 +20,24 @@ func TestLintPlugins(t *testing.T) {
 func TestValidatePluginSpecific(t *testing.T) {
 	tests := []struct {
 		name          string
-		data          map[string]interface{}
+		data          map[string]any
 		filePath      string
 		contents      string
 		wantMinErrors int // Minimum errors expected (not counting suggestions)
 	}{
 		{
 			name: "valid plugin",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test Author",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/test/test",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin"}`,
@@ -45,23 +45,23 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name:          "missing name",
-			data:          map[string]interface{}{},
+			data:          map[string]any{},
 			filePath:      "plugin.json",
 			contents:      `{}`,
 			wantMinErrors: 3, // name, description, author (errors only, not suggestions)
 		},
 		{
 			name: "reserved word name",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "claude",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/test/test",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"claude"}`,
@@ -69,16 +69,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "name too long",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "this-is-a-very-long-plugin-name-that-exceeds-the-sixty-four-character-limit",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/test/test",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"this-is-a-very-long-plugin-name-that-exceeds-the-sixty-four-character-limit"}`,
@@ -86,16 +86,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "description too long",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": string(make([]byte, 1025)),
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/test/test",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test","description":"..."}`,
@@ -103,17 +103,17 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "invalid semver",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0",
-				"author": map[string]interface{}{
+				"author": map[string]any{
 					"name": "Test",
 				},
 				"homepage":   "https://example.com",
 				"repository": "https://github.com/test/test",
 				"license":    "MIT",
-				"keywords":   []interface{}{"test"},
+				"keywords":   []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"version":"1.0"}`,
@@ -121,14 +121,14 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "missing author.name",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
-				"author":      map[string]interface{}{},
+				"author":      map[string]any{},
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/test/test",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
+				"keywords":    []any{"test"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"author":{}}`,
@@ -136,17 +136,17 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "valid relative paths",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
-				"author":      map[string]interface{}{"name": "Test Author"},
+				"author":      map[string]any{"name": "Test Author"},
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/test/test",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
-				"commands":    []interface{}{"./commands/greet.md"},
-				"agents":      []interface{}{"./agents/helper.md"},
+				"keywords":    []any{"test"},
+				"commands":    []any{"./commands/greet.md"},
+				"agents":      []any{"./agents/helper.md"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","commands":["./commands/greet.md"]}`,
@@ -154,16 +154,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "absolute path in commands",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
-				"author":      map[string]interface{}{"name": "Test Author"},
+				"author":      map[string]any{"name": "Test Author"},
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/test/test",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
-				"commands":    []interface{}{"/etc/commands/greet.md"},
+				"keywords":    []any{"test"},
+				"commands":    []any{"/etc/commands/greet.md"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","commands":["/etc/commands/greet.md"]}`,
@@ -171,16 +171,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "path traversal in skills",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
-				"author":      map[string]interface{}{"name": "Test Author"},
+				"author":      map[string]any{"name": "Test Author"},
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/test/test",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
-				"skills":      []interface{}{"./skills/../../../etc/passwd"},
+				"keywords":    []any{"test"},
+				"skills":      []any{"./skills/../../../etc/passwd"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","skills":["./skills/../../../etc/passwd"]}`,
@@ -188,16 +188,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "outputStyles field recognized",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":         "test-plugin",
 				"description":  "A comprehensive test plugin for validation purposes with detailed description",
 				"version":      "1.0.0",
-				"author":       map[string]interface{}{"name": "Test Author"},
+				"author":       map[string]any{"name": "Test Author"},
 				"homepage":     "https://example.com",
 				"repository":   "https://github.com/test/test",
 				"license":      "MIT",
-				"keywords":     []interface{}{"test"},
-				"outputStyles": []interface{}{"./styles/compact.json"},
+				"keywords":     []any{"test"},
+				"outputStyles": []any{"./styles/compact.json"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","outputStyles":["./styles/compact.json"]}`,
@@ -205,16 +205,16 @@ func TestValidatePluginSpecific(t *testing.T) {
 		},
 		{
 			name: "lspServers field recognized",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
-				"author":      map[string]interface{}{"name": "Test Author"},
+				"author":      map[string]any{"name": "Test Author"},
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/test/test",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
-				"lspServers":  []interface{}{"./lsp/gopls.json"},
+				"keywords":    []any{"test"},
+				"lspServers":  []any{"./lsp/gopls.json"},
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","lspServers":["./lsp/gopls.json"]}`,
@@ -247,24 +247,24 @@ func TestValidatePluginSpecific(t *testing.T) {
 func TestValidatePluginBestPractices(t *testing.T) {
 	tests := []struct {
 		name                string
-		data                map[string]interface{}
+		data                map[string]any
 		wantSuggestionCount int
 	}{
 		{
 			name: "complete plugin",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "A comprehensive test plugin with detailed description that exceeds fifty characters",
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/user/repo",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test", "plugin"},
+				"keywords":    []any{"test", "plugin"},
 			},
 			wantSuggestionCount: 0,
 		},
 		{
 			name: "minimal plugin",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "Short",
 			},
@@ -272,13 +272,13 @@ func TestValidatePluginBestPractices(t *testing.T) {
 		},
 		{
 			name: "short description",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "Short description",
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/user/repo",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
+				"keywords":    []any{"test"},
 			},
 			wantSuggestionCount: 1,
 		},
@@ -300,25 +300,25 @@ func TestValidatePluginBestPractices(t *testing.T) {
 func TestGetPluginImprovements(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     map[string]interface{}
+		data     map[string]any
 		wantRecs int
 	}{
 		{
 			name: "complete plugin",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "A comprehensive description that is long enough to meet requirements",
 				"homepage":    "https://example.com",
 				"repository":  "https://github.com/user/repo",
 				"license":     "MIT",
-				"keywords":    []interface{}{"test"},
+				"keywords":    []any{"test"},
 				"readme":      "README.md",
 			},
 			wantRecs: 0,
 		},
 		{
 			name: "minimal plugin",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name":        "test",
 				"description": "Short",
 			},
@@ -339,47 +339,47 @@ func TestGetPluginImprovements(t *testing.T) {
 func TestValidatePluginPaths(t *testing.T) {
 	tests := []struct {
 		name         string
-		data         map[string]interface{}
+		data         map[string]any
 		wantErrors   int
 		wantWarnings int
 	}{
 		{
 			name: "all relative paths",
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/greet.md", "./commands/help.md"},
-				"agents":   []interface{}{"./agents/helper.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/greet.md", "./commands/help.md"},
+				"agents":   []any{"./agents/helper.md"},
 			},
 			wantErrors:   0,
 			wantWarnings: 0,
 		},
 		{
 			name: "absolute path error",
-			data: map[string]interface{}{
-				"commands": []interface{}{"/usr/local/commands/greet.md"},
+			data: map[string]any{
+				"commands": []any{"/usr/local/commands/greet.md"},
 			},
 			wantErrors:   1,
 			wantWarnings: 0,
 		},
 		{
 			name: "path traversal warning",
-			data: map[string]interface{}{
-				"skills": []interface{}{"./skills/../../secret.md"},
+			data: map[string]any{
+				"skills": []any{"./skills/../../secret.md"},
 			},
 			wantErrors:   0,
 			wantWarnings: 1,
 		},
 		{
 			name: "absolute path with traversal triggers both",
-			data: map[string]interface{}{
-				"hooks": []interface{}{"/etc/../passwd"},
+			data: map[string]any{
+				"hooks": []any{"/etc/../passwd"},
 			},
 			wantErrors:   1,
 			wantWarnings: 1,
 		},
 		{
 			name: "object values checked",
-			data: map[string]interface{}{
-				"mcpServers": map[string]interface{}{
+			data: map[string]any{
+				"mcpServers": map[string]any{
 					"server1": "/opt/mcp/server",
 				},
 			},
@@ -388,7 +388,7 @@ func TestValidatePluginPaths(t *testing.T) {
 		},
 		{
 			name: "no path fields present",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test-plugin",
 			},
 			wantErrors:   0,
@@ -428,7 +428,7 @@ func TestValidatePluginPaths(t *testing.T) {
 func TestExtractPaths(t *testing.T) {
 	tests := []struct {
 		name      string
-		value     interface{}
+		value     any
 		wantCount int
 	}{
 		{
@@ -438,19 +438,19 @@ func TestExtractPaths(t *testing.T) {
 		},
 		{
 			name:      "string array",
-			value:     []interface{}{"./a.md", "./b.md"},
+			value:     []any{"./a.md", "./b.md"},
 			wantCount: 2,
 		},
 		{
 			name: "object array",
-			value: []interface{}{
-				map[string]interface{}{"path": "./commands/greet.md", "name": "greet"},
+			value: []any{
+				map[string]any{"path": "./commands/greet.md", "name": "greet"},
 			},
 			wantCount: 2, // extracts all string values from the object
 		},
 		{
 			name: "map value",
-			value: map[string]interface{}{
+			value: map[string]any{
 				"server1": "./mcp/server1.json",
 				"server2": "./mcp/server2.json",
 			},
@@ -568,16 +568,16 @@ func TestValidatePluginPathsExist(t *testing.T) {
 	tests := []struct {
 		name         string
 		files        []string // files to create relative to plugin dir
-		data         map[string]interface{}
+		data         map[string]any
 		wantWarnings int
 		emptyRoot    bool // use empty rootPath to disable validation
 	}{
 		{
 			name:  "all paths exist",
 			files: []string{"./commands/greet.md", "./agents/helper.md", "README.md"},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/greet.md"},
-				"agents":   []interface{}{"./agents/helper.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/greet.md"},
+				"agents":   []any{"./agents/helper.md"},
 				"readme":   "README.md",
 			},
 			wantWarnings: 0,
@@ -585,16 +585,16 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "missing command file",
 			files: []string{"./agents/helper.md"},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/missing.md"},
-				"agents":   []interface{}{"./agents/helper.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/missing.md"},
+				"agents":   []any{"./agents/helper.md"},
 			},
 			wantWarnings: 1,
 		},
 		{
 			name:  "missing readme file",
 			files: []string{},
-			data: map[string]interface{}{
+			data: map[string]any{
 				"readme": "README.md",
 			},
 			wantWarnings: 1,
@@ -602,42 +602,42 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "multiple missing paths",
 			files: []string{},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/a.md", "./commands/b.md"},
-				"agents":   []interface{}{"./agents/helper.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/a.md", "./commands/b.md"},
+				"agents":   []any{"./agents/helper.md"},
 			},
 			wantWarnings: 3,
 		},
 		{
 			name:  "glob patterns skipped",
 			files: []string{},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/*.md"},
-				"skills":   []interface{}{"./skills/[a-z]*.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/*.md"},
+				"skills":   []any{"./skills/[a-z]*.md"},
 			},
 			wantWarnings: 0,
 		},
 		{
 			name:  "absolute paths skipped",
 			files: []string{},
-			data: map[string]interface{}{
-				"commands": []interface{}{"/etc/commands/greet.md"},
+			data: map[string]any{
+				"commands": []any{"/etc/commands/greet.md"},
 			},
 			wantWarnings: 0,
 		},
 		{
 			name:  "traversal paths skipped",
 			files: []string{},
-			data: map[string]interface{}{
-				"skills": []interface{}{"./skills/../../etc/passwd"},
+			data: map[string]any{
+				"skills": []any{"./skills/../../etc/passwd"},
 			},
 			wantWarnings: 0,
 		},
 		{
 			name:  "empty rootPath disables validation",
 			files: []string{},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/missing.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/missing.md"},
 			},
 			wantWarnings: 0,
 			emptyRoot:    true,
@@ -645,7 +645,7 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "no path fields present",
 			files: []string{},
-			data: map[string]interface{}{
+			data: map[string]any{
 				"name": "test-plugin",
 			},
 			wantWarnings: 0,
@@ -653,8 +653,8 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "map-style mcpServers with missing paths",
 			files: []string{},
-			data: map[string]interface{}{
-				"mcpServers": map[string]interface{}{
+			data: map[string]any{
+				"mcpServers": map[string]any{
 					"server1": "./mcp/server1.json",
 				},
 			},
@@ -663,8 +663,8 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "map-style mcpServers with existing paths",
 			files: []string{"./mcp/server1.json"},
-			data: map[string]interface{}{
-				"mcpServers": map[string]interface{}{
+			data: map[string]any{
+				"mcpServers": map[string]any{
 					"server1": "./mcp/server1.json",
 				},
 			},
@@ -673,24 +673,24 @@ func TestValidatePluginPathsExist(t *testing.T) {
 		{
 			name:  "URLs in path fields skipped",
 			files: []string{},
-			data: map[string]interface{}{
-				"hooks": []interface{}{"http://example.com/hook", "https://example.com/hook"},
+			data: map[string]any{
+				"hooks": []any{"http://example.com/hook", "https://example.com/hook"},
 			},
 			wantWarnings: 0,
 		},
 		{
 			name:  "mixed existing and missing paths",
 			files: []string{"./commands/exists.md"},
-			data: map[string]interface{}{
-				"commands": []interface{}{"./commands/exists.md", "./commands/missing.md"},
+			data: map[string]any{
+				"commands": []any{"./commands/exists.md", "./commands/missing.md"},
 			},
 			wantWarnings: 1,
 		},
 		{
 			name:  "directory path exists",
 			files: []string{"./skills/my-skill/SKILL.md"},
-			data: map[string]interface{}{
-				"skills": []interface{}{"./skills/my-skill"},
+			data: map[string]any{
+				"skills": []any{"./skills/my-skill"},
 			},
 			wantWarnings: 0,
 		},

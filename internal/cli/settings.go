@@ -84,7 +84,7 @@ var knownToolNames = map[string]bool{
 }
 
 // validateSettingsSpecific implements settings-specific validation rules
-func validateSettingsSpecific(data map[string]interface{}, filePath string) []cue.ValidationError {
+func validateSettingsSpecific(data map[string]any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check hooks structure if present
@@ -112,10 +112,10 @@ func validateSettingsSpecific(data map[string]interface{}, filePath string) []cu
 
 // validatePermissions validates the permissions section of settings.json.
 // Expected structure: {"allow": ["Bash(npm*)", ...], "deny": ["Bash(rm*)", ...]}
-func validatePermissions(perms interface{}, filePath string) []cue.ValidationError {
+func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	permsMap, ok := perms.(map[string]interface{})
+	permsMap, ok := perms.(map[string]any)
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -144,10 +144,10 @@ func validatePermissions(perms interface{}, filePath string) []cue.ValidationErr
 }
 
 // validatePermissionEntries validates a single permission list (allow or deny).
-func validatePermissionEntries(entries interface{}, listName string, filePath string) []cue.ValidationError {
+func validatePermissionEntries(entries any, listName string, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	arr, ok := entries.([]interface{})
+	arr, ok := entries.([]any)
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -206,10 +206,10 @@ func isKnownTool(name string) bool {
 
 // validateMCPServers validates the mcpServers configuration map.
 // Each entry maps a server name to an object with command, args, env, and cwd fields.
-func validateMCPServers(mcpServers interface{}, filePath string) []cue.ValidationError {
+func validateMCPServers(mcpServers any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	serversMap, ok := mcpServers.(map[string]interface{})
+	serversMap, ok := mcpServers.(map[string]any)
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -231,7 +231,7 @@ func validateMCPServers(mcpServers interface{}, filePath string) []cue.Validatio
 			continue
 		}
 
-		serverMap, ok := serverConfig.(map[string]interface{})
+		serverMap, ok := serverConfig.(map[string]any)
 		if !ok {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -249,7 +249,7 @@ func validateMCPServers(mcpServers interface{}, filePath string) []cue.Validatio
 }
 
 // validateMCPServerEntry validates a single MCP server configuration entry.
-func validateMCPServerEntry(serverName string, serverMap map[string]interface{}, filePath string) []cue.ValidationError {
+func validateMCPServerEntry(serverName string, serverMap map[string]any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Validate command field (required, non-empty string)
@@ -279,7 +279,7 @@ func validateMCPServerEntry(serverName string, serverMap map[string]interface{},
 
 	// Validate args field (optional, must be array of strings)
 	if argsVal, argsExists := serverMap["args"]; argsExists {
-		argsArray, ok := argsVal.([]interface{})
+		argsArray, ok := argsVal.([]any)
 		if !ok {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -303,7 +303,7 @@ func validateMCPServerEntry(serverName string, serverMap map[string]interface{},
 
 	// Validate env field (optional, must be object with string values)
 	if envVal, envExists := serverMap["env"]; envExists {
-		envMap, ok := envVal.(map[string]interface{})
+		envMap, ok := envVal.(map[string]any)
 		if !ok {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -343,10 +343,10 @@ func validateMCPServerEntry(serverName string, serverMap map[string]interface{},
 // validateRules validates the rules array in settings.json.
 // Each entry must be a non-empty string containing a valid glob pattern.
 // Warns on suspicious patterns like absolute paths.
-func validateRules(rules interface{}, filePath string) []cue.ValidationError {
+func validateRules(rules any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	rulesArray, ok := rules.([]interface{})
+	rulesArray, ok := rules.([]any)
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -449,20 +449,20 @@ func validateMatcherToolName(toolNamePattern string, location string, filePath s
 }
 
 // validateHooks validates hooks for settings (full event set)
-func validateHooks(hooks interface{}, filePath string) []cue.ValidationError {
+func validateHooks(hooks any, filePath string) []cue.ValidationError {
 	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted")
 }
 
 // ValidateComponentHooks validates hooks for agents and skills (scoped event set)
-func ValidateComponentHooks(hooks interface{}, filePath string) []cue.ValidationError {
+func ValidateComponentHooks(hooks any, filePath string) []cue.ValidationError {
 	return validateHooksWithEvents(hooks, filePath, validComponentHookEvents, "PreToolUse, PostToolUse, Stop")
 }
 
 // validateHooksWithEvents validates the hooks section with specified allowed events
-func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents map[string]bool, eventLabel string) []cue.ValidationError {
+func validateHooksWithEvents(hooks any, filePath string, allowedEvents map[string]bool, eventLabel string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	hooksMap, ok := hooks.(map[string]interface{})
+	hooksMap, ok := hooks.(map[string]any)
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -487,7 +487,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 		}
 
 		// Validate the event's hook array
-		hookArray, ok := eventConfig.([]interface{})
+		hookArray, ok := eventConfig.([]any)
 		if !ok {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -500,7 +500,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 
 		// Validate each hook matcher in the array
 		for i, hookMatcher := range hookArray {
-			hookMatcherMap, ok := hookMatcher.(map[string]interface{})
+			hookMatcherMap, ok := hookMatcher.(map[string]any)
 			if !ok {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
@@ -520,7 +520,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 					Severity: "error",
 					Source:   cue.SourceAnthropicDocs,
 				})
-			} else if matcherMap, ok := matcherVal.(map[string]interface{}); ok {
+			} else if matcherMap, ok := matcherVal.(map[string]any); ok {
 				// Validate toolName pattern inside matcher object
 				if toolNameVal, exists := matcherMap["toolName"]; exists {
 					if toolNameStr, ok := toolNameVal.(string); ok && toolNameStr != "" {
@@ -543,7 +543,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 			}
 
 			// Validate the inner hooks array
-			innerHooksArray, ok := innerHooks.([]interface{})
+			innerHooksArray, ok := innerHooks.([]any)
 			if !ok {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
@@ -556,7 +556,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 
 			// Validate each individual hook
 			for j, innerHook := range innerHooksArray {
-				innerHookMap, ok := innerHook.(map[string]interface{})
+				innerHookMap, ok := innerHook.(map[string]any)
 				if !ok {
 					errors = append(errors, cue.ValidationError{
 						File:     filePath,

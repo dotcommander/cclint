@@ -204,7 +204,7 @@ func TestOutputStyleLinterNameStartsWithHyphen(t *testing.T) {
 func TestOutputStyleLinterCompileTimeChecks(t *testing.T) {
 	// Verify interface compliance at compile time (already done via var _ declarations,
 	// but this test ensures the linter satisfies the expected interfaces).
-	var linter interface{} = NewOutputStyleLinter()
+	var linter any = NewOutputStyleLinter()
 
 	if _, ok := linter.(ComponentLinter); !ok {
 		t.Error("OutputStyleLinter does not implement ComponentLinter")

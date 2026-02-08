@@ -10,7 +10,7 @@ import (
 func TestValidatePathsGlob(t *testing.T) {
 	tests := []struct {
 		name         string
-		paths        interface{}
+		paths        any
 		wantErrCount int
 	}{
 		{
@@ -342,24 +342,24 @@ func TestRuleLinterValidateSpecific(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		data         map[string]interface{}
+		data         map[string]any
 		wantErrCount int
 	}{
 		{
 			name:         "no paths field",
-			data:         map[string]interface{}{},
+			data:         map[string]any{},
 			wantErrCount: 0,
 		},
 		{
 			name: "valid paths",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"paths": "**/*.go",
 			},
 			wantErrCount: 0,
 		},
 		{
 			name: "invalid paths type",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"paths": 123,
 			},
 			wantErrCount: 1,

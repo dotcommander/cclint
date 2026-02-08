@@ -69,22 +69,22 @@ func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationErr
 	return errors
 }
 
-func (l *SkillLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *SkillLinter) ParseContent(contents string) (map[string]any, string, error) {
 	// Skills have optional frontmatter
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 	if err != nil {
 		// No frontmatter is OK for skills
-		return make(map[string]interface{}), contents, nil
+		return make(map[string]any), contents, nil
 	}
 	return fm.Data, fm.Body, nil
 }
 
-func (l *SkillLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *SkillLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	// Skills don't use CUE validation currently
 	return nil, nil
 }
 
-func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
@@ -263,12 +263,12 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 }
 
 // ValidateBestPractices implements BestPracticeValidator interface
-func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
 	return validateSkillBestPractices(filePath, contents, data)
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}
@@ -276,14 +276,14 @@ func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 }
 
 // Score implements Scorable interface
-func (l *SkillLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
+func (l *SkillLinter) Score(contents string, data map[string]any, body string) *scoring.QualityScore {
 	scorer := scoring.NewSkillScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
 // GetImprovements implements Improvable interface
-func (l *SkillLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
+func (l *SkillLinter) GetImprovements(contents string, data map[string]any) []ImprovementRecommendation {
 	return GetSkillImprovements(contents, data)
 }
 

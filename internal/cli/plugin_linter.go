@@ -37,29 +37,29 @@ func (l *PluginLinter) FileType() discovery.FileType {
 	return discovery.FileTypePlugin
 }
 
-func (l *PluginLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *PluginLinter) ParseContent(contents string) (map[string]any, string, error) {
 	return parseJSONContent(contents)
 }
 
-func (l *PluginLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *PluginLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	// Plugins don't use CUE validation
 	return nil, nil
 }
 
-func (l *PluginLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *PluginLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	errors := validatePluginSpecific(data, filePath, contents)
 	errors = append(errors, validatePluginPathsExist(data, l.RootPath, filePath, contents)...)
 	return errors
 }
 
 // Score implements Scorable interface
-func (l *PluginLinter) Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore {
+func (l *PluginLinter) Score(contents string, data map[string]any, body string) *scoring.QualityScore {
 	scorer := scoring.NewPluginScorer()
 	score := scorer.Score(contents, data, body)
 	return &score
 }
 
 // GetImprovements implements Improvable interface
-func (l *PluginLinter) GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation {
+func (l *PluginLinter) GetImprovements(contents string, data map[string]any) []ImprovementRecommendation {
 	return GetPluginImprovements(contents, data)
 }

@@ -53,5 +53,5 @@ func NewQualityScore(structural, practices, composition, documentation int, deta
 
 // Scorer is the interface for component scorers
 type Scorer interface {
-	Score(content string, frontmatter map[string]interface{}, bodyContent string) QualityScore
+	Score(content string, frontmatter map[string]any, bodyContent string) QualityScore
 }

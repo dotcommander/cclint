@@ -13,7 +13,7 @@ func NewOutputStyleScorer() *OutputStyleScorer {
 }
 
 // Score evaluates an output style and returns a QualityScore.
-func (s *OutputStyleScorer) Score(content string, frontmatter map[string]interface{}, bodyContent string) QualityScore {
+func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
 	var details []ScoringMetric
 
 	// === STRUCTURAL (40 points max) ===

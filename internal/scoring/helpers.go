@@ -33,7 +33,7 @@ type CompositionThresholds struct {
 
 // ScoreRequiredFields scores the presence of required frontmatter fields.
 // It follows the Open/Closed Principle - new fields can be added via the specs slice.
-func ScoreRequiredFields(frontmatter map[string]interface{}, specs []FieldSpec) (int, []ScoringMetric) {
+func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []ScoringMetric) {
 	var total int
 	var details []ScoringMetric
 

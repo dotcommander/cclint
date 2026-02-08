@@ -41,14 +41,14 @@ type ComponentLinter interface {
 
 	// ParseContent parses the file content and returns frontmatter data and body.
 	// For JSON files, body may be empty.
-	ParseContent(contents string) (data map[string]interface{}, body string, err error)
+	ParseContent(contents string) (data map[string]any, body string, err error)
 
 	// ValidateCUE runs CUE schema validation if applicable.
 	// Returns nil if CUE validation is not used for this type.
-	ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error)
+	ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error)
 
 	// ValidateSpecific runs component-specific validation rules.
-	ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError
+	ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError
 }
 
 // PreValidator is an optional interface for linters that need pre-validation checks.
@@ -62,25 +62,25 @@ type PreValidator interface {
 // BestPracticeValidator is an optional interface for linters with best practice checks.
 type BestPracticeValidator interface {
 	// ValidateBestPractices runs best practice checks beyond basic validation.
-	ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError
+	ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError
 }
 
 // CrossFileValidatable is an optional interface for linters that validate cross-file references.
 type CrossFileValidatable interface {
 	// ValidateCrossFile runs cross-file validation (e.g., agent→skill references).
-	ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]interface{}) []cue.ValidationError
+	ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError
 }
 
 // Scorable is an optional interface for linters that provide quality scores.
 type Scorable interface {
 	// Score returns the quality score for the component.
-	Score(contents string, data map[string]interface{}, body string) *scoring.QualityScore
+	Score(contents string, data map[string]any, body string) *scoring.QualityScore
 }
 
 // Improvable is an optional interface for linters that provide improvement recommendations.
 type Improvable interface {
 	// GetImprovements returns improvement recommendations with point values.
-	GetImprovements(contents string, data map[string]interface{}) []ImprovementRecommendation
+	GetImprovements(contents string, data map[string]any) []ImprovementRecommendation
 }
 
 // PostProcessable is an optional interface for linters needing result post-processing.
@@ -336,7 +336,7 @@ func ValidateSemver(version, filePath string, line int) *cue.ValidationError {
 
 // parseFrontmatter parses YAML frontmatter from markdown content.
 // Returns (data, body, error).
-func parseFrontmatter(contents string) (map[string]interface{}, string, error) {
+func parseFrontmatter(contents string) (map[string]any, string, error) {
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 	if err != nil {
 		return nil, "", fmt.Errorf("Error parsing frontmatter: %v", err)
@@ -346,8 +346,8 @@ func parseFrontmatter(contents string) (map[string]interface{}, string, error) {
 
 // parseJSONContent parses JSON content into a map.
 // Returns (data, "", error) - body is empty for JSON.
-func parseJSONContent(contents string) (map[string]interface{}, string, error) {
-	var data map[string]interface{}
+func parseJSONContent(contents string) (map[string]any, string, error) {
+	var data map[string]any
 	if err := json.Unmarshal([]byte(contents), &data); err != nil {
 		return nil, "", fmt.Errorf("Invalid JSON: %v", err)
 	}
@@ -374,6 +374,6 @@ func parseJSONContent(contents string) (map[string]interface{}, string, error) {
 type BaseLinter struct{}
 
 // ValidateAllowedToolsShared is a shared helper for tool validation.
-func ValidateAllowedToolsShared(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func ValidateAllowedToolsShared(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return ValidateAllowedTools(data, filePath, contents)
 }

@@ -45,7 +45,7 @@ var pluginPathFields = []string{
 }
 
 // validatePluginSpecific implements plugin-specific validation rules
-func validatePluginSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+func validatePluginSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check for unknown fields
@@ -133,7 +133,7 @@ func validatePluginSpecific(data map[string]interface{}, filePath string, conten
 	}
 
 	// Author.name - required
-	if author, ok := data["author"].(map[string]interface{}); !ok {
+	if author, ok := data["author"].(map[string]any); !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'author' is missing",
@@ -163,7 +163,7 @@ func validatePluginSpecific(data map[string]interface{}, filePath string, conten
 }
 
 // validatePluginPaths checks that path-bearing fields use relative paths
-func validatePluginPaths(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+func validatePluginPaths(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	for _, field := range pluginPathFields {
@@ -182,17 +182,17 @@ func validatePluginPaths(data map[string]interface{}, filePath string, contents 
 
 // extractPaths collects path strings from various JSON structures:
 // string, []string, []object (extracts string values), or map (extracts string values).
-func extractPaths(value interface{}) []string {
+func extractPaths(value any) []string {
 	var paths []string
 	switch v := value.(type) {
 	case string:
 		paths = append(paths, v)
-	case []interface{}:
+	case []any:
 		for _, item := range v {
 			switch elem := item.(type) {
 			case string:
 				paths = append(paths, elem)
-			case map[string]interface{}:
+			case map[string]any:
 				for _, mv := range elem {
 					if s, ok := mv.(string); ok {
 						paths = append(paths, s)
@@ -200,7 +200,7 @@ func extractPaths(value interface{}) []string {
 				}
 			}
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		for _, mv := range v {
 			if s, ok := mv.(string); ok {
 				paths = append(paths, s)
@@ -257,7 +257,7 @@ func isGlobPattern(path string) bool {
 // Skips validation when rootPath is empty (e.g., in unit tests without a
 // filesystem layout). Skips glob patterns, absolute paths, and traversal
 // paths (the latter two are already reported by checkPath).
-func validatePluginPathsExist(data map[string]interface{}, rootPath, filePath, contents string) []cue.ValidationError {
+func validatePluginPathsExist(data map[string]any, rootPath, filePath, contents string) []cue.ValidationError {
 	if rootPath == "" {
 		return nil
 	}
@@ -305,7 +305,7 @@ func validatePluginPathsExist(data map[string]interface{}, rootPath, filePath, c
 }
 
 // validatePluginBestPractices checks opinionated best practices for plugins
-func validatePluginBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
+func validatePluginBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
 	// Check for homepage
@@ -339,7 +339,7 @@ func validatePluginBestPractices(filePath string, contents string, data map[stri
 	}
 
 	// Check for keywords
-	if keywords, ok := data["keywords"].([]interface{}); !ok || len(keywords) == 0 {
+	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Consider adding 'keywords' array for discoverability",
@@ -376,7 +376,7 @@ func FindJSONFieldLine(content string, fieldName string) int {
 }
 
 // GetPluginImprovements returns specific improvement recommendations for plugins
-func GetPluginImprovements(content string, data map[string]interface{}) []ImprovementRecommendation {
+func GetPluginImprovements(content string, data map[string]any) []ImprovementRecommendation {
 	var recs []ImprovementRecommendation
 
 	// Check for missing optional but recommended fields
@@ -404,7 +404,7 @@ func GetPluginImprovements(content string, data map[string]interface{}) []Improv
 		})
 	}
 
-	if keywords, ok := data["keywords"].([]interface{}); !ok || len(keywords) == 0 {
+	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
 		recs = append(recs, ImprovementRecommendation{
 			Description: "Add 'keywords' array for discoverability",
 			PointValue:  5,

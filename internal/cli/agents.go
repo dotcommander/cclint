@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -70,7 +71,7 @@ var knownAgentFields = map[string]bool{
 }
 
 // validateAgentSpecific implements agent-specific validation rules
-func validateAgentSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+func validateAgentSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
@@ -227,7 +228,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 
 	// Validate mcpServers - must be an array of non-empty strings
 	if mcpServers, ok := data["mcpServers"]; ok {
-		if arr, isArr := mcpServers.([]interface{}); isArr {
+		if arr, isArr := mcpServers.([]any); isArr {
 			for i, item := range arr {
 				s, isStr := item.(string)
 				if !isStr || s == "" {
@@ -334,7 +335,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 }
 
 // hasEditingTools checks if the tools field includes editing capabilities
-func hasEditingTools(tools interface{}) bool {
+func hasEditingTools(tools any) bool {
 	editingTools := []string{"Edit", "Write", "MultiEdit"}
 
 	switch v := tools.(type) {
@@ -348,14 +349,10 @@ func hasEditingTools(tools interface{}) bool {
 				return true
 			}
 		}
-	case []interface{}:
+	case []any:
 		for _, item := range v {
-			if s, ok := item.(string); ok {
-				for _, tool := range editingTools {
-					if s == tool {
-						return true
-					}
-				}
+			if s, ok := item.(string); ok && slices.Contains(editingTools, s) {
+				return true
 			}
 		}
 	}
@@ -364,7 +361,7 @@ func hasEditingTools(tools interface{}) bool {
 
 // validateAgentBestPractices checks opinionated best practices for agents.
 // Aggregates results from focused validation functions for each concern.
-func validateAgentBestPractices(filePath string, contents string, data map[string]interface{}) []cue.ValidationError {
+func validateAgentBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
 	// Each check function handles one concern
@@ -379,7 +376,7 @@ func validateAgentBestPractices(filePath string, contents string, data map[strin
 
 // checkAgentXMLTags detects XML-like tags in description field.
 // XML tags in agent descriptions can confuse Claude's parsing.
-func checkAgentXMLTags(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func checkAgentXMLTags(data map[string]any, filePath, contents string) []cue.ValidationError {
 	if description, ok := data["description"].(string); ok {
 		if xmlErr := DetectXMLTags(description, "Description", filePath, contents); xmlErr != nil {
 			return []cue.ValidationError{*xmlErr}
@@ -453,7 +450,7 @@ func checkAgentInlineMethodology(contents, filePath string) []cue.ValidationErro
 }
 
 // checkAgentMissingFields checks for missing recommended fields and patterns.
-func checkAgentMissingFields(data map[string]interface{}, contents, filePath string) []cue.ValidationError {
+func checkAgentMissingFields(data map[string]any, contents, filePath string) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 	fmEndLine := GetFrontmatterEndLine(contents)
 

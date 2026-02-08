@@ -44,7 +44,7 @@ func TestValidateCommand(t *testing.T) {
 		name         string
 		filePath     string
 		contents     string
-		frontmatter  map[string]interface{}
+		frontmatter  map[string]any
 		wantErrCount int
 	}{
 		{
@@ -69,7 +69,7 @@ func TestValidateCommand(t *testing.T) {
 			name:     "unused allowed-tools",
 			filePath: "commands/test.md",
 			contents: "Just content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Read",
 			},
 			wantErrCount: 1, // Info level
@@ -79,7 +79,7 @@ func TestValidateCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.frontmatter == nil {
-				tt.frontmatter = map[string]interface{}{}
+				tt.frontmatter = map[string]any{}
 			}
 			errors := v.ValidateCommand(tt.filePath, tt.contents, tt.frontmatter)
 
@@ -762,14 +762,14 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 	tests := []struct {
 		name         string
 		contents     string
-		frontmatter  map[string]interface{}
+		frontmatter  map[string]any
 		wantErrCount int
 		wantWarnings int
 	}{
 		{
 			name:     "flag in agent",
 			contents: "Task(primary-agent): do --verbose processing",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Task(primary-agent)",
 			},
 			wantErrCount: 0,
@@ -778,7 +778,7 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 		{
 			name:     "flag in skill",
 			contents: "Task(primary-agent): use --verbose",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Task(primary-agent)",
 			},
 			wantErrCount: 0,
@@ -786,7 +786,7 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 		{
 			name:     "fake flag not in agent or skill",
 			contents: "Task(primary-agent): use --fake-flag",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Task(primary-agent)",
 			},
 			wantWarnings: 1, // Should warn about fake flag
@@ -794,7 +794,7 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 		{
 			name:     "declarative command with Write",
 			contents: "This command will save to output.md",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Write",
 			},
 			wantErrCount: 0,
@@ -802,7 +802,7 @@ func TestValidateCommandEdgeCases(t *testing.T) {
 		{
 			name:     "unused tool non-declarative",
 			contents: "Just a command",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"allowed-tools": "Grep",
 			},
 			wantWarnings: 1, // Should have info about unused tool
@@ -899,7 +899,7 @@ func TestValidateCommand_SkillReferences(t *testing.T) {
 	tests := []struct {
 		name        string
 		contents    string
-		frontmatter map[string]interface{}
+		frontmatter map[string]any
 		wantErrors  int
 		wantMessage string
 	}{
@@ -945,7 +945,7 @@ func TestValidateCommand_SkillReferences(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.frontmatter == nil {
-				tt.frontmatter = map[string]interface{}{}
+				tt.frontmatter = map[string]any{}
 			}
 			errors := v.ValidateCommand("commands/test.md", tt.contents, tt.frontmatter)
 
@@ -1188,7 +1188,7 @@ func TestCrossFileValidation_EndToEnd(t *testing.T) {
 	}
 
 	// Test command validation - all references should be valid
-	cmdErrors := validator.ValidateCommand("commands/test-cmd.md", files[1].Contents, map[string]interface{}{})
+	cmdErrors := validator.ValidateCommand("commands/test-cmd.md", files[1].Contents, map[string]any{})
 	// Filter to non-info errors
 	realCmdErrors := 0
 	for _, e := range cmdErrors {
@@ -1224,14 +1224,14 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 	tests := []struct {
 		name        string
 		contents    string
-		frontmatter map[string]interface{}
+		frontmatter map[string]any
 		wantErrors  int
 		wantMessage string
 	}{
 		{
 			name:     "skill with existing agent in frontmatter",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "my-agent",
 			},
 			wantErrors: 0,
@@ -1239,7 +1239,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:     "skill with non-existent agent in frontmatter",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "ghost-agent",
 			},
 			wantErrors:  1,
@@ -1248,7 +1248,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:     "skill with built-in agent Explore in frontmatter",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "Explore",
 			},
 			wantErrors: 0,
@@ -1256,7 +1256,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:     "skill with built-in agent Plan in frontmatter",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "Plan",
 			},
 			wantErrors: 0,
@@ -1264,7 +1264,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:     "skill with built-in agent general-purpose in frontmatter",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "general-purpose",
 			},
 			wantErrors: 0,
@@ -1272,7 +1272,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:        "skill with no agent in frontmatter",
 			contents:    "Skill methodology content",
-			frontmatter: map[string]interface{}{},
+			frontmatter: map[string]any{},
 			wantErrors:  0,
 		},
 		{
@@ -1284,7 +1284,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 		{
 			name:     "skill with empty agent string",
 			contents: "Skill methodology content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"agent": "",
 			},
 			wantErrors: 0,
@@ -1329,7 +1329,7 @@ func TestValidateSkill_FrontmatterAgent(t *testing.T) {
 func TestExtractTaskAgentRefs(t *testing.T) {
 	tests := []struct {
 		name  string
-		tools interface{}
+		tools any
 		want  []string
 	}{
 		{
@@ -1354,12 +1354,12 @@ func TestExtractTaskAgentRefs(t *testing.T) {
 		},
 		{
 			name:  "array with Task refs",
-			tools: []interface{}{"Read", "Task(worker-agent)", "Write", "Task(reviewer-agent)"},
+			tools: []any{"Read", "Task(worker-agent)", "Write", "Task(reviewer-agent)"},
 			want:  []string{"worker-agent", "reviewer-agent"},
 		},
 		{
 			name:  "array with no Task refs",
-			tools: []interface{}{"Read", "Write", "Bash"},
+			tools: []any{"Read", "Write", "Bash"},
 			want:  nil,
 		},
 		{
@@ -1421,23 +1421,23 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 	tests := []struct {
 		name        string
 		contents    string
-		frontmatter map[string]interface{}
+		frontmatter map[string]any
 		wantWarns   int
 		wantMessage string
 	}{
 		{
 			name:     "tools with existing agent Task ref",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"tools": []interface{}{"Read", "Task(helper-agent)", "Write"},
+			frontmatter: map[string]any{
+				"tools": []any{"Read", "Task(helper-agent)", "Write"},
 			},
 			wantWarns: 0,
 		},
 		{
 			name:     "tools with missing agent Task ref",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"tools": []interface{}{"Read", "Task(ghost-agent)", "Write"},
+			frontmatter: map[string]any{
+				"tools": []any{"Read", "Task(ghost-agent)", "Write"},
 			},
 			wantWarns:   1,
 			wantMessage: "Task(ghost-agent) references non-existent agent",
@@ -1445,7 +1445,7 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 		{
 			name:     "tools string with missing agent",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"tools": "Read, Task(missing-agent), Write",
 			},
 			wantWarns:   1,
@@ -1454,16 +1454,16 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 		{
 			name:     "tools with built-in agent ref",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"tools": []interface{}{"Task(sonnet)", "Task(Explore)"},
+			frontmatter: map[string]any{
+				"tools": []any{"Task(sonnet)", "Task(Explore)"},
 			},
 			wantWarns: 0,
 		},
 		{
 			name:     "tools with mixed existing and missing",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"tools": []interface{}{"Task(helper-agent)", "Task(nonexistent-agent)"},
+			frontmatter: map[string]any{
+				"tools": []any{"Task(helper-agent)", "Task(nonexistent-agent)"},
 			},
 			wantWarns:   1,
 			wantMessage: "Task(nonexistent-agent) references non-existent agent",
@@ -1471,7 +1471,7 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 		{
 			name:        "no tools field",
 			contents:    "Agent content",
-			frontmatter: map[string]interface{}{},
+			frontmatter: map[string]any{},
 			wantWarns:   0,
 		},
 		{
@@ -1483,7 +1483,7 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 		{
 			name:     "tools wildcard no warnings",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"tools": "*",
 			},
 			wantWarns: 0,
@@ -1535,23 +1535,23 @@ func TestValidateAgent_FrontmatterSkills(t *testing.T) {
 	tests := []struct {
 		name        string
 		contents    string
-		frontmatter map[string]interface{}
+		frontmatter map[string]any
 		wantErrors  int
 		wantMessage string
 	}{
 		{
 			name:     "agent with existing skills in frontmatter",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"skills": []interface{}{"real-skill", "another-skill"},
+			frontmatter: map[string]any{
+				"skills": []any{"real-skill", "another-skill"},
 			},
 			wantErrors: 0,
 		},
 		{
 			name:     "agent with non-existent skill in frontmatter",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"skills": []interface{}{"real-skill", "missing-skill"},
+			frontmatter: map[string]any{
+				"skills": []any{"real-skill", "missing-skill"},
 			},
 			wantErrors:  1,
 			wantMessage: "non-existent skill 'missing-skill'",
@@ -1559,15 +1559,15 @@ func TestValidateAgent_FrontmatterSkills(t *testing.T) {
 		{
 			name:     "agent with all non-existent skills in frontmatter",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"skills": []interface{}{"ghost-a", "ghost-b"},
+			frontmatter: map[string]any{
+				"skills": []any{"ghost-a", "ghost-b"},
 			},
 			wantErrors: 2,
 		},
 		{
 			name:        "agent with no skills in frontmatter",
 			contents:    "Agent content",
-			frontmatter: map[string]interface{}{},
+			frontmatter: map[string]any{},
 			wantErrors:  0,
 		},
 		{
@@ -1579,8 +1579,8 @@ func TestValidateAgent_FrontmatterSkills(t *testing.T) {
 		{
 			name:     "agent with empty skills array",
 			contents: "Agent content",
-			frontmatter: map[string]interface{}{
-				"skills": []interface{}{},
+			frontmatter: map[string]any{
+				"skills": []any{},
 			},
 			wantErrors: 0,
 		},

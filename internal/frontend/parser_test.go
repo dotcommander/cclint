@@ -11,7 +11,7 @@ func TestParseYAMLFrontmatter(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
-		wantData    map[string]interface{}
+		wantData    map[string]any
 		wantBody    string
 		wantErr     bool
 		description string
@@ -25,7 +25,7 @@ model: sonnet
 # Agent Content
 
 This is the body.`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":  "test-agent",
 				"model": "sonnet",
 			},
@@ -36,7 +36,7 @@ This is the body.`,
 		{
 			name:  "no_frontmatter",
 			input: "# Just Markdown\n\nNo frontmatter here.",
-			wantData: map[string]interface{}{},
+			wantData: map[string]any{},
 			wantBody: "# Just Markdown\n\nNo frontmatter here.",
 			wantErr:  false,
 			description: "Plain markdown with no frontmatter",
@@ -47,7 +47,7 @@ This is the body.`,
 name: test
 model: sonnet
 # Missing closing ---`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name": "test",
 				"model": "sonnet",
 			},
@@ -85,18 +85,18 @@ config:
 # Complex Agent
 
 Body content.`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":  "complex-agent",
 				"model": "sonnet",
-				"triggers": []interface{}{
-					map[string]interface{}{"keyword": "analyze"},
-					map[string]interface{}{"keyword": "review"},
+				"triggers": []any{
+					map[string]any{"keyword": "analyze"},
+					map[string]any{"keyword": "review"},
 				},
-				"metadata": map[string]interface{}{
+				"metadata": map[string]any{
 					"version": "1.0.0",
-					"tags":    []interface{}{"testing", "analysis"},
+					"tags":    []any{"testing", "analysis"},
 				},
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"max_tokens":  4000,
 					"temperature": 0.7,
 				},
@@ -118,7 +118,7 @@ multiline: |
   Line 2
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":        "agent-with-quotes",
 				"description": "Single quotes work too",
 				"symbol":      "@special",
@@ -145,7 +145,7 @@ Some text with **bold** and *italic*.
 ` + "```go\ncode block\n```" + `
 
 More content.`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name": "test",
 			},
 			wantBody: `
@@ -168,7 +168,7 @@ More content.`,
 name: test
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name": "test",
 			},
 			wantBody:    "\nBody",
@@ -181,7 +181,7 @@ Body`,
 name: test
 ---
 Body with --- in it should work fine.`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name": "test",
 			},
 			wantBody:    "\nBody with --- in it should work fine.",
@@ -197,7 +197,7 @@ enabled: true
 disabled: false
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"count":    42,
 				"price":    19.99,
 				"enabled":  true,
@@ -210,7 +210,7 @@ Body`,
 		{
 			name: "empty_string",
 			input: "",
-			wantData: map[string]interface{}{},
+			wantData: map[string]any{},
 			wantBody: "",
 			wantErr:  false,
 			description: "Empty string returns empty frontmatter and body",
@@ -219,7 +219,7 @@ Body`,
 			name: "only_opening_delimiter",
 			input: `---
 name: test`,
-			wantData: map[string]interface{}{},
+			wantData: map[string]any{},
 			wantBody: `---
 name: test`,
 			wantErr:     false,
@@ -247,9 +247,9 @@ tags:
 numbers: [1, 2, 3, 4, 5]
 ---
 Body`,
-			wantData: map[string]interface{}{
-				"tags":    []interface{}{"go", "testing", "linter"},
-				"numbers": []interface{}{1, 2, 3, 4, 5},
+			wantData: map[string]any{
+				"tags":    []any{"go", "testing", "linter"},
+				"numbers": []any{1, 2, 3, 4, 5},
 			},
 			wantBody:    "\nBody",
 			wantErr:     false,
@@ -263,7 +263,7 @@ optional: null
 empty: ~
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":     "test",
 				"optional": nil,
 				"empty":    nil,
@@ -278,7 +278,7 @@ Body`,
 name: test
 model: sonnet
 ---`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":  "test",
 				"model": "sonnet",
 			},
@@ -296,7 +296,7 @@ model: sonnet
 
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":  "test",
 				"model": "sonnet",
 			},
@@ -312,7 +312,7 @@ emoji: "🎉🎊"
 chinese: 中文
 ---
 Body with unicode: Ñoño café`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"name":    "日本語",
 				"emoji":   "🎉🎊",
 				"chinese": "中文",
@@ -331,11 +331,11 @@ level1:
         value: deep
 ---
 Body`,
-			wantData: map[string]interface{}{
-				"level1": map[string]interface{}{
-					"level2": map[string]interface{}{
-						"level3": map[string]interface{}{
-							"level4": map[string]interface{}{
+			wantData: map[string]any{
+				"level1": map[string]any{
+					"level2": map[string]any{
+						"level3": map[string]any{
+							"level4": map[string]any{
 								"value": "deep",
 							},
 						},
@@ -359,14 +359,14 @@ object:
   nested: value
 ---
 Body`,
-			wantData: map[string]interface{}{
+			wantData: map[string]any{
 				"string":     "hello",
 				"number":     42,
 				"float":      3.14,
 				"bool":       true,
 				"null_value": nil,
-				"array":      []interface{}{1, "two", 3.0, true},
-				"object": map[string]interface{}{
+				"array":      []any{1, "two", 3.0, true},
+				"object": map[string]any{
 					"nested": "value",
 				},
 			},
@@ -497,7 +497,7 @@ Body`
 	})
 
 	t.Run("array_field_access", func(t *testing.T) {
-		tags, ok := result.Data["tags"].([]interface{})
+		tags, ok := result.Data["tags"].([]any)
 		assert.True(t, ok)
 		assert.Len(t, tags, 2)
 		assert.Equal(t, "testing", tags[0])

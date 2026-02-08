@@ -8,7 +8,7 @@ import (
 func TestScoreRequiredFields(t *testing.T) {
 	tests := []struct {
 		name         string
-		frontmatter  map[string]interface{}
+		frontmatter  map[string]any
 		specs        []FieldSpec
 		wantScore    int
 		wantMetrics  int
@@ -16,7 +16,7 @@ func TestScoreRequiredFields(t *testing.T) {
 	}{
 		{
 			name: "All fields present",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test-agent",
 				"description": "Test description",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -31,7 +31,7 @@ func TestScoreRequiredFields(t *testing.T) {
 		},
 		{
 			name: "Some fields missing",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name": "test-agent",
 			},
 			specs: []FieldSpec{
@@ -44,7 +44,7 @@ func TestScoreRequiredFields(t *testing.T) {
 		},
 		{
 			name:        "All fields missing",
-			frontmatter: map[string]interface{}{},
+			frontmatter: map[string]any{},
 			specs: []FieldSpec{
 				{"name", 10},
 				{"description", 10},
@@ -54,7 +54,7 @@ func TestScoreRequiredFields(t *testing.T) {
 		},
 		{
 			name: "Empty specs",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name": "test",
 			},
 			specs:       []FieldSpec{},

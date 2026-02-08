@@ -67,7 +67,7 @@ func TestLoadConfigFromJSON(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Create JSON config file
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"root":             "/custom/root",
 		"exclude":          []string{"node_modules", "*.tmp"},
 		"followSymlinks":   true,
@@ -81,12 +81,12 @@ func TestLoadConfigFromJSON(t *testing.T) {
 		"no-cycle-check":   true,
 		"concurrency":      20,
 		"parallel":         false,
-		"rules": map[string]interface{}{
+		"rules": map[string]any{
 			"strict": false,
 		},
-		"schemas": map[string]interface{}{
+		"schemas": map[string]any{
 			"enabled": false,
-			"extensions": map[string]interface{}{
+			"extensions": map[string]any{
 				"custom": "value",
 			},
 		},
@@ -225,7 +225,7 @@ func TestLoadConfigRootPathOverride(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Create config with root set
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"root": "/config/root",
 	}
 
@@ -296,7 +296,7 @@ func TestLoadConfigConfigFilePriority(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Create multiple config files
-	jsonConfig := map[string]interface{}{"root": "/json/root"}
+	jsonConfig := map[string]any{"root": "/json/root"}
 	jsonData, _ := json.MarshalIndent(jsonConfig, "", "  ")
 	_ = os.WriteFile(filepath.Join(tmpDir, ".cclintrc.json"), jsonData, 0644)
 
@@ -432,7 +432,7 @@ func TestSaveConfig(t *testing.T) {
 		},
 		Schemas: SchemaConfig{
 			Enabled: true,
-			Extensions: map[string]interface{}{
+			Extensions: map[string]any{
 				"test": "value",
 			},
 		},
@@ -533,7 +533,7 @@ func TestLoadConfigValidationError(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Create config that will fail validation (invalid format)
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"format": "invalid-format",
 	}
 
@@ -573,7 +573,7 @@ func TestConfigStructFields(t *testing.T) {
 		},
 		Schemas: SchemaConfig{
 			Enabled: true,
-			Extensions: map[string]interface{}{
+			Extensions: map[string]any{
 				"key": "value",
 			},
 		},
@@ -613,7 +613,7 @@ func TestRulesConfig(t *testing.T) {
 func TestSchemaConfig(t *testing.T) {
 	schemas := SchemaConfig{
 		Enabled: true,
-		Extensions: map[string]interface{}{
+		Extensions: map[string]any{
 			"ext1": "value1",
 			"ext2": 123,
 			"ext3": true,
@@ -631,7 +631,7 @@ func TestLoadConfigWithEmptyExclude(t *testing.T) {
 	resetViper()
 	tmpDir := setupTestDir(t)
 
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"exclude": []string{},
 	}
 
@@ -653,8 +653,8 @@ func TestLoadConfigWithNullExtensions(t *testing.T) {
 	resetViper()
 	tmpDir := setupTestDir(t)
 
-	configData := map[string]interface{}{
-		"schemas": map[string]interface{}{
+	configData := map[string]any{
+		"schemas": map[string]any{
 			"enabled": true,
 			"extensions": nil,
 		},
@@ -679,7 +679,7 @@ func TestLoadConfigEmptyRootPath(t *testing.T) {
 	resetViper()
 	tmpDir := setupTestDir(t)
 
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"root": "/custom/path",
 	}
 
@@ -772,12 +772,12 @@ func TestSaveConfigWithComplexExtensions(t *testing.T) {
 		Concurrency: 10,
 		Schemas: SchemaConfig{
 			Enabled: true,
-			Extensions: map[string]interface{}{
+			Extensions: map[string]any{
 				"string":  "value",
 				"number":  42,
 				"boolean": true,
-				"array":   []interface{}{"a", "b", "c"},
-				"nested": map[string]interface{}{
+				"array":   []any{"a", "b", "c"},
+				"nested": map[string]any{
 					"key": "value",
 				},
 			},
@@ -831,7 +831,7 @@ func TestLoadConfigPartialConfig(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	// Only set a few fields, others should use defaults
-	configData := map[string]interface{}{
+	configData := map[string]any{
 		"quiet":   true,
 		"verbose": true,
 	}

@@ -3,6 +3,7 @@ package format
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -55,7 +56,7 @@ func parseFrontmatterRaw(content string) (frontmatter, body string, hasFrontmatt
 // Priority fields come first, then others alphabetically.
 func normalizeFrontmatter(yamlContent string, priorityFields []string) (string, error) {
 	// Extract key-value pairs
-	data := make(map[string]interface{})
+	data := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlContent), &data); err != nil {
 		return "", err
 	}
@@ -73,14 +74,7 @@ func normalizeFrontmatter(yamlContent string, priorityFields []string) (string, 
 	// Add remaining fields alphabetically
 	var otherKeys []string
 	for key := range data {
-		isPriority := false
-		for _, pkey := range priorityFields {
-			if key == pkey {
-				isPriority = true
-				break
-			}
-		}
-		if !isPriority {
+		if !slices.Contains(priorityFields, key) {
 			otherKeys = append(otherKeys, key)
 		}
 	}
@@ -98,7 +92,7 @@ func normalizeFrontmatter(yamlContent string, priorityFields []string) (string, 
 		fieldEncoder.SetIndent(2)
 
 		// Create single-entry map for this field
-		singleField := map[string]interface{}{key: value}
+		singleField := map[string]any{key: value}
 		if err := fieldEncoder.Encode(singleField); err != nil {
 			return "", err
 		}
@@ -248,17 +242,14 @@ func Diff(original, formatted, filename string) string {
 	}
 
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("--- %s\n", filename))
-	buf.WriteString(fmt.Sprintf("+++ %s (formatted)\n", filename))
+	fmt.Fprintf(&buf, "--- %s\n", filename)
+	fmt.Fprintf(&buf, "+++ %s (formatted)\n", filename)
 
 	origLines := strings.Split(original, "\n")
 	fmtLines := strings.Split(formatted, "\n")
 
 	// Simple line-by-line diff
-	maxLen := len(origLines)
-	if len(fmtLines) > maxLen {
-		maxLen = len(fmtLines)
-	}
+	maxLen := max(len(origLines), len(fmtLines))
 
 	for i := 0; i < maxLen; i++ {
 		var origLine, fmtLine string
@@ -271,10 +262,10 @@ func Diff(original, formatted, filename string) string {
 
 		if origLine != fmtLine {
 			if origLine != "" {
-				buf.WriteString(fmt.Sprintf("- %s\n", origLine))
+				fmt.Fprintf(&buf, "- %s\n", origLine)
 			}
 			if fmtLine != "" {
-				buf.WriteString(fmt.Sprintf("+ %s\n", fmtLine))
+				fmt.Fprintf(&buf, "+ %s\n", fmtLine)
 			}
 		}
 	}

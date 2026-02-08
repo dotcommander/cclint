@@ -159,19 +159,19 @@ func TestDetermineSeverity(t *testing.T) {
 func TestValidateAllowedTools(t *testing.T) {
 	tests := []struct {
 		name         string
-		data         map[string]interface{}
+		data         map[string]any
 		filePath     string
 		wantErrCount int
 	}{
 		{
 			name:         "no allowed-tools",
-			data:         map[string]interface{}{},
+			data:         map[string]any{},
 			filePath:     "test.md",
 			wantErrCount: 0,
 		},
 		{
 			name: "valid tools",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "Read, Write",
 			},
 			filePath:     "test.md",
@@ -192,13 +192,13 @@ func TestValidateAllowedTools(t *testing.T) {
 func TestValidateToolFieldName(t *testing.T) {
 	tests := []struct {
 		name          string
-		data          map[string]interface{}
+		data          map[string]any
 		componentType string
 		wantErrCount  int
 	}{
 		{
 			name: "agent with tools",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"tools": "Read",
 			},
 			componentType: "agent",
@@ -206,7 +206,7 @@ func TestValidateToolFieldName(t *testing.T) {
 		},
 		{
 			name: "command with allowed-tools",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "Read",
 			},
 			componentType: "command",
@@ -214,7 +214,7 @@ func TestValidateToolFieldName(t *testing.T) {
 		},
 		{
 			name: "agent with wrong field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "Read",
 			},
 			componentType: "agent",
@@ -239,7 +239,7 @@ func TestValidateToolFieldName(t *testing.T) {
 }
 
 func TestGetImprovementFunctions(t *testing.T) {
-	data := map[string]interface{}{
+	data := map[string]any{
 		"name":        "test",
 		"description": "test",
 	}
@@ -482,47 +482,47 @@ func TestDetectSecretsComprehensive(t *testing.T) {
 func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 	tests := []struct {
 		name         string
-		data         map[string]interface{}
+		data         map[string]any
 		wantWarnings int
 	}{
 		{
 			name: "unknown tool",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "UnknownTool",
 			},
 			wantWarnings: 1,
 		},
 		{
 			name: "multiple unknown tools",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "UnknownTool1, UnknownTool2",
 			},
 			wantWarnings: 2,
 		},
 		{
 			name: "Task with npm prefix",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"tools": "Bash(npm:*)",
 			},
 			wantWarnings: 0,
 		},
 		{
 			name: "Task pattern valid",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "Task(foo-specialist)",
 			},
 			wantWarnings: 0,
 		},
 		{
 			name: "valid tools mixed",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "Read, Write, Edit",
 			},
 			wantWarnings: 0,
 		},
 		{
 			name: "empty tools",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"allowed-tools": "",
 			},
 			wantWarnings: 0,
@@ -545,13 +545,13 @@ func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 func TestValidateToolFieldNameEdgeCases(t *testing.T) {
 	tests := []struct {
 		name          string
-		data          map[string]interface{}
+		data          map[string]any
 		componentType string
 		wantErrors    int
 	}{
 		{
 			name: "command with tools field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"tools": "Read",
 			},
 			componentType: "command",
@@ -559,7 +559,7 @@ func TestValidateToolFieldNameEdgeCases(t *testing.T) {
 		},
 		{
 			name: "skill with tools field",
-			data: map[string]interface{}{
+			data: map[string]any{
 				"tools": "Read",
 			},
 			componentType: "skill",
@@ -567,7 +567,7 @@ func TestValidateToolFieldNameEdgeCases(t *testing.T) {
 		},
 		{
 			name:          "no tool fields",
-			data:          map[string]interface{}{},
+			data:          map[string]any{},
 			componentType: "agent",
 			wantErrors:    0,
 		},

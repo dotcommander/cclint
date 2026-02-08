@@ -96,16 +96,16 @@ func (l *RuleLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 	return errors
 }
 
-func (l *RuleLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (l *RuleLinter) ParseContent(contents string) (map[string]any, string, error) {
 	// Rules have optional frontmatter with 'paths' field
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 
-	var paths interface{}
+	var paths any
 	if err == nil && fm != nil && fm.Data != nil {
 		paths = fm.Data["paths"]
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"paths": paths,
 	}
 
@@ -117,12 +117,12 @@ func (l *RuleLinter) ParseContent(contents string) (map[string]interface{}, stri
 	return data, body, nil
 }
 
-func (l *RuleLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (l *RuleLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	// Rules don't have a CUE schema yet - frontmatter is optional
 	return nil, nil
 }
 
-func (l *RuleLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (l *RuleLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Validate paths: field if present
@@ -134,7 +134,7 @@ func (l *RuleLinter) ValidateSpecific(data map[string]interface{}, filePath, con
 	return errors
 }
 
-func (l *RuleLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (l *RuleLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
 	// Check for @imports and validate they exist
@@ -145,7 +145,7 @@ func (l *RuleLinter) ValidateBestPractices(filePath, contents string, data map[s
 }
 
 // validatePathsGlob validates the paths: frontmatter field
-func validatePathsGlob(paths interface{}, filePath, contents string) []cue.ValidationError {
+func validatePathsGlob(paths any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	pathStr, ok := paths.(string)

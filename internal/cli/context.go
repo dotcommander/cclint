@@ -36,8 +36,8 @@ func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (
 }
 
 // parseMarkdownSections parses markdown content into sections
-func parseMarkdownSections(content string) []interface{} {
-	var sections []interface{}
+func parseMarkdownSections(content string) []any {
+	var sections []any
 
 	// This is a simplified parser - in practice, would use a proper markdown parser
 	lines := []string{}
@@ -47,7 +47,7 @@ func parseMarkdownSections(content string) []interface{} {
 		lines = append(lines, strings.Split(content, "\n")...)
 	}
 
-	currentSection := map[string]interface{}{}
+	currentSection := map[string]any{}
 	inSection := false
 
 	for _, line := range lines {
@@ -59,7 +59,7 @@ func parseMarkdownSections(content string) []interface{} {
 			if inSection {
 				sections = append(sections, currentSection)
 			}
-			currentSection = map[string]interface{}{
+			currentSection = map[string]any{
 				"heading": strings.TrimPrefix(line, "## "),
 				"content": "",
 			}
@@ -69,7 +69,7 @@ func parseMarkdownSections(content string) []interface{} {
 			if inSection {
 				sections = append(sections, currentSection)
 			}
-			currentSection = map[string]interface{}{
+			currentSection = map[string]any{
 				"heading": strings.TrimPrefix(line, "# "),
 				"content": "",
 			}
@@ -92,13 +92,13 @@ func parseMarkdownSections(content string) []interface{} {
 }
 
 // validateContextSpecific implements context-specific validation rules
-func validateContextSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func validateContextSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	// Check if sections are present
-	if sections, ok := data["sections"].([]interface{}); ok && len(sections) > 0 {
+	if sections, ok := data["sections"].([]any); ok && len(sections) > 0 {
 		for i, section := range sections {
-			if sectionMap, ok := section.(map[string]interface{}); ok {
+			if sectionMap, ok := section.(map[string]any); ok {
 				// Check heading
 				if heading, exists := sectionMap["heading"]; !exists || heading == "" {
 					errors = append(errors, cue.ValidationError{

@@ -14,7 +14,7 @@ func NewAgentScorer() *AgentScorer {
 }
 
 // Score evaluates an agent and returns a QualityScore
-func (s *AgentScorer) Score(content string, frontmatter map[string]interface{}, bodyContent string) QualityScore {
+func (s *AgentScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
 	var details []ScoringMetric
 	lines := strings.Count(content, "\n") + 1
 

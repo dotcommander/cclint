@@ -217,18 +217,18 @@ type mockLinter struct {
 func (m *mockLinter) Type() string { return m.typeStr }
 func (m *mockLinter) FileType() discovery.FileType { return m.fileType }
 
-func (m *mockLinter) ParseContent(contents string) (map[string]interface{}, string, error) {
+func (m *mockLinter) ParseContent(contents string) (map[string]any, string, error) {
 	if m.parseErr != nil {
 		return nil, "", m.parseErr
 	}
-	return map[string]interface{}{"test": "data"}, "body", nil
+	return map[string]any{"test": "data"}, "body", nil
 }
 
-func (m *mockLinter) ValidateCUE(validator *cue.Validator, data map[string]interface{}) ([]cue.ValidationError, error) {
+func (m *mockLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {
 	return m.cueErrors, nil
 }
 
-func (m *mockLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
+func (m *mockLinter) ValidateSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return m.specificErrs
 }
 
@@ -236,7 +236,7 @@ func (m *mockLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 	return m.preValidErrs
 }
 
-func (m *mockLinter) ValidateBestPractices(filePath, contents string, data map[string]interface{}) []cue.ValidationError {
+func (m *mockLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
 	return m.bestPracErrs
 }
 
@@ -324,7 +324,7 @@ func TestLintComponent(t *testing.T) {
 
 func TestValidateAllowedToolsShared(t *testing.T) {
 	// This is a wrapper function, test it exists
-	data := map[string]interface{}{
+	data := map[string]any{
 		"allowed-tools": "Read, Write",
 	}
 	errors := ValidateAllowedToolsShared(data, "test.md", "")

@@ -15,7 +15,7 @@ func TestNewAgentScorer(t *testing.T) {
 func TestAgentScorer_Score(t *testing.T) {
 	tests := []struct {
 		name          string
-		frontmatter   map[string]interface{}
+		frontmatter   map[string]any
 		bodyContent   string
 		wantTier      string
 		wantStructMin int
@@ -25,7 +25,7 @@ func TestAgentScorer_Score(t *testing.T) {
 	}{
 		{
 			name: "Perfect agent",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test-agent",
 				"description": "PROACTIVELY handles test cases when user needs testing. This is a comprehensive description that is at least 200 characters long to ensure we get full points for description quality. It provides detailed information about the agent's capabilities and use cases.",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -69,7 +69,7 @@ Results here
 		},
 		{
 			name: "Minimal agent - missing most features",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name": "minimal",
 			},
 			bodyContent: "Basic content",
@@ -77,7 +77,7 @@ Results here
 		},
 		{
 			name: "Agent with Skill() format",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -92,7 +92,7 @@ Skill('another-pattern')
 		},
 		{
 			name: "Agent with **Skill**: format",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -106,7 +106,7 @@ Skill('another-pattern')
 		},
 		{
 			name: "Agent with Skills: list format",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -122,7 +122,7 @@ Skills:
 		},
 		{
 			name: "Third-person description",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Handles testing tasks effectively",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -133,7 +133,7 @@ Skills:
 		},
 		{
 			name: "First-person description (fails third-person check)",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "I handle testing tasks",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -144,7 +144,7 @@ Skills:
 		},
 		{
 			name: "WHEN triggers in description",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Use when user needs testing assistance",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -155,7 +155,7 @@ Skills:
 		},
 		{
 			name: "PROACTIVELY in description",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "PROACTIVELY runs tests when code changes",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -166,7 +166,7 @@ Skills:
 		},
 		{
 			name: "Large agent - over 220 lines",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "large-agent",
 				"description": "Large agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -177,7 +177,7 @@ Skills:
 		},
 		{
 			name: "Well-structured agent - many sections",
-			frontmatter: map[string]interface{}{
+			frontmatter: map[string]any{
 				"name":        "test",
 				"description": "Test agent with comprehensive description that is at least 100 characters long to get adequate points",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -250,7 +250,7 @@ func TestAgentScorer_SkillReferenceDetection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			scorer := NewAgentScorer()
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -311,7 +311,7 @@ func TestAgentScorer_DescriptionQuality(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": tt.desc,
 				"model":       "claude-3-5-sonnet-20241022",
@@ -384,7 +384,7 @@ func TestAgentScorer_SectionStructure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -441,7 +441,7 @@ func TestAgentScorer_CompositionScoring(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			frontmatter := map[string]interface{}{
+			frontmatter := map[string]any{
 				"name":        "test",
 				"description": "Test agent",
 				"model":       "claude-3-5-sonnet-20241022",
@@ -475,7 +475,7 @@ func TestAgentScorer_CompositionScoring(t *testing.T) {
 }
 
 // Helper function to generate full content with frontmatter
-func generateFullContent(frontmatter map[string]interface{}, body string) string {
+func generateFullContent(frontmatter map[string]any, body string) string {
 	// Simple content generation - just return body since we're passing frontmatter separately
 	return body
 }
