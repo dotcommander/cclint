@@ -282,14 +282,13 @@ func TestRenderBar(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := renderBar(tt.count, tt.total, tt.color)
 
-			if tt.want == "" {
+			switch tt.want {
+			case "":
 				assert.Equal(t, "", result)
-			} else if tt.want == "empty" {
-				// Zero count still renders dim blocks
-				assert.NotEmpty(t, result)
-			} else {
-				// Just verify it returns a non-empty string
-				// The actual rendering includes ANSI codes, so we can't do exact match
+			default:
+				// Non-empty want ("empty", "full", "half", "minimal") all expect
+				// a non-empty rendered string. Exact match is impractical due to
+				// ANSI escape codes in the output.
 				assert.NotEmpty(t, result)
 			}
 		})

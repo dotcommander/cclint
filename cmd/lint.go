@@ -37,10 +37,11 @@ func runComponentLint(linterName string, linter LinterFunc) error {
 	// Load baseline if requested
 	var b *baseline.Baseline
 	if useBaseline || createBaseline {
-		if _, err := os.Stat(baselineFile); err == nil {
-			b, err = baseline.LoadBaseline(baselineFile)
-			if err != nil && !cfg.Quiet {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", err)
+		if _, statErr := os.Stat(baselineFile); statErr == nil {
+			var loadErr error
+			b, loadErr = baseline.LoadBaseline(baselineFile)
+			if loadErr != nil && !cfg.Quiet {
+				fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", loadErr)
 				b = nil
 			}
 		}

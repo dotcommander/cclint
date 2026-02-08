@@ -104,115 +104,21 @@ func runFmt(args []string) error {
 		return fmt.Errorf("no files to format")
 	}
 
-	// Track if any files need changes
+	// Format each file, collecting results
 	var needsFormatting []string
-	var totalFiles int
+	totalFiles := len(filesToFormat)
 
-	// Format each file
 	for _, filePath := range filesToFormat {
-		totalFiles++
-
-		// Validate file exists
-		absPath, err := discovery.ValidateFilePath(filePath)
-		if err != nil {
-			if !quiet {
-				fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", filePath, err)
-			}
-			continue
+		changed, fmtErr := formatOneFile(filePath, cfg.Root)
+		if fmtErr != nil {
+			return fmtErr
 		}
-
-		// Detect component type
-		var fileType discovery.FileType
-		if fmtType != "" {
-			fileType, err = discovery.ParseFileType(fmtType)
-			if err != nil {
-				return err
-			}
-		} else {
-			fileType, err = discovery.DetectFileType(absPath, cfg.Root)
-			if err != nil {
-				if !quiet {
-					fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", filePath, err)
-				}
-				continue
-			}
-		}
-
-		// Only format markdown files
-		if !strings.HasSuffix(strings.ToLower(absPath), ".md") {
-			if verbose {
-				fmt.Fprintf(os.Stderr, "Skipping %s: not a markdown file\n", filePath)
-			}
-			continue
-		}
-
-		// Read file
-		content, err := os.ReadFile(absPath)
-		if err != nil {
-			if !quiet {
-				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filePath, err)
-			}
-			continue
-		}
-
-		// Create formatter for component type
-		formatter := format.NewComponentFormatter(fileType.String())
-
-		// Format content
-		formatted, err := formatter.Format(string(content))
-		if err != nil {
-			if !quiet {
-				fmt.Fprintf(os.Stderr, "Error formatting %s: %v\n", filePath, err)
-			}
-			continue
-		}
-
-		// Check if content changed
-		if string(content) != formatted {
-			needsFormatting = append(needsFormatting, absPath)
-
-			// Handle different output modes
-			if fmtCheck {
-				// Check mode: just track, will exit 1 later
-				if !quiet {
-					fmt.Printf("%s needs formatting\n", filePath)
-				}
-			} else if fmtDiff {
-				// Diff mode: show differences
-				diff := format.Diff(string(content), formatted, filePath)
-				fmt.Print(diff)
-			} else if fmtWrite {
-				// Write mode: save changes
-				if err := os.WriteFile(absPath, []byte(formatted), 0644); err != nil {
-					return fmt.Errorf("error writing %s: %w", absPath, err)
-				}
-				if !quiet {
-					fmt.Printf("Formatted %s\n", filePath)
-				}
-			} else {
-				// Default mode: print to stdout
-				fmt.Print(formatted)
-			}
-		} else {
-			// File already formatted
-			if verbose {
-				fmt.Printf("%s already formatted\n", filePath)
-			}
+		if changed {
+			needsFormatting = append(needsFormatting, filePath)
 		}
 	}
 
-	// Summary
-	if !quiet && totalFiles > 1 {
-		if len(needsFormatting) == 0 {
-			fmt.Printf("\nAll %d files already formatted\n", totalFiles)
-		} else {
-			if fmtWrite {
-				fmt.Printf("\nFormatted %d of %d files\n", len(needsFormatting), totalFiles)
-			} else {
-				fmt.Printf("\n%d of %d files need formatting\n", len(needsFormatting), totalFiles)
-			}
-		}
-	}
+	printFmtSummary(totalFiles, len(needsFormatting))
 
 	// Check mode: exit 1 if files need formatting
 	if fmtCheck && len(needsFormatting) > 0 {
@@ -222,10 +128,119 @@ func runFmt(args []string) error {
 	return nil
 }
 
+// formatOneFile validates, reads, formats, and outputs a single file.
+// Returns true if the file needed formatting, or an error for fatal failures.
+func formatOneFile(filePath, root string) (bool, error) {
+	absPath, err := discovery.ValidateFilePath(filePath)
+	if err != nil {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", filePath, err)
+		}
+		return false, nil
+	}
+
+	fileType, skip, err := resolveFileType(absPath, filePath, root)
+	if err != nil {
+		return false, err
+	}
+	if skip {
+		return false, nil
+	}
+
+	if !strings.HasSuffix(strings.ToLower(absPath), ".md") {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Skipping %s: not a markdown file\n", filePath)
+		}
+		return false, nil
+	}
+
+	content, err := os.ReadFile(absPath)
+	if err != nil {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filePath, err)
+		}
+		return false, nil
+	}
+
+	formatter := format.NewComponentFormatter(fileType.String())
+	formatted, err := formatter.Format(string(content))
+	if err != nil {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Error formatting %s: %v\n", filePath, err)
+		}
+		return false, nil
+	}
+
+	if string(content) == formatted {
+		if verbose {
+			fmt.Printf("%s already formatted\n", filePath)
+		}
+		return false, nil
+	}
+
+	return true, emitFormatted(absPath, filePath, string(content), formatted)
+}
+
+// resolveFileType determines the component type for a file. If the type cannot
+// be resolved (and is not a fatal error), skip is returned as true.
+func resolveFileType(absPath, displayPath, root string) (discovery.FileType, bool, error) {
+	if fmtType != "" {
+		ft, err := discovery.ParseFileType(fmtType)
+		return ft, false, err
+	}
+
+	ft, err := discovery.DetectFileType(absPath, root)
+	if err != nil {
+		if !quiet {
+			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", displayPath, err)
+		}
+		return 0, true, nil
+	}
+	return ft, false, nil
+}
+
+// emitFormatted writes or displays the formatted output based on the active mode.
+func emitFormatted(absPath, displayPath, original, formatted string) error {
+	switch {
+	case fmtCheck:
+		if !quiet {
+			fmt.Printf("%s needs formatting\n", displayPath)
+		}
+	case fmtDiff:
+		fmt.Print(format.Diff(original, formatted, displayPath))
+	case fmtWrite:
+		if err := os.WriteFile(absPath, []byte(formatted), 0644); err != nil {
+			return fmt.Errorf("error writing %s: %w", absPath, err)
+		}
+		if !quiet {
+			fmt.Printf("Formatted %s\n", displayPath)
+		}
+	default:
+		fmt.Print(formatted)
+	}
+	return nil
+}
+
+// printFmtSummary prints the formatting summary when multiple files were processed.
+func printFmtSummary(totalFiles, changedCount int) {
+	if quiet || totalFiles <= 1 {
+		return
+	}
+
+	if changedCount == 0 {
+		fmt.Printf("\nAll %d files already formatted\n", totalFiles)
+		return
+	}
+
+	if fmtWrite {
+		fmt.Printf("\nFormatted %d of %d files\n", changedCount, totalFiles)
+	} else {
+		fmt.Printf("\n%d of %d files need formatting\n", changedCount, totalFiles)
+	}
+}
+
 // collectFilesToFormat determines which files to format based on args and flags.
 func collectFilesToFormat(args []string, rootPath string) ([]string, error) {
-	var files []string
-
 	// 1. Explicit --file flag
 	if len(fmtFiles) > 0 {
 		return fmtFiles, nil
@@ -248,26 +263,11 @@ func collectFilesToFormat(args []string, rootPath string) ([]string, error) {
 
 	// 3. If we have path args, use them
 	if len(pathArgs) > 0 {
-		for _, path := range pathArgs {
-			// Check if it's a directory or file
-			info, err := os.Stat(path)
-			if err != nil {
-				return nil, fmt.Errorf("cannot access %s: %w", path, err)
-			}
-
-			if info.IsDir() {
-				// Discover files in directory
-				dirFiles, err := discoverFilesInDir(path)
-				if err != nil {
-					return nil, err
-				}
-				files = append(files, dirFiles...)
-			} else {
-				// Single file
-				files = append(files, path)
-			}
+		resolved, err := resolvePathArgs(pathArgs)
+		if err != nil {
+			return nil, err
 		}
-		return files, nil
+		return resolved, nil
 	}
 
 	// 4. If we have component type arg, discover those files
@@ -277,6 +277,29 @@ func collectFilesToFormat(args []string, rootPath string) ([]string, error) {
 
 	// 5. No args: discover all component files
 	return discoverAllFiles(rootPath)
+}
+
+// resolvePathArgs expands a list of file/directory paths into individual file paths.
+func resolvePathArgs(paths []string) ([]string, error) {
+	var files []string
+	for _, path := range paths {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("cannot access %s: %w", path, err)
+		}
+
+		if !info.IsDir() {
+			files = append(files, path)
+			continue
+		}
+
+		dirFiles, err := discoverFilesInDir(path)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, dirFiles...)
+	}
+	return files, nil
 }
 
 // isComponentType checks if arg is a component type name.

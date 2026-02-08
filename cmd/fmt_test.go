@@ -397,11 +397,9 @@ End of file`
 
 			if tt.wantError {
 				assert.Error(t, err)
-			} else {
+			} else if err != nil {
 				// May have error OR os.Exit called
-				if err != nil {
-					t.Logf("Got error: %v", err)
-				}
+				t.Logf("Got error: %v", err)
 			}
 
 			// Restore global flags

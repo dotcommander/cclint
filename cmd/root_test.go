@@ -20,9 +20,9 @@ func TestCollectFilesToLint(t *testing.T) {
 	}{
 		{
 			name:     "empty args and flags",
-			args:     nil, //[]string{},
-			fileFlag: nil, //[]string{},
-			want:     nil, //[]string{},
+			args:     nil, // []string{}
+			fileFlag: nil, // []string{}
+			want:     nil, // []string{}
 		},
 		{
 			name:     "file flag takes precedence",
@@ -33,8 +33,8 @@ func TestCollectFilesToLint(t *testing.T) {
 		{
 			name:     "skip known subcommands in args",
 			args:     []string{"agents", "commands", "skills"},
-			fileFlag: nil, //[]string{},
-			want:     nil, //[]string{},
+			fileFlag: nil, // []string{}
+			want:     nil, // []string{}
 		},
 		{
 			name:     "collect file paths from args",
