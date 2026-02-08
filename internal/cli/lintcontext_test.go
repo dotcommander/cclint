@@ -195,8 +195,8 @@ func TestLinterContextAutoDiscoverRoot(t *testing.T) {
 	}
 	defer func() { _ = os.Chdir(oldWd) }()
 
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatal(err)
+	if chErr := os.Chdir(tmpDir); chErr != nil {
+		t.Fatal(chErr)
 	}
 
 	// Test with empty rootPath - should auto-discover

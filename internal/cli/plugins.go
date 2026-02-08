@@ -103,17 +103,14 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "description"),
 		})
-	} else {
-		// Character limit check
-		if len(description) > 1024 {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Description exceeds 1024 character limit (%d chars)", len(description)),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindJSONFieldLine(contents, "description"),
-			})
-		}
+	} else if len(description) > 1024 {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Description exceeds 1024 character limit (%d chars)", len(description)),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "description"),
+		})
 	}
 
 	// Version field - recommended (Anthropic's own plugins omit this, using marketplace.json instead)

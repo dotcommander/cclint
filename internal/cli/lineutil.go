@@ -317,37 +317,42 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 	toolsFields := []string{"tools", "allowed-tools"}
 
 	for _, field := range toolsFields {
-		if tools, ok := data[field].(string); ok && tools != "" {
-			// Parse comma-separated tools
-			for tool := range strings.SplitSeq(tools, ",") {
-				tool = strings.TrimSpace(tool)
-				if tool == "" {
-					continue
-				}
-				// Handle patterns like "Task(specialist-name)"
-				baseTool := tool
-				if idx := strings.Index(tool, "("); idx > 0 {
-					baseTool = tool[:idx]
-				}
-				// Handle patterns like "Bash(npm:*)" - ignore suffix after colon
-				if colonIdx := strings.Index(baseTool, ":"); colonIdx > 0 {
-					baseTool = baseTool[:colonIdx]
-				}
-				// Validate base tool
-				if !knownTools[baseTool] {
-					warnings = append(warnings, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),
-						Severity: "warning",
-						Source:   cue.SourceCClintObserve,
-						Line:     FindFrontmatterFieldLine(contents, field),
-					})
-				}
+		tools, ok := data[field].(string)
+		if !ok || tools == "" {
+			continue
+		}
+		// Parse comma-separated tools
+		for tool := range strings.SplitSeq(tools, ",") {
+			tool = strings.TrimSpace(tool)
+			if tool == "" {
+				continue
+			}
+			baseTool := extractBaseToolName(tool)
+			if !knownTools[baseTool] {
+				warnings = append(warnings, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),
+					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
+					Line:     FindFrontmatterFieldLine(contents, field),
+				})
 			}
 		}
 	}
 
 	return warnings
+}
+
+// extractBaseToolName returns the base tool name from patterns like "Task(name)" or "Bash(npm:*)".
+func extractBaseToolName(tool string) string {
+	baseTool := tool
+	if idx := strings.Index(tool, "("); idx > 0 {
+		baseTool = tool[:idx]
+	}
+	if colonIdx := strings.Index(baseTool, ":"); colonIdx > 0 {
+		baseTool = baseTool[:colonIdx]
+	}
+	return baseTool
 }
 
 // ValidateToolFieldName ensures components use correct field name (tools vs allowed-tools)
@@ -464,6 +469,22 @@ func isPlaceholderSecret(line string) bool {
 	return false
 }
 
+// findSecretLineNumber returns the 1-based line number of the first non-placeholder match.
+// Returns 0 if all matches are placeholders.
+func findSecretLineNumber(pattern *regexp.Regexp, contents string) int {
+	lines := strings.Split(contents, "\n")
+	for i, line := range lines {
+		if !pattern.MatchString(line) {
+			continue
+		}
+		if isPlaceholderSecret(line) {
+			continue
+		}
+		return i + 1
+	}
+	return 0
+}
+
 // detectSecrets checks for hardcoded secrets in content
 func detectSecrets(contents string, filePath string) []cue.ValidationError {
 	var warnings []cue.ValidationError
@@ -497,34 +518,20 @@ func detectSecrets(contents string, filePath string) []cue.ValidationError {
 	}
 
 	for _, sp := range secretPatterns {
-		if sp.pattern.MatchString(contents) {
-			// Find line number for better error reporting
-			lineNum := 0
-			lines := strings.Split(contents, "\n")
-			for i, line := range lines {
-				if sp.pattern.MatchString(line) {
-					// Skip placeholder/example secrets
-					if isPlaceholderSecret(line) {
-						continue
-					}
-					lineNum = i + 1
-					break
-				}
-			}
-
-			// If lineNum is still 0, all matches were placeholders
-			if lineNum == 0 {
-				continue
-			}
-
-			warnings = append(warnings, cue.ValidationError{
-				File:     filePath,
-				Message:  sp.message,
-				Severity: "warning",
-				Source:   cue.SourceCClintObserve,
-				Line:     lineNum,
-			})
+		if !sp.pattern.MatchString(contents) {
+			continue
 		}
+		lineNum := findSecretLineNumber(sp.pattern, contents)
+		if lineNum == 0 {
+			continue // all matches were placeholders
+		}
+		warnings = append(warnings, cue.ValidationError{
+			File:     filePath,
+			Message:  sp.message,
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+			Line:     lineNum,
+		})
 	}
 
 	return warnings

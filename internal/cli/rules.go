@@ -72,28 +72,38 @@ func (l *RuleLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 	}
 
 	// Check for symlink and validate target exists
-	if info, err := os.Lstat(filePath); err == nil {
-		if info.Mode()&os.ModeSymlink != 0 {
-			target, err := filepath.EvalSymlinks(filePath)
-			if err != nil {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Symlink target does not exist or is inaccessible: %v", err),
-					Severity: "warning",
-					Source:   cue.SourceCClintObserve,
-				})
-			} else if _, err := os.Stat(target); err != nil {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Symlink target not found: %s", target),
-					Severity: "warning",
-					Source:   cue.SourceCClintObserve,
-				})
-			}
-		}
-	}
+	errors = append(errors, validateSymlinkTarget(filePath)...)
 
 	return errors
+}
+
+// validateSymlinkTarget checks if a file is a symlink and validates its target exists.
+func validateSymlinkTarget(filePath string) []cue.ValidationError {
+	info, err := os.Lstat(filePath)
+	if err != nil {
+		return nil
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		return nil
+	}
+	target, err := filepath.EvalSymlinks(filePath)
+	if err != nil {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Symlink target does not exist or is inaccessible: %v", err),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+		}}
+	}
+	if _, err := os.Stat(target); err != nil {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Symlink target not found: %s", target),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+		}}
+	}
+	return nil
 }
 
 func (l *RuleLinter) ParseContent(contents string) (map[string]any, string, error) {
@@ -284,33 +294,18 @@ func validateImports(contents, filePath string) []cue.ValidationError {
 		// Find @imports in this line
 		matches := importPattern.FindAllStringSubmatch(line, -1)
 		for _, match := range matches {
-			if len(match) >= 2 {
-				importPath := match[1]
-
-				// Expand ~ to home directory
-				if strings.HasPrefix(importPath, "~") {
-					home, err := os.UserHomeDir()
-					if err == nil {
-						importPath = filepath.Join(home, importPath[1:])
-					}
-				}
-
-				// Make relative paths absolute based on file location
-				if !filepath.IsAbs(importPath) {
-					dir := filepath.Dir(filePath)
-					importPath = filepath.Join(dir, importPath)
-				}
-
-				// Check if import target exists
-				if _, err := os.Stat(importPath); os.IsNotExist(err) {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Import target does not exist: @%s", match[1]),
-						Severity: "warning",
-						Source:   cue.SourceCClintObserve,
-						Line:     lineNum + 1,
-					})
-				}
+			if len(match) < 2 {
+				continue
+			}
+			resolved := resolveRuleImportPath(match[1], filePath)
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Import target does not exist: @%s", match[1]),
+					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
+					Line:     lineNum + 1,
+				})
 			}
 		}
 	}
@@ -319,6 +314,22 @@ func validateImports(contents, filePath string) []cue.ValidationError {
 	// which builds a full import graph and runs DFS cycle detection.
 
 	return errors
+}
+
+// resolveRuleImportPath resolves an @import path to an absolute filesystem path.
+// Handles ~ expansion and relative path resolution.
+func resolveRuleImportPath(importPath, filePath string) string {
+	if strings.HasPrefix(importPath, "~") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			importPath = filepath.Join(home, importPath[1:])
+		}
+	}
+	if !filepath.IsAbs(importPath) {
+		dir := filepath.Dir(filePath)
+		importPath = filepath.Join(dir, importPath)
+	}
+	return importPath
 }
 
 // PostProcessBatch implements BatchPostProcessor for import cycle detection.

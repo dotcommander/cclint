@@ -279,50 +279,12 @@ func validateMCPServerEntry(serverName string, serverMap map[string]any, filePat
 
 	// Validate args field (optional, must be array of strings)
 	if argsVal, argsExists := serverMap["args"]; argsExists {
-		argsArray, ok := argsVal.([]any)
-		if !ok {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("mcpServers '%s': 'args' must be an array of strings", serverName),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		} else {
-			for i, arg := range argsArray {
-				if _, ok := arg.(string); !ok {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("mcpServers '%s': args[%d] must be a string", serverName, i),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-				}
-			}
-		}
+		errors = append(errors, validateMCPServerArgs(serverName, argsVal, filePath)...)
 	}
 
 	// Validate env field (optional, must be object with string values)
 	if envVal, envExists := serverMap["env"]; envExists {
-		envMap, ok := envVal.(map[string]any)
-		if !ok {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("mcpServers '%s': 'env' must be an object with string values", serverName),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		} else {
-			for envKey, envValue := range envMap {
-				if _, ok := envValue.(string); !ok {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("mcpServers '%s': env '%s' value must be a string", serverName, envKey),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-				}
-			}
-		}
+		errors = append(errors, validateMCPServerEnv(serverName, envVal, filePath)...)
 	}
 
 	// Validate cwd field (optional, must be a string)
@@ -337,6 +299,56 @@ func validateMCPServerEntry(serverName string, serverMap map[string]any, filePat
 		}
 	}
 
+	return errors
+}
+
+// validateMCPServerArgs validates the args field of an MCP server entry.
+func validateMCPServerArgs(serverName string, argsVal any, filePath string) []cue.ValidationError {
+	argsArray, ok := argsVal.([]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("mcpServers '%s': 'args' must be an array of strings", serverName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+	var errors []cue.ValidationError
+	for i, arg := range argsArray {
+		if _, isStr := arg.(string); !isStr {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': args[%d] must be a string", serverName, i),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+	}
+	return errors
+}
+
+// validateMCPServerEnv validates the env field of an MCP server entry.
+func validateMCPServerEnv(serverName string, envVal any, filePath string) []cue.ValidationError {
+	envMap, ok := envVal.(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("mcpServers '%s': 'env' must be an object with string values", serverName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+	var errors []cue.ValidationError
+	for envKey, envValue := range envMap {
+		if _, isStr := envValue.(string); !isStr {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers '%s': env '%s' value must be a string", serverName, envKey),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+	}
 	return errors
 }
 
@@ -416,36 +428,48 @@ func validateMatcherToolName(toolNamePattern string, location string, filePath s
 	}
 
 	// Validate the parenthetical glob pattern if present
-	if openIdx := strings.Index(toolNamePattern, "("); openIdx > 0 {
-		closeIdx := strings.LastIndex(toolNamePattern, ")")
-		if closeIdx <= openIdx {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("%s: unclosed parenthesis in toolName pattern '%s'", location, toolNamePattern),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		} else {
-			globPart := toolNamePattern[openIdx+1 : closeIdx]
-			if globPart == "" {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("%s: empty glob pattern in parentheses for toolName '%s'", location, toolNamePattern),
-					Severity: "warning",
-					Source:   cue.SourceCClintObserve,
-				})
-			} else if err := validateGlobPattern(globPart); err != nil {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("%s: invalid glob in toolName '%s': %v", location, toolNamePattern, err),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-				})
-			}
-		}
-	}
+	errors = append(errors, validateToolNameGlob(toolNamePattern, location, filePath)...)
 
 	return errors
+}
+
+// validateToolNameGlob validates the glob portion inside parentheses of a toolName pattern.
+func validateToolNameGlob(toolNamePattern, location, filePath string) []cue.ValidationError {
+	openIdx := strings.Index(toolNamePattern, "(")
+	if openIdx <= 0 {
+		return nil
+	}
+
+	closeIdx := strings.LastIndex(toolNamePattern, ")")
+	if closeIdx <= openIdx {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("%s: unclosed parenthesis in toolName pattern '%s'", location, toolNamePattern),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	globPart := toolNamePattern[openIdx+1 : closeIdx]
+	if globPart == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("%s: empty glob pattern in parentheses for toolName '%s'", location, toolNamePattern),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+		}}
+	}
+
+	if err := validateGlobPattern(globPart); err != nil {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("%s: invalid glob in toolName '%s': %v", location, toolNamePattern, err),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	return nil
 }
 
 // validateHooks validates hooks for settings (full event set)
@@ -500,142 +524,166 @@ func validateHooksWithEvents(hooks any, filePath string, allowedEvents map[strin
 
 		// Validate each hook matcher in the array
 		for i, hookMatcher := range hookArray {
-			hookMatcherMap, ok := hookMatcher.(map[string]any)
-			if !ok {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Event '%s' hook %d: must be an object with 'matcher' and 'hooks' fields", eventName, i),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-				})
-				continue
-			}
+			errors = append(errors, validateHookMatcher(hookMatcher, eventName, i, filePath)...)
+		}
+	}
 
-			// Check for required 'matcher' field and validate toolName if present
-			matcherVal, matcherExists := hookMatcherMap["matcher"]
-			if !matcherExists {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'matcher'", eventName, i),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-				})
-			} else if matcherMap, ok := matcherVal.(map[string]any); ok {
-				// Validate toolName pattern inside matcher object
-				if toolNameVal, exists := matcherMap["toolName"]; exists {
-					if toolNameStr, ok := toolNameVal.(string); ok && toolNameStr != "" {
-						location := fmt.Sprintf("Event '%s' hook %d matcher", eventName, i)
-						errors = append(errors, validateMatcherToolName(toolNameStr, location, filePath)...)
-					}
-				}
-			}
+	return errors
+}
 
-			// Check for required 'hooks' field
-			innerHooks, exists := hookMatcherMap["hooks"]
-			if !exists {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'hooks'", eventName, i),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-				})
-				continue
-			}
+// validateHookMatcher validates a single hook matcher entry within an event.
+func validateHookMatcher(hookMatcher any, eventName string, idx int, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
 
-			// Validate the inner hooks array
-			innerHooksArray, ok := innerHooks.([]any)
-			if !ok {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Event '%s' hook %d: 'hooks' field must be an array", eventName, i),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-				})
-				continue
-			}
+	hookMatcherMap, ok := hookMatcher.(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d: must be an object with 'matcher' and 'hooks' fields", eventName, idx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
 
-			// Validate each individual hook
-			for j, innerHook := range innerHooksArray {
-				innerHookMap, ok := innerHook.(map[string]any)
-				if !ok {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: must be an object", eventName, i, j),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-					continue
-				}
+	// Check for required 'matcher' field and validate toolName if present
+	errors = append(errors, validateHookMatcherField(hookMatcherMap, eventName, idx, filePath)...)
 
-				// Validate hook type
-				hookType, typeExists := innerHookMap["type"]
-				if !typeExists {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: missing required field 'type'", eventName, i, j),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-					continue
-				}
+	// Check for required 'hooks' field
+	innerHooks, exists := hookMatcherMap["hooks"]
+	if !exists {
+		return append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'hooks'", eventName, idx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
 
-				hookTypeStr, ok := hookType.(string)
-				if !ok {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: 'type' must be a string", eventName, i, j),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-					continue
-				}
+	innerHooksArray, ok := innerHooks.([]any)
+	if !ok {
+		return append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d: 'hooks' field must be an array", eventName, idx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
 
-				// Check if hook type is valid
-				if !validHookTypes[hookTypeStr] {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt, agent", eventName, i, j, hookTypeStr),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-					})
-					continue
-				}
+	for j, innerHook := range innerHooksArray {
+		errors = append(errors, validateInnerHook(innerHook, eventName, idx, j, filePath)...)
+	}
 
-				// Validate type-specific requirements
-				if hookTypeStr == "command" {
-					if cmdVal, exists := innerHookMap["command"]; !exists {
-						errors = append(errors, cue.ValidationError{
-							File:     filePath,
-							Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", eventName, i, j),
-							Severity: "error",
-							Source:   cue.SourceAnthropicDocs,
-						})
-					} else if cmdStr, ok := cmdVal.(string); ok {
-						// Validate hook command security
-						securityWarnings := validateHookCommandSecurity(cmdStr, eventName, i, j, filePath)
-						errors = append(errors, securityWarnings...)
-					}
-				} else if hookTypeStr == "prompt" {
-					// Check if this event supports prompt hooks
-					if !promptHookEvents[eventName] {
-						errors = append(errors, cue.ValidationError{
-							File:     filePath,
-							Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", eventName, i, j, eventName),
-							Severity: "error",
-							Source:   cue.SourceAnthropicDocs,
-						})
-					}
+	return errors
+}
 
-					if _, exists := innerHookMap["prompt"]; !exists {
-						errors = append(errors, cue.ValidationError{
-							File:     filePath,
-							Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", eventName, i, j),
-							Severity: "error",
-							Source:   cue.SourceAnthropicDocs,
-						})
-					}
-				}
-			}
+// validateHookMatcherField validates the matcher field of a hook matcher entry.
+func validateHookMatcherField(hookMatcherMap map[string]any, eventName string, idx int, filePath string) []cue.ValidationError {
+	matcherVal, matcherExists := hookMatcherMap["matcher"]
+	if !matcherExists {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'matcher'", eventName, idx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	matcherMap, isMap := matcherVal.(map[string]any)
+	if !isMap {
+		return nil
+	}
+
+	toolNameVal, exists := matcherMap["toolName"]
+	if !exists {
+		return nil
+	}
+
+	toolNameStr, isStr := toolNameVal.(string)
+	if !isStr || toolNameStr == "" {
+		return nil
+	}
+
+	location := fmt.Sprintf("Event '%s' hook %d matcher", eventName, idx)
+	return validateMatcherToolName(toolNameStr, location, filePath)
+}
+
+// validateInnerHook validates a single inner hook entry (type, command/prompt fields).
+func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, filePath string) []cue.ValidationError {
+	innerHookMap, ok := innerHook.(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: must be an object", eventName, hookIdx, innerIdx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	hookType, typeExists := innerHookMap["type"]
+	if !typeExists {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: missing required field 'type'", eventName, hookIdx, innerIdx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	hookTypeStr, ok := hookType.(string)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: 'type' must be a string", eventName, hookIdx, innerIdx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	if !validHookTypes[hookTypeStr] {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt, agent", eventName, hookIdx, innerIdx, hookTypeStr),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	return validateInnerHookType(innerHookMap, hookTypeStr, eventName, hookIdx, innerIdx, filePath)
+}
+
+// validateInnerHookType validates type-specific requirements for a hook entry.
+func validateInnerHookType(hookMap map[string]any, hookType, eventName string, hookIdx, innerIdx int, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	switch hookType {
+	case "command":
+		cmdVal, exists := hookMap["command"]
+		if !exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", eventName, hookIdx, innerIdx),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		} else if cmdStr, ok := cmdVal.(string); ok {
+			errors = append(errors, validateHookCommandSecurity(cmdStr, eventName, hookIdx, innerIdx, filePath)...)
+		}
+	case "prompt":
+		if !promptHookEvents[eventName] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", eventName, hookIdx, innerIdx, eventName),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+		if _, exists := hookMap["prompt"]; !exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", eventName, hookIdx, innerIdx),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
 		}
 	}
 

@@ -100,55 +100,9 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 		}
 	}
 
-	// Reserved word check
+	// Name validation (reserved words, format, directory match)
 	if name, ok := data["name"].(string); ok {
-		reservedWords := map[string]bool{"anthropic": true, "claude": true}
-		if reservedWords[strings.ToLower(name)] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Rule 048: Name cannot start or end with hyphen (agentskills.io spec)
-		if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Skill name '%s' cannot start or end with a hyphen", name),
-				Severity: "error",
-				Source:   cue.SourceAgentSkillsIO,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Rule 049: Name cannot contain consecutive hyphens (agentskills.io spec)
-		if strings.Contains(name, "--") {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Skill name '%s' contains consecutive hyphens (--) which are not allowed", name),
-				Severity: "error",
-				Source:   cue.SourceAgentSkillsIO,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Rule 050: Name must match parent directory name (agentskills.io spec)
-		parentDir := filepath.Base(filepath.Dir(filePath))
-		// Skip validation for root-level or special directories
-		if parentDir != "." && parentDir != "skills" && parentDir != ".claude" {
-			if name != parentDir {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Skill name '%s' should match parent directory name '%s'", name, parentDir),
-					Severity: "warning",
-					Source:   cue.SourceAgentSkillsIO,
-					Line:     FindFrontmatterFieldLine(contents, "name"),
-				})
-			}
-		}
+		errors = append(errors, validateSkillName(name, filePath, contents)...)
 	}
 
 	// Validate context field: only valid value is "fork"
@@ -167,28 +121,7 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 
 	// Validate agent field: non-empty string; warn if context is not "fork"
 	if agentVal, ok := data["agent"]; ok {
-		agentStr, isStr := agentVal.(string)
-		if !isStr || strings.TrimSpace(agentStr) == "" {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "agent field must be a non-empty string",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "agent"),
-			})
-		} else {
-			// Warn if agent is set but context is not "fork"
-			ctxStr, _ := data["context"].(string)
-			if ctxStr != "fork" {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  "agent field is set but context is not 'fork' - consider adding 'context: fork' for sub-agent execution",
-					Severity: "warning",
-					Source:   cue.SourceAnthropicDocs,
-					Line:     FindFrontmatterFieldLine(contents, "agent"),
-				})
-			}
-		}
+		errors = append(errors, validateSkillAgentField(agentVal, data, filePath, contents)...)
 	}
 
 	// Validate user-invocable field: must be boolean
@@ -300,4 +233,85 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 			}
 		}
 	}
+}
+
+// validateSkillName checks reserved words, hyphen placement, consecutive hyphens, and directory match.
+func validateSkillName(name, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	reservedWords := map[string]bool{"anthropic": true, "claude": true}
+	if reservedWords[strings.ToLower(name)] {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	// Rule 048: Name cannot start or end with hyphen (agentskills.io spec)
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Skill name '%s' cannot start or end with a hyphen", name),
+			Severity: "error",
+			Source:   cue.SourceAgentSkillsIO,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	// Rule 049: Name cannot contain consecutive hyphens (agentskills.io spec)
+	if strings.Contains(name, "--") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Skill name '%s' contains consecutive hyphens (--) which are not allowed", name),
+			Severity: "error",
+			Source:   cue.SourceAgentSkillsIO,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	// Rule 050: Name must match parent directory name (agentskills.io spec)
+	parentDir := filepath.Base(filepath.Dir(filePath))
+	isSpecialDir := parentDir == "." || parentDir == "skills" || parentDir == ".claude"
+	if !isSpecialDir && name != parentDir {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Skill name '%s' should match parent directory name '%s'", name, parentDir),
+			Severity: "warning",
+			Source:   cue.SourceAgentSkillsIO,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	return errors
+}
+
+// validateSkillAgentField validates the agent frontmatter field and its relationship with context.
+func validateSkillAgentField(agentVal any, data map[string]any, filePath, contents string) []cue.ValidationError {
+	agentStr, isStr := agentVal.(string)
+	if !isStr || strings.TrimSpace(agentStr) == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "agent field must be a non-empty string",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "agent"),
+		}}
+	}
+
+	// Warn if agent is set but context is not "fork"
+	ctxStr, _ := data["context"].(string)
+	if ctxStr != "fork" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "agent field is set but context is not 'fork' - consider adding 'context: fork' for sub-agent execution",
+			Severity: "warning",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "agent"),
+		}}
+	}
+
+	return nil
 }

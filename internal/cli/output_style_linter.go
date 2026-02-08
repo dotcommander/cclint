@@ -118,34 +118,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})
 	} else {
-		// Validate kebab-case name format
-		valid := true
-		for _, c := range name {
-			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
-				valid = false
-				break
-			}
-		}
-		if !valid {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "Name must contain only lowercase letters, numbers, and hyphens (kebab-case)",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Name cannot start or end with hyphen
-		if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name '%s' cannot start or end with a hyphen", name),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
+		errors = append(errors, validateOutputStyleName(name, filePath, contents)...)
 	}
 
 	// Required: description field
@@ -180,6 +153,33 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 			Message:  "Output style body is empty - add markdown content for system prompt customization",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
+		})
+	}
+
+	return errors
+}
+
+// validateOutputStyleName validates kebab-case format and hyphen placement for output style names.
+func validateOutputStyleName(name, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	if !isKebabCase(name) {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "Name must contain only lowercase letters, numbers, and hyphens (kebab-case)",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name '%s' cannot start or end with a hyphen", name),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})
 	}
 

@@ -54,7 +54,8 @@ func parseMarkdownSections(content string) []any {
 		line = strings.TrimSpace(line)
 
 		// Detect markdown headers (# or ##)
-		if strings.HasPrefix(line, "## ") {
+		switch {
+		case strings.HasPrefix(line, "## "):
 			// New h2 section found
 			if inSection {
 				sections = append(sections, currentSection)
@@ -64,7 +65,7 @@ func parseMarkdownSections(content string) []any {
 				"content": "",
 			}
 			inSection = true
-		} else if strings.HasPrefix(line, "# ") {
+		case strings.HasPrefix(line, "# "):
 			// New h1 section found
 			if inSection {
 				sections = append(sections, currentSection)
@@ -74,7 +75,7 @@ func parseMarkdownSections(content string) []any {
 				"content": "",
 			}
 			inSection = true
-		} else if inSection && line != "" {
+		case inSection && line != "":
 			if contentStr, ok := currentSection["content"].(string); ok {
 				currentSection["content"] = contentStr + line + "\n"
 			} else {
@@ -96,39 +97,46 @@ func validateContextSpecific(data map[string]any, filePath, contents string) []c
 	var errors []cue.ValidationError
 
 	// Check if sections are present
-	if sections, ok := data["sections"].([]any); ok && len(sections) > 0 {
-		for i, section := range sections {
-			if sectionMap, ok := section.(map[string]any); ok {
-				// Check heading
-				if heading, exists := sectionMap["heading"]; !exists || heading == "" {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Section %d: missing heading", i),
-						Severity: "warning",
-					})
-				}
-
-				// Check content
-				if content, exists := sectionMap["content"]; !exists || content == "" {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("Section %d: missing content", i),
-						Severity: "warning",
-					})
-				}
-			}
-		}
-	} else {
+	sections, ok := data["sections"].([]any)
+	if !ok || len(sections) == 0 {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "No sections found in CLAUDE.md",
 			Severity: "suggestion",
 		})
+	} else {
+		errors = append(errors, validateContextSections(sections, filePath)...)
 	}
 
 	// Check for binary file includes (Claude Code 2.1.2+ auto-skips these, but warn users)
 	errors = append(errors, checkBinaryIncludes(contents, filePath)...)
 
+	return errors
+}
+
+// validateContextSections validates individual sections have headings and content.
+func validateContextSections(sections []any, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+	for i, section := range sections {
+		sectionMap, ok := section.(map[string]any)
+		if !ok {
+			continue
+		}
+		if heading, exists := sectionMap["heading"]; !exists || heading == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Section %d: missing heading", i),
+				Severity: "warning",
+			})
+		}
+		if content, exists := sectionMap["content"]; !exists || content == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Section %d: missing content", i),
+				Severity: "warning",
+			})
+		}
+	}
 	return errors
 }
 

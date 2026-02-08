@@ -128,35 +128,23 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 
 		// Visit neighbors
 		for _, neighbor := range v.getNeighbors(componentType, name) {
-			state := visitState[neighbor]
-			if state == 0 {
+			switch {
+			case visitState[neighbor] == 0:
 				// White: unvisited, recurse
 				parts := strings.SplitN(neighbor, ":", 2)
 				if len(parts) == 2 {
 					visit(parts[0], parts[1])
 				}
-			} else if state == 1 && inPath[neighbor] {
+			case visitState[neighbor] == 1 && inPath[neighbor]:
 				// Gray and in current path: back edge = cycle detected
-				// Reconstruct cycle from path
-				cycleStart := -1
-				for i, p := range path {
-					if p == neighbor {
-						cycleStart = i
-						break
-					}
-				}
-				if cycleStart >= 0 {
-					cyclePath := make([]string, len(path)-cycleStart+1)
-					copy(cyclePath, path[cycleStart:])
-					cyclePath[len(cyclePath)-1] = neighbor // Close the cycle
-
+				if cyclePath := reconstructCycle(path, neighbor); cyclePath != nil {
 					cycles = append(cycles, Cycle{
 						Path: cyclePath,
 						Type: determineCycleType(cyclePath),
 					})
 				}
+				// Black (2): already visited, skip
 			}
-			// Black (2): already visited, skip
 		}
 
 		// Mark as black (visited)
@@ -190,6 +178,25 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 	}
 
 	return cycles
+}
+
+// reconstructCycle extracts the cycle path from the DFS stack starting at the neighbor node.
+// Returns nil if the neighbor is not found in the path.
+func reconstructCycle(path []string, neighbor string) []string {
+	cycleStart := -1
+	for i, p := range path {
+		if p == neighbor {
+			cycleStart = i
+			break
+		}
+	}
+	if cycleStart < 0 {
+		return nil
+	}
+	cyclePath := make([]string, len(path)-cycleStart+1)
+	copy(cyclePath, path[cycleStart:])
+	cyclePath[len(cyclePath)-1] = neighbor // Close the cycle
+	return cyclePath
 }
 
 // determineCycleType classifies the cycle based on component types involved

@@ -119,58 +119,7 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 
 	// Check name format - FROM ANTHROPIC DOCS: "Unique identifier using lowercase letters and hyphens"
 	if name, ok := data["name"].(string); ok {
-		valid := true
-		for _, c := range name {
-			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
-				valid = false
-				break
-			}
-		}
-		if !valid {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "Name must contain only lowercase letters, numbers, and hyphens",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Reserved word check - FROM ANTHROPIC DOCS
-		reservedWords := map[string]bool{"anthropic": true, "claude": true}
-		if reservedWords[strings.ToLower(name)] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "name"),
-			})
-		}
-
-		// Check if name matches filename - OUR OBSERVATION
-		// Extract filename from path (e.g., ".claude/agents/test-agent.md" -> "test-agent")
-		filename := filePath
-		if idx := strings.LastIndex(filename, "/"); idx != -1 {
-			filename = filename[idx+1:]
-		}
-		// Remove .md extension
-		filename = strings.TrimSuffix(filename, ".md")
-		// For nested paths, use the last component
-		if idx := strings.LastIndex(filename, "/"); idx != -1 {
-			filename = filename[idx+1:]
-		}
-		// Remove .md extension again if present
-		filename = strings.TrimSuffix(filename, ".md")
-
-		if name != filename {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name %q doesn't match filename %q", name, filename),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-			})
-		}
+		errors = append(errors, validateAgentName(name, filePath, contents)...)
 	}
 
 	// Check valid colors - OUR OBSERVATION (not documented by Anthropic)
@@ -228,28 +177,7 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 
 	// Validate mcpServers - must be an array of non-empty strings
 	if mcpServers, ok := data["mcpServers"]; ok {
-		if arr, isArr := mcpServers.([]any); isArr {
-			for i, item := range arr {
-				s, isStr := item.(string)
-				if !isStr || s == "" {
-					errors = append(errors, cue.ValidationError{
-						File:     filePath,
-						Message:  fmt.Sprintf("mcpServers[%d] must be a non-empty string", i),
-						Severity: "error",
-						Source:   cue.SourceAnthropicDocs,
-						Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
-					})
-				}
-			}
-		} else {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "mcpServers must be an array of server name strings",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
-			})
-		}
+		errors = append(errors, validateAgentMCPServers(mcpServers, filePath, contents)...)
 	}
 
 	// Validate permissionMode enum
@@ -478,17 +406,108 @@ func checkAgentMissingFields(data map[string]any, contents, filePath string) []c
 	}
 
 	// Check for permissionMode when agent has editing tools
-	if _, hasPermMode := data["permissionMode"]; !hasPermMode {
-		if hasEditingTools(data["tools"]) {
-			suggestions = append(suggestions, cue.ValidationError{
-				File:     filePath,
-				Message:  "Agent has editing tools but no permissionMode. Consider 'permissionMode: acceptEdits' for seamless file edits.",
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindFrontmatterFieldLine(contents, "tools"),
-			})
-		}
+	if _, hasPermMode := data["permissionMode"]; !hasPermMode && hasEditingTools(data["tools"]) {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  "Agent has editing tools but no permissionMode. Consider 'permissionMode: acceptEdits' for seamless file edits.",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+			Line:     FindFrontmatterFieldLine(contents, "tools"),
+		})
 	}
 
 	return suggestions
+}
+
+// validateAgentName checks name format, reserved words, and filename match.
+func validateAgentName(name, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	if !isKebabCase(name) {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "Name must contain only lowercase letters, numbers, and hyphens",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	// Reserved word check - FROM ANTHROPIC DOCS
+	reservedWords := map[string]bool{"anthropic": true, "claude": true}
+	if reservedWords[strings.ToLower(name)] {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
+	// Check if name matches filename - OUR OBSERVATION
+	filename := extractBaseFilename(filePath)
+	if name != filename {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name %q doesn't match filename %q", name, filename),
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	return errors
+}
+
+// isKebabCase returns true if the string contains only lowercase letters, digits, and hyphens.
+func isKebabCase(s string) bool {
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// extractBaseFilename extracts the base name without extension from a file path.
+// e.g., ".claude/agents/test-agent.md" -> "test-agent"
+func extractBaseFilename(filePath string) string {
+	filename := filePath
+	if idx := strings.LastIndex(filename, "/"); idx != -1 {
+		filename = filename[idx+1:]
+	}
+	filename = strings.TrimSuffix(filename, ".md")
+	if idx := strings.LastIndex(filename, "/"); idx != -1 {
+		filename = filename[idx+1:]
+	}
+	return strings.TrimSuffix(filename, ".md")
+}
+
+// validateAgentMCPServers validates the mcpServers field is an array of non-empty strings.
+func validateAgentMCPServers(mcpServers any, filePath, contents string) []cue.ValidationError {
+	arr, isArr := mcpServers.([]any)
+	if !isArr {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "mcpServers must be an array of server name strings",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
+		}}
+	}
+
+	var errors []cue.ValidationError
+	for i, item := range arr {
+		s, isStr := item.(string)
+		if !isStr || s == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("mcpServers[%d] must be a non-empty string", i),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
+			})
+		}
+	}
+	return errors
 }

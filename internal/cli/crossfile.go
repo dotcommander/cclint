@@ -212,11 +212,12 @@ func (v *CrossFileValidator) checkUnusedAllowedTools(filePath, contents string, 
 			strings.Contains(contents, ".json")
 
 		var message string
-		if isDeclarative && (tool == "Write" || tool == "Read") {
+		switch {
+		case isDeclarative && (tool == "Write" || tool == "Read"):
 			message = fmt.Sprintf("allowed-tools declares '%s' - consider making tool usage more explicit for LLM (e.g., 'Use Write tool to create...')", tool)
-		} else if isDeclarative {
+		case isDeclarative:
 			message = fmt.Sprintf("allowed-tools declares '%s' without obvious invocation (consider making tool usage explicit)", tool)
-		} else {
+		default:
 			message = fmt.Sprintf("allowed-tools declares '%s' but it's never used in command body", tool)
 		}
 
