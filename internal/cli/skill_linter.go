@@ -217,6 +217,28 @@ func (l *SkillLinter) ValidateSpecific(data map[string]interface{}, filePath, co
 		}
 	}
 
+	// Validate argument-hint field: must be a non-empty string if present
+	if ahVal, ok := data["argument-hint"]; ok {
+		ahStr, isStr := ahVal.(string)
+		if !isStr {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("argument-hint field must be a string (got '%v')", ahVal),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "argument-hint"),
+			})
+		} else if strings.TrimSpace(ahStr) == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "argument-hint field is empty - provide a hint for autocomplete (e.g., 'PR number or URL')",
+				Severity: "warning",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "argument-hint"),
+			})
+		}
+	}
+
 	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
 	if hooks, ok := data["hooks"]; ok {
 		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)

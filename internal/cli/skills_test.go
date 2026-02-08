@@ -72,6 +72,24 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			fmData:       map[string]interface{}{"name": "test"},
 			wantContains: []string{"Examples"},
 		},
+		{
+			name:     "argument-hint too long",
+			filePath: "skills/test/SKILL.md",
+			contents: "---\nargument-hint: " + strings.Repeat("a", 81) + "\n---\n## Anti-Patterns\n## Examples\n",
+			fmData: map[string]interface{}{
+				"argument-hint": strings.Repeat("a", 81),
+			},
+			wantContains: []string{"argument-hint", "80"},
+		},
+		{
+			name:     "argument-hint at limit no warning",
+			filePath: "skills/test/SKILL.md",
+			contents: "---\nargument-hint: " + strings.Repeat("a", 80) + "\n---\n## Anti-Patterns\n## Examples\n",
+			fmData: map[string]interface{}{
+				"argument-hint": strings.Repeat("a", 80),
+			},
+			wantContains: []string{}, // no argument-hint warning expected
+		},
 	}
 
 	for _, tt := range tests {
@@ -155,7 +173,7 @@ func TestExtractSkillName(t *testing.T) {
 func TestKnownSkillFields(t *testing.T) {
 	// Core fields from Anthropic docs
 	expected := []string{
-		"name", "description", "allowed-tools", "model",
+		"name", "description", "argument-hint", "allowed-tools", "model",
 		"context", "agent", "user-invocable", "hooks",
 	}
 	// agentskills.io spec fields
@@ -375,6 +393,45 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			},
 			contents:     "---\nname: test\ndisable-model-invocation: \"true\"\n---\nContent",
 			wantErrCount: 1,
+		},
+		{
+			name: "valid argument-hint",
+			data: map[string]interface{}{
+				"name":          "test",
+				"argument-hint": "PR number or URL",
+			},
+			contents:     "---\nname: test\nargument-hint: PR number or URL\n---\nContent",
+			wantErrCount: 0,
+			wantWarnings: 0,
+		},
+		{
+			name: "argument-hint non-string type",
+			data: map[string]interface{}{
+				"name":          "test",
+				"argument-hint": 42,
+			},
+			contents:     "---\nname: test\nargument-hint: 42\n---\nContent",
+			wantErrCount: 1,
+		},
+		{
+			name: "argument-hint empty string",
+			data: map[string]interface{}{
+				"name":          "test",
+				"argument-hint": "",
+			},
+			contents:     "---\nname: test\nargument-hint: \"\"\n---\nContent",
+			wantErrCount: 0,
+			wantWarnings: 1,
+		},
+		{
+			name: "argument-hint whitespace only",
+			data: map[string]interface{}{
+				"name":          "test",
+				"argument-hint": "   ",
+			},
+			contents:     "---\nname: test\nargument-hint: \"   \"\n---\nContent",
+			wantErrCount: 0,
+			wantWarnings: 1,
 		},
 	}
 

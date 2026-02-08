@@ -106,6 +106,17 @@ func validateSkillBestPractices(filePath string, contents string, fmData map[str
 		}
 	}
 
+	// argument-hint length check - hints should be concise for autocomplete display
+	if ah, ok := fmData["argument-hint"].(string); ok && len(ah) > 80 {
+		warnings = append(warnings, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("argument-hint is %d chars - keep under 80 for readability in autocomplete", len(ah)),
+			Severity: "warning",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "argument-hint"),
+		})
+	}
+
 	// P3: Semver validation for version field - OUR OBSERVATION
 	if version, ok := fmData["version"].(string); ok && version != "" {
 		if err := ValidateSemver(version, filePath, FindFrontmatterFieldLine(contents, "version")); err != nil {
