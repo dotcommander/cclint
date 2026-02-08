@@ -76,9 +76,18 @@ issues:
       linters:
         - dupl
         - goconst
-    # Cobra cmd/ dirs: globals are idiomatic
+    # Cobra cmd/ dirs: globals and init() are idiomatic
     - path: cmd/
       linters:
         - gochecknoglobals
-  max-issues-per-linter: 20
-  max-same-issues: 5
+        - gochecknoinits
+    # Linter internal/cli: constant lookup maps are idiomatic
+    - path: internal/cli/
+      linters:
+        - gochecknoglobals
+    # Discovery: constant pattern registries
+    - path: internal/discovery/
+      linters:
+        - gochecknoglobals
+  max-issues-per-linter: 0
+  max-same-issues: 0
