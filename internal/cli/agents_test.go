@@ -257,6 +257,42 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantErrCount:  1,
 			wantSuggCount: 0,
 		},
+		{
+			name: "valid mcpServers array",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"mcpServers":  []interface{}{"filesystem", "github"},
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmcpServers:\n  - filesystem\n  - github\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "mcpServers with empty string element",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"mcpServers":  []interface{}{"filesystem", ""},
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmcpServers:\n  - filesystem\n  - \"\"\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "mcpServers as string instead of array",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"mcpServers":  "filesystem",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmcpServers: filesystem\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -389,7 +425,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory", "mcpServers"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)

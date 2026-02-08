@@ -77,6 +77,7 @@ import (
 	skills?: string                                           // skills to preload into agent context
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)
 	memory?: #MemoryScope                                     // persistent memory scope (v2.1.33+)
+	mcpServers?: [...string]                                   // MCP server names available to agent
 
 	// Allow additional fields
 	...

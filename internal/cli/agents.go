@@ -61,6 +61,7 @@ var knownAgentFields = map[string]bool{
 	"skills":          true, // Optional: skills to preload into context
 	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
 	"memory":          true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
+	"mcpServers":      true, // Optional: MCP server names available to agent
 }
 
 // validateAgentSpecific implements agent-specific validation rules
@@ -72,7 +73,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 		if !knownAgentFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, disallowedTools, permissionMode, maxTurns, skills, hooks, memory", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, disallowedTools, permissionMode, maxTurns, skills, hooks, memory, mcpServers", key),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, key),
@@ -202,6 +203,32 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "memory"),
+			})
+		}
+	}
+
+	// Validate mcpServers - must be an array of non-empty strings
+	if mcpServers, ok := data["mcpServers"]; ok {
+		if arr, isArr := mcpServers.([]interface{}); isArr {
+			for i, item := range arr {
+				s, isStr := item.(string)
+				if !isStr || s == "" {
+					errors = append(errors, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("mcpServers[%d] must be a non-empty string", i),
+						Severity: "error",
+						Source:   cue.SourceAnthropicDocs,
+						Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
+					})
+				}
+			}
+		} else {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "mcpServers must be an array of server name strings",
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "mcpServers"),
 			})
 		}
 	}
