@@ -310,8 +310,8 @@ func TestSaveBaseline(t *testing.T) {
 	}
 
 	// Verify file was created
-	if _, err := os.Stat(baselinePath); err != nil {
-		t.Errorf("Baseline file not created: %v", err)
+	if _, statErr := os.Stat(baselinePath); statErr != nil {
+		t.Errorf("Baseline file not created: %v", statErr)
 	}
 
 	// Load and verify contents
@@ -567,8 +567,8 @@ func TestRun_CreateBaseline(t *testing.T) {
 	}
 
 	// Verify baseline file was created
-	if _, err := os.Stat(baselinePath); err != nil {
-		t.Errorf("Baseline file not created: %v", err)
+	if _, statErr := os.Stat(baselinePath); statErr != nil {
+		t.Errorf("Baseline file not created: %v", statErr)
 	}
 
 	// Load and verify baseline contains the issue

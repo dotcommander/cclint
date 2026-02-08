@@ -193,9 +193,9 @@ func ValidateFilePath(path string) (absPath string, err error) {
 
 	// Handle symlinks
 	if info.Mode()&os.ModeSymlink != 0 {
-		realPath, err := filepath.EvalSymlinks(absPath)
-		if err != nil {
-			return "", fmt.Errorf("cannot resolve symlink %s: %w", absPath, err)
+		realPath, evalErr := filepath.EvalSymlinks(absPath)
+		if evalErr != nil {
+			return "", fmt.Errorf("cannot resolve symlink %s: %w", absPath, evalErr)
 		}
 		absPath = realPath
 		info, err = os.Stat(absPath)
@@ -382,8 +382,8 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 			// For symlinks, follow if requested
 			if info.Mode()&os.ModeSymlink != 0 {
 				if fd.followSymlinks {
-					realPath, err := filepath.EvalSymlinks(fullPath)
-					if err != nil {
+					realPath, evalErr := filepath.EvalSymlinks(fullPath)
+					if evalErr != nil {
 						continue
 					}
 					// Validate that symlink target is within project root
@@ -462,13 +462,10 @@ func (fd *FileDiscovery) determineFileType(path string) FileType {
 // Unlike strings.Contains, this matches on path boundaries to avoid
 // false positives (e.g., "agents" won't match "my-agents-backup").
 func hasPathComponent(path, component string) bool {
-	// Check for exact component boundaries using path separator
-	sep := string(filepath.Separator)
-
 	// Handle both forward and back slashes for cross-platform support
 	normalizedPath := strings.ReplaceAll(path, "\\", "/")
 	normalizedComponent := strings.ReplaceAll(component, "\\", "/")
-	sep = "/"
+	sep := "/"
 
 	// Check: /component/, /component (end), component/ (start)
 	if strings.Contains(normalizedPath, sep+normalizedComponent+sep) {

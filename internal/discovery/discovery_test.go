@@ -1738,10 +1738,8 @@ func TestValidateFilePath_BinaryContent(t *testing.T) {
 				if !strings.Contains(err.Error(), "binary") {
 					t.Errorf("Expected 'binary' in error, got: %v", err)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("ValidateFilePath() unexpected error for text: %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("ValidateFilePath() unexpected error for text: %v", err)
 			}
 		})
 	}

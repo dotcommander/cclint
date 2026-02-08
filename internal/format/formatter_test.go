@@ -420,7 +420,7 @@ func TestNewComponentFormatter(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			formatter := NewComponentFormatter(tt.componentType)
-			actualType := strings.TrimPrefix(strings.TrimPrefix(strings.Replace(strings.Replace(fmt.Sprintf("%T", formatter), "github.com/dotcommander/cclint/internal/", "", 1), ".", "", -1), "*"), "format")
+			actualType := strings.TrimPrefix(strings.TrimPrefix(strings.ReplaceAll(strings.Replace(fmt.Sprintf("%T", formatter), "github.com/dotcommander/cclint/internal/", "", 1), ".", ""), "*"), "format")
 			expectedShort := strings.TrimPrefix(strings.TrimPrefix(tt.expectedType, "*format."), "*")
 
 			// Simple type check by formatting

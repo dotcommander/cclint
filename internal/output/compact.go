@@ -181,15 +181,14 @@ func (f *CompactFormatter) FormatAll(summaries []*cli.LintSummary) error {
 
 	// Perfect success: celebrate!
 	perfectSuccess := totalErrors == 0 && totalSuggestions == 0
-	if f.colorize && perfectSuccess && f.isTTY() {
+	switch {
+	case f.colorize && perfectSuccess && f.isTTY():
 		f.printCelebration(summaryText)
-	} else if f.colorize {
-		if totalErrors > 0 {
-			fmt.Printf("%s\n", redStyle.Render(summaryText))
-		} else {
-			fmt.Printf("%s\n", greenStyle.Render(summaryText))
-		}
-	} else {
+	case f.colorize && totalErrors > 0:
+		fmt.Printf("%s\n", redStyle.Render(summaryText))
+	case f.colorize:
+		fmt.Printf("%s\n", greenStyle.Render(summaryText))
+	default:
 		fmt.Println(summaryText)
 	}
 
