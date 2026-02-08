@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -99,6 +100,11 @@ func validateSettingsSpecific(data map[string]interface{}, filePath string) []cu
 	// Check mcpServers structure if present
 	if mcpServers, ok := data["mcpServers"]; ok {
 		errors = append(errors, validateMCPServers(mcpServers, filePath)...)
+	}
+
+	// Check rules array if present
+	if rules, ok := data["rules"]; ok {
+		errors = append(errors, validateRules(rules, filePath)...)
 	}
 
 	return errors
@@ -334,6 +340,114 @@ func validateMCPServerEntry(serverName string, serverMap map[string]interface{},
 	return errors
 }
 
+// validateRules validates the rules array in settings.json.
+// Each entry must be a non-empty string containing a valid glob pattern.
+// Warns on suspicious patterns like absolute paths.
+func validateRules(rules interface{}, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	rulesArray, ok := rules.([]interface{})
+	if !ok {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  "rules must be an array of glob pattern strings",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+		return errors
+	}
+
+	for i, entry := range rulesArray {
+		str, ok := entry.(string)
+		if !ok || str == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("rules[%d]: each entry must be a non-empty string", i),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		// Validate glob syntax using the shared helper from rules.go
+		if err := validateGlobPattern(str); err != nil {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("rules[%d]: invalid glob pattern %q: %v", i, str, err),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		// Warn on absolute paths (not portable across machines)
+		if filepath.IsAbs(str) || strings.HasPrefix(str, "/") {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("rules[%d]: absolute path %q is not portable; use relative glob patterns", i, str),
+				Severity: "warning",
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+
+	return errors
+}
+
+// validateMatcherToolName validates a toolName pattern from a hook matcher.
+// Patterns look like "Bash(npm*)", "Edit", "mcp__server_tool", etc.
+// Returns errors if the base tool name is unrecognized or the glob portion is invalid.
+func validateMatcherToolName(toolNamePattern string, location string, filePath string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	if toolNamePattern == "" {
+		return errors
+	}
+
+	// Extract the base tool name
+	baseTool := extractToolName(toolNamePattern)
+	if !isKnownTool(baseTool) {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("%s: unrecognized tool name '%s' in toolName pattern '%s'", location, baseTool, toolNamePattern),
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Validate the parenthetical glob pattern if present
+	if openIdx := strings.Index(toolNamePattern, "("); openIdx > 0 {
+		closeIdx := strings.LastIndex(toolNamePattern, ")")
+		if closeIdx <= openIdx {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("%s: unclosed parenthesis in toolName pattern '%s'", location, toolNamePattern),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+			})
+		} else {
+			globPart := toolNamePattern[openIdx+1 : closeIdx]
+			if globPart == "" {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("%s: empty glob pattern in parentheses for toolName '%s'", location, toolNamePattern),
+					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
+				})
+			} else if err := validateGlobPattern(globPart); err != nil {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("%s: invalid glob in toolName '%s': %v", location, toolNamePattern, err),
+					Severity: "error",
+					Source:   cue.SourceAnthropicDocs,
+				})
+			}
+		}
+	}
+
+	return errors
+}
+
 // validateHooks validates hooks for settings (full event set)
 func validateHooks(hooks interface{}, filePath string) []cue.ValidationError {
 	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted")
@@ -397,14 +511,23 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 				continue
 			}
 
-			// Check for required 'matcher' field
-			if _, exists := hookMatcherMap["matcher"]; !exists {
+			// Check for required 'matcher' field and validate toolName if present
+			matcherVal, matcherExists := hookMatcherMap["matcher"]
+			if !matcherExists {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'matcher'", eventName, i),
 					Severity: "error",
 					Source:   cue.SourceAnthropicDocs,
 				})
+			} else if matcherMap, ok := matcherVal.(map[string]interface{}); ok {
+				// Validate toolName pattern inside matcher object
+				if toolNameVal, exists := matcherMap["toolName"]; exists {
+					if toolNameStr, ok := toolNameVal.(string); ok && toolNameStr != "" {
+						location := fmt.Sprintf("Event '%s' hook %d matcher", eventName, i)
+						errors = append(errors, validateMatcherToolName(toolNameStr, location, filePath)...)
+					}
+				}
 			}
 
 			// Check for required 'hooks' field
