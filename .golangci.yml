@@ -1,0 +1,84 @@
+# Inherited by all repos under ~/go/src/
+# Per-repo .golangci.yml overrides this file.
+# Source: ~/.claude/rules/go-lint-pack.md
+
+linters:
+  enable:
+    # Correctness
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    # Security
+    - gosec
+    # Architecture: depguard + forbidigo are per-repo only
+    # Strict
+    - gocritic
+    - gocyclo
+    - dupl
+    # LLM-Friendly Clean Code
+    - gocognit
+    - funlen
+    - nestif
+    - goconst
+    - gochecknoinits
+    - gochecknoglobals
+    - revive
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15
+  gocognit:
+    min-complexity: 20
+  funlen:
+    lines: 80
+    statements: 50
+  nestif:
+    min-complexity: 4
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  dupl:
+    threshold: 100
+  gosec:
+    excludes:
+      - G104  # deferred .Close() on read-only file
+      - G304  # validated path variables
+  govet:
+    enable:
+      - shadow
+  revive:
+    rules:
+      - name: exported
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: var-naming
+      - name: argument-limit
+        arguments: [5]
+      - name: function-result-limit
+        arguments: [3]
+      - name: cognitive-complexity
+        arguments: [20]
+      - name: empty-block
+      - name: unnecessary-stmt
+      - name: confusing-naming
+      - name: confusing-results
+
+issues:
+  exclude-dirs:
+    - vendor
+    - generated
+    - third_party
+  exclude-rules:
+    # Test files: allow duplication and magic strings
+    - path: _test\.go
+      linters:
+        - dupl
+        - goconst
+    # Cobra cmd/ dirs: globals are idiomatic
+    - path: cmd/
+      linters:
+        - gochecknoglobals
+  max-issues-per-linter: 20
+  max-same-issues: 5
