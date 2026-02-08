@@ -132,6 +132,92 @@ func TestValidatePluginSpecific(t *testing.T) {
 			contents:      `{"author":{}}`,
 			wantMinErrors: 1,
 		},
+		{
+			name: "valid relative paths",
+			data: map[string]interface{}{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]interface{}{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []interface{}{"test"},
+				"commands":    []interface{}{"./commands/greet.md"},
+				"agents":      []interface{}{"./agents/helper.md"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","commands":["./commands/greet.md"]}`,
+			wantMinErrors: 0,
+		},
+		{
+			name: "absolute path in commands",
+			data: map[string]interface{}{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]interface{}{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []interface{}{"test"},
+				"commands":    []interface{}{"/etc/commands/greet.md"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","commands":["/etc/commands/greet.md"]}`,
+			wantMinErrors: 1,
+		},
+		{
+			name: "path traversal in skills",
+			data: map[string]interface{}{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]interface{}{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []interface{}{"test"},
+				"skills":      []interface{}{"./skills/../../../etc/passwd"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","skills":["./skills/../../../etc/passwd"]}`,
+			wantMinErrors: 1, // warning counts as error/warning
+		},
+		{
+			name: "outputStyles field recognized",
+			data: map[string]interface{}{
+				"name":         "test-plugin",
+				"description":  "A comprehensive test plugin for validation purposes with detailed description",
+				"version":      "1.0.0",
+				"author":       map[string]interface{}{"name": "Test Author"},
+				"homepage":     "https://example.com",
+				"repository":   "https://github.com/test/test",
+				"license":      "MIT",
+				"keywords":     []interface{}{"test"},
+				"outputStyles": []interface{}{"./styles/compact.json"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","outputStyles":["./styles/compact.json"]}`,
+			wantMinErrors: 0,
+		},
+		{
+			name: "lspServers field recognized",
+			data: map[string]interface{}{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]interface{}{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []interface{}{"test"},
+				"lspServers":  []interface{}{"./lsp/gopls.json"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","lspServers":["./lsp/gopls.json"]}`,
+			wantMinErrors: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -245,6 +331,161 @@ func TestGetPluginImprovements(t *testing.T) {
 				t.Errorf("GetPluginImprovements() recommendation count = %d, want %d", len(recs), tt.wantRecs)
 			}
 		})
+	}
+}
+
+func TestValidatePluginPaths(t *testing.T) {
+	tests := []struct {
+		name          string
+		data          map[string]interface{}
+		wantErrors    int
+		wantWarnings  int
+	}{
+		{
+			name: "all relative paths",
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/greet.md", "./commands/help.md"},
+				"agents":   []interface{}{"./agents/helper.md"},
+			},
+			wantErrors:   0,
+			wantWarnings: 0,
+		},
+		{
+			name: "absolute path error",
+			data: map[string]interface{}{
+				"commands": []interface{}{"/usr/local/commands/greet.md"},
+			},
+			wantErrors:   1,
+			wantWarnings: 0,
+		},
+		{
+			name: "path traversal warning",
+			data: map[string]interface{}{
+				"skills": []interface{}{"./skills/../../secret.md"},
+			},
+			wantErrors:   0,
+			wantWarnings: 1,
+		},
+		{
+			name: "absolute path with traversal triggers both",
+			data: map[string]interface{}{
+				"hooks": []interface{}{"/etc/../passwd"},
+			},
+			wantErrors:   1,
+			wantWarnings: 1,
+		},
+		{
+			name: "object values checked",
+			data: map[string]interface{}{
+				"mcpServers": map[string]interface{}{
+					"server1": "/opt/mcp/server",
+				},
+			},
+			wantErrors:   1,
+			wantWarnings: 0,
+		},
+		{
+			name: "no path fields present",
+			data: map[string]interface{}{
+				"name": "test-plugin",
+			},
+			wantErrors:   0,
+			wantWarnings: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			issues := validatePluginPaths(tt.data, "plugin.json", "{}")
+			errorCount := 0
+			warningCount := 0
+			for _, issue := range issues {
+				switch issue.Severity {
+				case "error":
+					errorCount++
+				case "warning":
+					warningCount++
+				}
+			}
+			if errorCount != tt.wantErrors {
+				t.Errorf("errors = %d, want %d", errorCount, tt.wantErrors)
+				for _, issue := range issues {
+					t.Logf("  - %s: %s", issue.Severity, issue.Message)
+				}
+			}
+			if warningCount != tt.wantWarnings {
+				t.Errorf("warnings = %d, want %d", warningCount, tt.wantWarnings)
+				for _, issue := range issues {
+					t.Logf("  - %s: %s", issue.Severity, issue.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractPaths(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     interface{}
+		wantCount int
+	}{
+		{
+			name:      "string value",
+			value:     "./commands/greet.md",
+			wantCount: 1,
+		},
+		{
+			name:      "string array",
+			value:     []interface{}{"./a.md", "./b.md"},
+			wantCount: 2,
+		},
+		{
+			name: "object array",
+			value: []interface{}{
+				map[string]interface{}{"path": "./commands/greet.md", "name": "greet"},
+			},
+			wantCount: 2, // extracts all string values from the object
+		},
+		{
+			name: "map value",
+			value: map[string]interface{}{
+				"server1": "./mcp/server1.json",
+				"server2": "./mcp/server2.json",
+			},
+			wantCount: 2,
+		},
+		{
+			name:      "nil value",
+			value:     nil,
+			wantCount: 0,
+		},
+		{
+			name:      "non-path type",
+			value:     42,
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			paths := extractPaths(tt.value)
+			if len(paths) != tt.wantCount {
+				t.Errorf("extractPaths() count = %d, want %d; paths = %v", len(paths), tt.wantCount, paths)
+			}
+		})
+	}
+}
+
+func TestKnownPluginFields(t *testing.T) {
+	expected := []string{
+		"name", "description", "version", "author", "homepage", "repository",
+		"license", "keywords", "readme", "commands", "agents", "skills",
+		"hooks", "mcpServers", "outputStyles", "lspServers",
+	}
+	for _, field := range expected {
+		if !knownPluginFields[field] {
+			t.Errorf("knownPluginFields missing expected field: %s", field)
+		}
 	}
 }
 

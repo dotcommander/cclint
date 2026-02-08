@@ -17,9 +17,47 @@ func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (
 	return lintBatch(ctx, NewPluginLinter()), nil
 }
 
+// knownPluginFields lists valid plugin.json fields per Anthropic docs
+var knownPluginFields = map[string]bool{
+	"name":         true, // Required: plugin name
+	"description":  true, // Required: plugin description
+	"version":      true, // Recommended: semver version
+	"author":       true, // Required: author object with name
+	"homepage":     true, // Optional: project URL
+	"repository":   true, // Optional: source code URL
+	"license":      true, // Optional: SPDX license identifier
+	"keywords":     true, // Optional: discoverability tags
+	"readme":       true, // Optional: path to README
+	"commands":     true, // Optional: command definitions
+	"agents":       true, // Optional: agent definitions
+	"skills":       true, // Optional: skill definitions
+	"hooks":        true, // Optional: hook configurations
+	"mcpServers":   true, // Optional: MCP server configurations
+	"outputStyles": true, // Optional: output style configurations
+	"lspServers":   true, // Optional: LSP server configurations
+}
+
+// pluginPathFields lists plugin fields that contain file paths
+var pluginPathFields = []string{
+	"commands", "agents", "skills", "hooks", "mcpServers", "outputStyles", "lspServers",
+}
+
 // validatePluginSpecific implements plugin-specific validation rules
 func validatePluginSpecific(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
+
+	// Check for unknown fields
+	for key := range data {
+		if !knownPluginFields[key] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown plugin field '%s'", key),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindJSONFieldLine(contents, key),
+			})
+		}
+	}
 
 	// Check required fields - FROM ANTHROPIC DOCS
 	if name, ok := data["name"].(string); !ok || name == "" {
@@ -113,8 +151,86 @@ func validatePluginSpecific(data map[string]interface{}, filePath string, conten
 		}
 	}
 
+	// Validate paths in path-bearing fields
+	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
+
 	// Best practice checks
 	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
+
+	return errors
+}
+
+// validatePluginPaths checks that path-bearing fields use relative paths
+func validatePluginPaths(data map[string]interface{}, filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	for _, field := range pluginPathFields {
+		value, ok := data[field]
+		if !ok {
+			continue
+		}
+		paths := extractPaths(value)
+		for _, p := range paths {
+			errors = append(errors, checkPath(p, field, filePath, contents)...)
+		}
+	}
+
+	return errors
+}
+
+// extractPaths collects path strings from various JSON structures:
+// string, []string, []object (extracts string values), or map (extracts string values).
+func extractPaths(value interface{}) []string {
+	var paths []string
+	switch v := value.(type) {
+	case string:
+		paths = append(paths, v)
+	case []interface{}:
+		for _, item := range v {
+			switch elem := item.(type) {
+			case string:
+				paths = append(paths, elem)
+			case map[string]interface{}:
+				for _, mv := range elem {
+					if s, ok := mv.(string); ok {
+						paths = append(paths, s)
+					}
+				}
+			}
+		}
+	case map[string]interface{}:
+		for _, mv := range v {
+			if s, ok := mv.(string); ok {
+				paths = append(paths, s)
+			}
+		}
+	}
+	return paths
+}
+
+// checkPath validates a single path string for relative path requirements.
+func checkPath(path string, field string, filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	if strings.HasPrefix(path, "/") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Plugin paths must be relative (start with \"./\"): found \"%s\"", path),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, field),
+		})
+	}
+
+	if strings.Contains(path, "..") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Path '%s' in '%s' contains '..', which risks traversal outside the plugin root", path, field),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+			Line:     FindJSONFieldLine(contents, field),
+		})
+	}
 
 	return errors
 }
