@@ -293,6 +293,56 @@ func TestValidateHooks(t *testing.T) {
 			},
 			wantErrorCount: 0,
 		},
+		{
+			name: "valid agent hook",
+			hooks: map[string]interface{}{
+				"PreToolUse": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type": "agent",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "command hook with async true",
+			hooks: map[string]interface{}{
+				"PostToolUse": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type":    "command",
+								"command": "echo async test",
+								"async":   true,
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "invalid hook type rejected",
+			hooks: map[string]interface{}{
+				"PreToolUse": []interface{}{
+					map[string]interface{}{
+						"matcher": map[string]interface{}{},
+						"hooks": []interface{}{
+							map[string]interface{}{
+								"type": "webhook",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 1,
+		},
 	}
 
 	for _, tt := range tests {

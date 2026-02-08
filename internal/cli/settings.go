@@ -57,6 +57,7 @@ var promptHookEvents = map[string]bool{
 var validHookTypes = map[string]bool{
 	"command": true,
 	"prompt":  true,
+	"agent":   true,
 }
 
 // validateSettingsSpecific implements settings-specific validation rules
@@ -208,7 +209,7 @@ func validateHooksWithEvents(hooks interface{}, filePath string, allowedEvents m
 				if !validHookTypes[hookTypeStr] {
 					errors = append(errors, cue.ValidationError{
 						File:     filePath,
-						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt", eventName, i, j, hookTypeStr),
+						Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt, agent", eventName, i, j, hookTypeStr),
 						Severity: "error",
 						Source:   cue.SourceAnthropicDocs,
 					})

@@ -10,13 +10,32 @@ package schemas
 // Hook type - command, prompt, or agent (v2.1.0+ added prompt and agent for plugins)
 #HookType: "command" | "prompt" | "agent"
 
-// Hook command definition
+// Hook handler definition
 // PreToolUse hooks can return additionalContext to the model (v2.1.9+)
 #HookCommand: {
-	type:     #HookType
-	command:  string
+	type: #HookType
+
+	// Required for type: "command"
+	command?: string
+
+	// Required for type: "prompt"
+	prompt?: string
+
+	// Optional: run command asynchronously (type: "command" only)
+	async?: bool
+
 	timeout?: *30 | int  // default 30 seconds
 	once?:    bool       // run only once per session (v2.1.0+)
+
+	// Enforce command field when type is "command"
+	if type == "command" {
+		command: string
+	}
+
+	// Enforce prompt field when type is "prompt"
+	if type == "prompt" {
+		prompt: string
+	}
 }
 
 // Hook definition (can be nested under event arrays)
