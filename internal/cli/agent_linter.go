@@ -61,7 +61,7 @@ func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, file
 	if crossValidator == nil {
 		return nil
 	}
-	return crossValidator.ValidateAgent(filePath, contents)
+	return crossValidator.ValidateAgent(filePath, contents, data)
 }
 
 // Score implements Scorable interface

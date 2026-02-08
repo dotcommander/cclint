@@ -72,7 +72,8 @@ import (
 	color?: #Color                                            // UI display color (set via /agents wizard)
 	tools?: #Tools                                            // tool access allowlist; agents use 'tools:', NOT 'allowed-tools:'
 	disallowedTools?: #Tools                                  // tool access denylist
-	permissionMode?: "default" | "acceptEdits" | "dontAsk" | "bypassPermissions" | "plan"
+	permissionMode?: "default" | "acceptEdits" | "delegate" | "dontAsk" | "bypassPermissions" | "plan"
+	maxTurns?: int & >0                                       // max conversation turns (positive integer)
 	skills?: string                                           // skills to preload into agent context
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)
 	memory?: #MemoryScope                                     // persistent memory scope (v2.1.33+)

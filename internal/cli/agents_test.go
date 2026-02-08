@@ -161,6 +161,102 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantErrCount:  1,
 			wantSuggCount: 0,
 		},
+		{
+			name: "valid permissionMode default",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"permissionMode": "default",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: default\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid permissionMode bypassPermissions",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"permissionMode": "bypassPermissions",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: bypassPermissions\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid permissionMode delegate",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"permissionMode": "delegate",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: delegate\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "invalid permissionMode",
+			data: map[string]interface{}{
+				"name":           "test",
+				"description":    "test. Use PROACTIVELY when testing.",
+				"permissionMode": "yolo",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: yolo\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid maxTurns positive integer",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"maxTurns":    10,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmaxTurns: 10\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "invalid maxTurns zero",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"maxTurns":    0,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmaxTurns: 0\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "invalid maxTurns negative",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"maxTurns":    -5,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmaxTurns: -5\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "invalid maxTurns string",
+			data: map[string]interface{}{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"maxTurns":    "ten",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmaxTurns: ten\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -293,7 +389,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "skills", "hooks", "memory"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)

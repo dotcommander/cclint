@@ -56,7 +56,8 @@ var knownAgentFields = map[string]bool{
 	"color":           true, // Optional: display color in UI (set via /agents wizard)
 	"tools":           true, // Optional: tool access allowlist
 	"disallowedTools": true, // Optional: tool access denylist
-	"permissionMode":  true, // Optional: default, acceptEdits, dontAsk, bypassPermissions, plan
+	"permissionMode":  true, // Optional: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
+	"maxTurns":        true, // Optional: max conversation turns (positive integer)
 	"skills":          true, // Optional: skills to preload into context
 	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
 	"memory":          true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
@@ -71,7 +72,7 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 		if !knownAgentFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, disallowedTools, permissionMode, skills, hooks", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, model, color, tools, disallowedTools, permissionMode, maxTurns, skills, hooks, memory", key),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, key),
@@ -201,6 +202,61 @@ func validateAgentSpecific(data map[string]interface{}, filePath string, content
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "memory"),
+			})
+		}
+	}
+
+	// Validate permissionMode enum
+	if permMode, ok := data["permissionMode"].(string); ok {
+		validPermModes := map[string]bool{
+			"default":           true,
+			"acceptEdits":       true,
+			"delegate":          true,
+			"dontAsk":           true,
+			"bypassPermissions": true,
+			"plan":              true,
+		}
+		if !validPermModes[permMode] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan", permMode),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "permissionMode"),
+			})
+		}
+	}
+
+	// Validate maxTurns - must be a positive integer
+	if maxTurns, ok := data["maxTurns"]; ok {
+		switch v := maxTurns.(type) {
+		case int:
+			if v <= 0 {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Invalid maxTurns value %d; must be a positive integer", v),
+					Severity: "error",
+					Source:   cue.SourceAnthropicDocs,
+					Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+				})
+			}
+		case float64:
+			if v <= 0 || v != float64(int(v)) {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", v),
+					Severity: "error",
+					Source:   cue.SourceAnthropicDocs,
+					Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+				})
+			}
+		default:
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", maxTurns),
+				Severity: "error",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
 			})
 		}
 	}
