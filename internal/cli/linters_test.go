@@ -176,7 +176,7 @@ func TestContextLinter(t *testing.T) {
 }
 
 func TestPluginLinter(t *testing.T) {
-	linter := NewPluginLinter()
+	linter := NewPluginLinter("")
 
 	if linter.Type() != "plugin" {
 		t.Errorf("PluginLinter.Type() = %q, want %q", linter.Type(), "plugin")

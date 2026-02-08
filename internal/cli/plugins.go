@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -14,7 +16,7 @@ func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (
 	if err != nil {
 		return nil, err
 	}
-	return lintBatch(ctx, NewPluginLinter()), nil
+	return lintBatch(ctx, NewPluginLinter(ctx.RootPath)), nil
 }
 
 // knownPluginFields lists valid plugin.json fields per Anthropic docs
@@ -233,6 +235,73 @@ func checkPath(path string, field string, filePath string, contents string) []cu
 	}
 
 	return errors
+}
+
+// allPluginPathFields includes all fields that contain filesystem paths,
+// adding "readme" to the component path fields since it references a file too.
+var allPluginPathFields = append([]string{"readme"}, pluginPathFields...)
+
+// isGlobPattern returns true if the path contains glob metacharacters.
+// Paths with globs are skipped for existence checks since they represent
+// patterns, not literal filesystem paths.
+func isGlobPattern(path string) bool {
+	return strings.ContainsAny(path, "*?[{")
+}
+
+// validatePluginPathsExist checks that literal paths referenced in plugin
+// manifests exist on disk relative to the plugin's directory.
+//
+// Reports missing paths as warnings (not errors) since referenced files may
+// be generated at build time or installed later.
+//
+// Skips validation when rootPath is empty (e.g., in unit tests without a
+// filesystem layout). Skips glob patterns, absolute paths, and traversal
+// paths (the latter two are already reported by checkPath).
+func validatePluginPathsExist(data map[string]interface{}, rootPath, filePath, contents string) []cue.ValidationError {
+	if rootPath == "" {
+		return nil
+	}
+
+	// Resolve the plugin directory: filePath is relative to rootPath.
+	// e.g., filePath="my-plugin/.claude-plugin/plugin.json"
+	//   -> pluginDir = <rootPath>/my-plugin/.claude-plugin
+	pluginDir := filepath.Join(rootPath, filepath.Dir(filePath))
+
+	var warnings []cue.ValidationError
+
+	for _, field := range allPluginPathFields {
+		value, ok := data[field]
+		if !ok {
+			continue
+		}
+		paths := extractPaths(value)
+		for _, p := range paths {
+			if isGlobPattern(p) {
+				continue
+			}
+			// Skip absolute paths and traversal (already reported by checkPath)
+			if strings.HasPrefix(p, "/") || strings.Contains(p, "..") {
+				continue
+			}
+			// Skip empty paths and URLs
+			if p == "" || strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
+				continue
+			}
+
+			resolved := filepath.Join(pluginDir, p)
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				warnings = append(warnings, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Path '%s' in '%s' does not exist relative to plugin directory", p, field),
+					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
+					Line:     FindJSONFieldLine(contents, field),
+				})
+			}
+		}
+	}
+
+	return warnings
 }
 
 // validatePluginBestPractices checks opinionated best practices for plugins

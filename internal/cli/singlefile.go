@@ -351,7 +351,7 @@ func lintSingleContext(ctx *SingleFileLinterContext) LintResult {
 
 // lintSinglePlugin lints a single plugin.json file using the generic linter.
 func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewPluginLinter())
+	return lintComponent(ctx, NewPluginLinter(ctx.RootPath))
 }
 
 // lintSingleOutputStyle lints a single output style file using the generic linter.

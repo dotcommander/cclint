@@ -10,6 +10,9 @@ import (
 // It also implements Scorable and Improvable for quality scoring.
 type PluginLinter struct {
 	BaseLinter
+	// RootPath is the project root directory, used to resolve relative paths
+	// for filesystem existence checks. Empty string disables path existence validation.
+	RootPath string
 }
 
 // Compile-time interface compliance checks
@@ -20,8 +23,10 @@ var (
 )
 
 // NewPluginLinter creates a new PluginLinter.
-func NewPluginLinter() *PluginLinter {
-	return &PluginLinter{}
+// rootPath is the project root for resolving relative paths in plugin manifests.
+// Pass empty string to skip path existence validation.
+func NewPluginLinter(rootPath string) *PluginLinter {
+	return &PluginLinter{RootPath: rootPath}
 }
 
 func (l *PluginLinter) Type() string {
@@ -42,7 +47,9 @@ func (l *PluginLinter) ValidateCUE(validator *cue.Validator, data map[string]int
 }
 
 func (l *PluginLinter) ValidateSpecific(data map[string]interface{}, filePath, contents string) []cue.ValidationError {
-	return validatePluginSpecific(data, filePath, contents)
+	errors := validatePluginSpecific(data, filePath, contents)
+	errors = append(errors, validatePluginPathsExist(data, l.RootPath, filePath, contents)...)
+	return errors
 }
 
 // Score implements Scorable interface

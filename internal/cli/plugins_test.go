@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -17,11 +19,11 @@ func TestLintPlugins(t *testing.T) {
 
 func TestValidatePluginSpecific(t *testing.T) {
 	tests := []struct {
-		name           string
-		data           map[string]interface{}
-		filePath       string
-		contents       string
-		wantMinErrors  int // Minimum errors expected (not counting suggestions)
+		name          string
+		data          map[string]interface{}
+		filePath      string
+		contents      string
+		wantMinErrors int // Minimum errors expected (not counting suggestions)
 	}{
 		{
 			name: "valid plugin",
@@ -244,8 +246,8 @@ func TestValidatePluginSpecific(t *testing.T) {
 
 func TestValidatePluginBestPractices(t *testing.T) {
 	tests := []struct {
-		name               string
-		data               map[string]interface{}
+		name                string
+		data                map[string]interface{}
 		wantSuggestionCount int
 	}{
 		{
@@ -336,10 +338,10 @@ func TestGetPluginImprovements(t *testing.T) {
 
 func TestValidatePluginPaths(t *testing.T) {
 	tests := []struct {
-		name          string
-		data          map[string]interface{}
-		wantErrors    int
-		wantWarnings  int
+		name         string
+		data         map[string]interface{}
+		wantErrors   int
+		wantWarnings int
 	}{
 		{
 			name: "all relative paths",
@@ -511,6 +513,214 @@ func TestFindJSONFieldLine(t *testing.T) {
 			line := FindJSONFieldLine(content, tt.field)
 			if line != tt.wantLine {
 				t.Errorf("FindJSONFieldLine(%q) = %d, want %d", tt.field, line, tt.wantLine)
+			}
+		})
+	}
+}
+
+func TestIsGlobPattern(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"./commands/greet.md", false},
+		{"./commands/*.md", true},
+		{"./agents/helper-?.md", true},
+		{"./skills/[abc].md", true},
+		{"./hooks/{pre,post}.md", true},
+		{"README.md", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got := isGlobPattern(tt.path)
+			if got != tt.want {
+				t.Errorf("isGlobPattern(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatePluginPathsExist(t *testing.T) {
+	// Helper to create a temp directory with a .claude-plugin structure.
+	// fileRelPaths are paths relative to the plugin directory.
+	setupPluginDir := func(t *testing.T, fileRelPaths []string) string {
+		t.Helper()
+		root := t.TempDir()
+		pluginDir := filepath.Join(root, ".claude-plugin")
+		if err := os.MkdirAll(pluginDir, 0o755); err != nil {
+			t.Fatalf("failed to create plugin dir: %v", err)
+		}
+		for _, rel := range fileRelPaths {
+			abs := filepath.Join(pluginDir, rel)
+			dir := filepath.Dir(abs)
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				t.Fatalf("failed to create dir %s: %v", dir, err)
+			}
+			if err := os.WriteFile(abs, []byte("content"), 0o644); err != nil {
+				t.Fatalf("failed to create file %s: %v", abs, err)
+			}
+		}
+		return root
+	}
+
+	tests := []struct {
+		name         string
+		files        []string // files to create relative to plugin dir
+		data         map[string]interface{}
+		wantWarnings int
+		emptyRoot    bool // use empty rootPath to disable validation
+	}{
+		{
+			name:  "all paths exist",
+			files: []string{"./commands/greet.md", "./agents/helper.md", "README.md"},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/greet.md"},
+				"agents":   []interface{}{"./agents/helper.md"},
+				"readme":   "README.md",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "missing command file",
+			files: []string{"./agents/helper.md"},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/missing.md"},
+				"agents":   []interface{}{"./agents/helper.md"},
+			},
+			wantWarnings: 1,
+		},
+		{
+			name:  "missing readme file",
+			files: []string{},
+			data: map[string]interface{}{
+				"readme": "README.md",
+			},
+			wantWarnings: 1,
+		},
+		{
+			name:  "multiple missing paths",
+			files: []string{},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/a.md", "./commands/b.md"},
+				"agents":   []interface{}{"./agents/helper.md"},
+			},
+			wantWarnings: 3,
+		},
+		{
+			name:  "glob patterns skipped",
+			files: []string{},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/*.md"},
+				"skills":   []interface{}{"./skills/[a-z]*.md"},
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "absolute paths skipped",
+			files: []string{},
+			data: map[string]interface{}{
+				"commands": []interface{}{"/etc/commands/greet.md"},
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "traversal paths skipped",
+			files: []string{},
+			data: map[string]interface{}{
+				"skills": []interface{}{"./skills/../../etc/passwd"},
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "empty rootPath disables validation",
+			files: []string{},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/missing.md"},
+			},
+			wantWarnings: 0,
+			emptyRoot:    true,
+		},
+		{
+			name:  "no path fields present",
+			files: []string{},
+			data: map[string]interface{}{
+				"name": "test-plugin",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "map-style mcpServers with missing paths",
+			files: []string{},
+			data: map[string]interface{}{
+				"mcpServers": map[string]interface{}{
+					"server1": "./mcp/server1.json",
+				},
+			},
+			wantWarnings: 1,
+		},
+		{
+			name:  "map-style mcpServers with existing paths",
+			files: []string{"./mcp/server1.json"},
+			data: map[string]interface{}{
+				"mcpServers": map[string]interface{}{
+					"server1": "./mcp/server1.json",
+				},
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "URLs in path fields skipped",
+			files: []string{},
+			data: map[string]interface{}{
+				"hooks": []interface{}{"http://example.com/hook", "https://example.com/hook"},
+			},
+			wantWarnings: 0,
+		},
+		{
+			name:  "mixed existing and missing paths",
+			files: []string{"./commands/exists.md"},
+			data: map[string]interface{}{
+				"commands": []interface{}{"./commands/exists.md", "./commands/missing.md"},
+			},
+			wantWarnings: 1,
+		},
+		{
+			name:  "directory path exists",
+			files: []string{"./skills/my-skill/SKILL.md"},
+			data: map[string]interface{}{
+				"skills": []interface{}{"./skills/my-skill"},
+			},
+			wantWarnings: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var rootPath string
+			if tt.emptyRoot {
+				rootPath = ""
+			} else {
+				rootPath = setupPluginDir(t, tt.files)
+			}
+
+			filePath := ".claude-plugin/plugin.json"
+			contents := `{"commands": []}`
+
+			warnings := validatePluginPathsExist(tt.data, rootPath, filePath, contents)
+			if len(warnings) != tt.wantWarnings {
+				t.Errorf("warnings = %d, want %d", len(warnings), tt.wantWarnings)
+				for _, w := range warnings {
+					t.Logf("  - %s: %s", w.Severity, w.Message)
+				}
+			}
+
+			// Verify all returned issues are warnings (not errors)
+			for _, w := range warnings {
+				if w.Severity != "warning" {
+					t.Errorf("expected severity 'warning', got %q for: %s", w.Severity, w.Message)
+				}
 			}
 		})
 	}

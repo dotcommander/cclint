@@ -9,7 +9,7 @@ import (
 
 // TestPluginLinterScore tests plugin linter scoring
 func TestPluginLinterScore(t *testing.T) {
-	linter := NewPluginLinter()
+	linter := NewPluginLinter("")
 	data := map[string]interface{}{
 		"name":        "test-plugin",
 		"description": "A comprehensive test plugin",
@@ -24,7 +24,7 @@ func TestPluginLinterScore(t *testing.T) {
 
 // TestPluginLinterGetImprovements tests plugin linter improvements
 func TestPluginLinterGetImprovements(t *testing.T) {
-	linter := NewPluginLinter()
+	linter := NewPluginLinter("")
 	data := map[string]interface{}{
 		"name":        "test-plugin",
 		"description": "Short",
@@ -38,7 +38,7 @@ func TestPluginLinterGetImprovements(t *testing.T) {
 
 // TestPluginLinterValidateCUE tests plugin linter CUE validation
 func TestPluginLinterValidateCUE(t *testing.T) {
-	linter := NewPluginLinter()
+	linter := NewPluginLinter("")
 	validator := cue.NewValidator()
 
 	errors, _ := linter.ValidateCUE(validator, map[string]interface{}{"name": "test"})
