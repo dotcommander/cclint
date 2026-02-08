@@ -33,6 +33,7 @@ func DefaultLinters() []ComponentLinter {
 		{Name: "settings", Linter: cli.LintSettings},
 		{Name: "context", Linter: cli.LintContext},
 		{Name: "rules", Linter: cli.LintRules},
+		{Name: "output-styles", Linter: cli.LintOutputStyles},
 		// {Name: "plugins", Linter: cli.LintPlugins}, // TODO: re-enable when output is less overwhelming
 	}
 }

@@ -44,6 +44,10 @@ var typePatterns = []TypePattern{
 	{".claude/agents/**/*.md", FileTypeAgent},
 	{"agents/**/*.md", FileTypeAgent},
 
+	// Output Styles - directory-based
+	{".claude/output-styles/**/*.md", FileTypeOutputStyle},
+	{"output-styles/**/*.md", FileTypeOutputStyle},
+
 	// Commands - directory-based
 	{".claude/commands/**/*.md", FileTypeCommand},
 	{"commands/**/*.md", FileTypeCommand},
@@ -66,6 +70,7 @@ var DefaultFileTypes = []FileTypeEntry{
 	{Type: FileTypeSkill, Patterns: []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md"}},
 	{Type: FileTypePlugin, Patterns: []string{"**/.claude-plugin/plugin.json"}},
 	{Type: FileTypeRule, Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md"}},
+	{Type: FileTypeOutputStyle, Patterns: []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"}},
 }
 
 // DetectFileType determines the component type from a file path using glob pattern matching.
@@ -134,8 +139,8 @@ func DetectFileType(absPath, rootPath string) (FileType, error) {
 	switch ext {
 	case ".md":
 		return FileTypeUnknown, fmt.Errorf(
-			"cannot determine type: %s is a .md file but not in agents/, commands/, or skills/ directory. "+
-				"Use --type to specify (agent, command, skill, context)", relPath)
+			"cannot determine type: %s is a .md file but not in agents/, commands/, skills/, or output-styles/ directory. "+
+				"Use --type to specify (agent, command, skill, context, output-style)", relPath)
 	case ".json":
 		return FileTypeUnknown, fmt.Errorf(
 			"cannot determine type: %s is a .json file but not settings.json or plugin.json. "+
@@ -253,6 +258,7 @@ const (
 	FileTypeConfig
 	FileTypePlugin
 	FileTypeRule
+	FileTypeOutputStyle
 )
 
 // String returns the human-readable name of the file type.
@@ -272,6 +278,8 @@ func (ft FileType) String() string {
 		return "plugin"
 	case FileTypeRule:
 		return "rule"
+	case FileTypeOutputStyle:
+		return "output-style"
 	default:
 		return "unknown"
 	}
@@ -296,9 +304,11 @@ func ParseFileType(s string) (FileType, error) {
 		return FileTypePlugin, nil
 	case "rule", "rules":
 		return FileTypeRule, nil
+	case "output-style", "output-styles":
+		return FileTypeOutputStyle, nil
 	default:
 		return FileTypeUnknown, fmt.Errorf(
-			"invalid type %q: valid types are agent, command, skill, settings, context, plugin, rule", s)
+			"invalid type %q: valid types are agent, command, skill, settings, context, plugin, rule, output-style", s)
 	}
 }
 
@@ -424,6 +434,10 @@ func (fd *FileDiscovery) determineFileType(path string) FileType {
 	// Rules must be checked before agents/commands (rules/ is inside .claude/)
 	if hasPathComponent(lowerPath, ".claude/rules") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeRule
+	}
+	// Output styles (before agents/commands to avoid misdetection)
+	if (hasPathComponent(lowerPath, ".claude/output-styles") || hasPathComponent(lowerPath, "output-styles")) && strings.HasSuffix(lowerPath, ".md") {
+		return FileTypeOutputStyle
 	}
 	if hasPathComponent(lowerPath, "agents") && strings.HasSuffix(lowerPath, ".md") {
 		return FileTypeAgent

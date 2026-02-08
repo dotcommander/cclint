@@ -240,6 +240,8 @@ func LintSingleFile(filePath, rootPath, typeOverride string, quiet, verbose bool
 		result = lintSingleContext(ctx)
 	case discovery.FileTypePlugin:
 		result = lintSinglePlugin(ctx)
+	case discovery.FileTypeOutputStyle:
+		result = lintSingleOutputStyle(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported file type: %s", ctx.File.Type.String())
 	}
@@ -352,6 +354,11 @@ func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
 	return lintComponent(ctx, NewPluginLinter())
 }
 
+// lintSingleOutputStyle lints a single output style file using the generic linter.
+func lintSingleOutputStyle(ctx *SingleFileLinterContext) LintResult {
+	return lintComponent(ctx, NewOutputStyleLinter())
+}
+
 // LooksLikePath determines if an argument looks like a file path rather than a subcommand.
 //
 // This is used to distinguish between:
@@ -403,15 +410,16 @@ func LooksLikePath(arg string) bool {
 // These are protected from being interpreted as file paths.
 func IsKnownSubcommand(arg string) bool {
 	subcommands := map[string]bool{
-		"agents":   true,
-		"commands": true,
-		"skills":   true,
-		"settings": true,
-		"context":  true,
-		"plugins":  true,
-		"rules":    true,
-		"help":     true,
-		"version":  true,
+		"agents":        true,
+		"commands":      true,
+		"skills":        true,
+		"settings":      true,
+		"context":       true,
+		"plugins":       true,
+		"rules":         true,
+		"output-styles": true,
+		"help":          true,
+		"version":       true,
 	}
 	return subcommands[strings.ToLower(arg)]
 }
