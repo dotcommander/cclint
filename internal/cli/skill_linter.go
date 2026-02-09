@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
@@ -239,7 +240,7 @@ func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *SkillLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
+func (l *SkillLinter) ValidateCrossFile(crossValidator *crossfile.CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}

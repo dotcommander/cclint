@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/project"
@@ -20,7 +21,7 @@ type LinterContext struct {
 	Validator      *cue.Validator
 	Discoverer     *discovery.FileDiscovery
 	Files          []discovery.File
-	CrossValidator *CrossFileValidator
+	CrossValidator *crossfile.CrossFileValidator
 }
 
 // NewLinterContext creates a new LinterContext with all dependencies initialized.
@@ -56,7 +57,7 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool) (*Lint
 	}
 
 	// Initialize cross-file validator
-	crossValidator := NewCrossFileValidator(files)
+	crossValidator := crossfile.NewCrossFileValidator(files)
 
 	return &LinterContext{
 		RootPath:       rootPath,

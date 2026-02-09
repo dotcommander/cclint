@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 )
@@ -581,7 +582,7 @@ func TestAgentLinterPostProcessBatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			crossValidator := NewCrossFileValidator(tt.files)
+			crossValidator := crossfile.NewCrossFileValidator(tt.files)
 			ctx := &LinterContext{
 				CrossValidator: crossValidator,
 				NoCycleCheck:   tt.noCycleCheck,

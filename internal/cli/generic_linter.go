@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/frontend"
@@ -68,7 +69,7 @@ type BestPracticeValidator interface {
 // CrossFileValidatable is an optional interface for linters that validate cross-file references.
 type CrossFileValidatable interface {
 	// ValidateCrossFile runs cross-file validation (e.g., agent→skill references).
-	ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError
+	ValidateCrossFile(crossValidator *crossfile.CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError
 }
 
 // Scorable is an optional interface for linters that provide quality scores.
@@ -92,7 +93,7 @@ type PostProcessable interface {
 // lintFileCore contains the shared linting logic for both single-file and batch modes.
 // It validates a file using the provided ComponentLinter and returns the result.
 // crossValidator may be nil if cross-file validation should be skipped.
-func lintFileCore(filePath, contents string, linter ComponentLinter, validator *cue.Validator, crossValidator *CrossFileValidator) LintResult {
+func lintFileCore(filePath, contents string, linter ComponentLinter, validator *cue.Validator, crossValidator *crossfile.CrossFileValidator) LintResult {
 	result := LintResult{
 		File:    filePath,
 		Type:    linter.Type(),
@@ -216,7 +217,7 @@ func runBestPracticeValidation(result *LintResult, linter ComponentLinter, fileP
 type crossFileValidationParams struct {
 	result         *LintResult
 	linter         ComponentLinter
-	crossValidator *CrossFileValidator
+	crossValidator *crossfile.CrossFileValidator
 	filePath       string
 	contents       string
 	data           map[string]any

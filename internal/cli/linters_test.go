@@ -3,6 +3,7 @@ package cli
 import (
 	"testing"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/discovery"
 )
 
@@ -212,7 +213,7 @@ func TestBatchPostProcessor(t *testing.T) {
 	files := []discovery.File{
 		{RelPath: "agents/test.md", Type: discovery.FileTypeAgent, Contents: "test"},
 	}
-	crossValidator := NewCrossFileValidator(files)
+	crossValidator := crossfile.NewCrossFileValidator(files)
 
 	ctx := &LinterContext{
 		RootPath:       "/test",

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/scoring"
@@ -59,7 +60,7 @@ func (l *CommandLinter) ValidateBestPractices(filePath, contents string, data ma
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *CommandLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
+func (l *CommandLinter) ValidateCrossFile(crossValidator *crossfile.CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}

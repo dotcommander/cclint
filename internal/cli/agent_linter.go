@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/scoring"
@@ -57,7 +58,7 @@ func (l *AgentLinter) ValidateSpecific(data map[string]any, filePath, contents s
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
-func (l *AgentLinter) ValidateCrossFile(crossValidator *CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
+func (l *AgentLinter) ValidateCrossFile(crossValidator *crossfile.CrossFileValidator, filePath, contents string, data map[string]any) []cue.ValidationError {
 	if crossValidator == nil {
 		return nil
 	}
@@ -86,7 +87,7 @@ func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 	cyclesReported := make(map[string]bool)
 
 	for _, cycle := range cycles {
-		cycleDesc := FormatCycle(cycle)
+		cycleDesc := crossfile.FormatCycle(cycle)
 		if cyclesReported[cycleDesc] {
 			continue
 		}
@@ -98,7 +99,7 @@ func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 }
 
 // reportCycleError reports a cycle error to all agents involved in the cycle.
-func (l *AgentLinter) reportCycleError(summary *LintSummary, cycle Cycle, cycleDesc string) {
+func (l *AgentLinter) reportCycleError(summary *LintSummary, cycle crossfile.Cycle, cycleDesc string) {
 	agentsInCycle := extractAgentsFromCycle(cycle.Path)
 
 	for agentName := range agentsInCycle {
@@ -121,7 +122,7 @@ func extractAgentsFromCycle(path []string) map[string]bool {
 // addCycleToSummary adds a cycle error to the summary for a specific agent.
 func addCycleToSummary(summary *LintSummary, agentName, cycleDesc string) {
 	for i := range summary.Results {
-		resultName := crossExtractAgentName(summary.Results[i].File)
+		resultName := crossfile.ExtractAgentName(summary.Results[i].File)
 		if resultName == agentName {
 			summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
 				File:     summary.Results[i].File,
