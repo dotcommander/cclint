@@ -687,6 +687,307 @@ Bad things
 	}
 }
 
+func TestIsThinRouter(t *testing.T) {
+	tests := []struct {
+		name      string
+		content   string
+		lineCount int
+		want      bool
+	}{
+		{
+			name:      "Not thin router - no indicators",
+			content:   "## Workflow\n\n### Phase 1\nDo stuff",
+			lineCount: 200,
+			want:      false,
+		},
+		{
+			name:      "Not thin router - only one indicator (references/)",
+			content:   "See references/foo.md for details",
+			lineCount: 200,
+			want:      false,
+		},
+		{
+			name: "Thin router - references/ + degeneralized",
+			content: `See references/patterns.md
+Degeneralization Notes: extracted from monolith`,
+			lineCount: 50,
+			want:      true,
+		},
+		{
+			name: "Thin router - references/ + Read(references/ in table",
+			content: `| Intent | Action |
+| How to test | Read(references/testing.md) |
+See references/examples.md`,
+			lineCount: 30,
+			want:      true,
+		},
+		{
+			name: "Thin router - short file + Read(references/ + degeneralized",
+			content: `Read(references/patterns.md)
+This was degeneralized from the original`,
+			lineCount: 80,
+			want:      true,
+		},
+		{
+			name: "Not thin router - has references/ but lineCount >= 150 and no table",
+			content: `See references/foo.md
+Read(references/bar.md)`,
+			lineCount: 200,
+			want:      false,
+		},
+		{
+			name: "Thin router - Degeneralization + table refs",
+			content: `## Degeneralization Notes
+| Route | Read(references/api.md) |`,
+			lineCount: 40,
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isThinRouter(tt.content, tt.lineCount)
+			if got != tt.want {
+				t.Errorf("isThinRouter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSkillScorer_ThinRouterScoring(t *testing.T) {
+	scorer := NewSkillScorer()
+
+	tests := []struct {
+		name          string
+		frontmatter   map[string]any
+		bodyContent   string
+		wantTier      string
+		wantStructMin int
+		wantPractMin  int
+	}{
+		{
+			name: "Perfect thin router skill",
+			frontmatter: map[string]any{
+				"name":        "verification-patterns",
+				"description": strings.Repeat("Thin router skill that delegates verification workflows to reference files for detailed implementation guidance. ", 2),
+			},
+			bodyContent: `## Quick Reference
+
+| User Question | Action |
+|---------------|--------|
+| How to verify? | Read(references/web-verification.md) |
+| Run tests? | Read(references/test-patterns.md) |
+
+## Degeneralization Notes
+
+Extracted routing logic from monolithic skill. Reference files contain full methodology.
+
+## Related Skills
+
+- quality-agent patterns
+- See also: clean-code-patterns
+
+## Anti-Patterns
+
+| Anti-Pattern | Problem |
+|---|---|
+| Inline verification | Bloats skill |
+
+## Success Criteria
+
+- [ ] Routes to correct reference
+`,
+			wantTier:      "A",
+			wantStructMin: 35, // 20 frontmatter + 10 routing table + 5 refs
+			wantPractMin:  35, // 15 ref routing + 10 related + 5 degen + 5 anti-patterns
+		},
+		{
+			name: "Minimal thin router - routing + degeneralized only",
+			frontmatter: map[string]any{
+				"name":        "fastapi-patterns",
+				"description": strings.Repeat("FastAPI pattern router that delegates to reference files. ", 3),
+			},
+			bodyContent: `## Quick Reference
+
+| Intent | Action |
+|--------|--------|
+| Create endpoint | Read(references/endpoints.md) |
+
+## Degeneralization Notes
+
+Extracted from monolithic API skill.
+
+See references/models.md for data models.
+`,
+			wantTier:      "B",
+			wantStructMin: 30, // 20 frontmatter + 10 routing table
+			wantPractMin:  20, // 15 ref routing + 5 degen
+		},
+		{
+			name: "Thin router uses different practice metrics than standard",
+			frontmatter: map[string]any{
+				"name":        "thin-test",
+				"description": "Test",
+			},
+			bodyContent: `| When | Read(references/foo.md) |
+degeneralized from original`,
+			wantStructMin: 10, // name only (description too short)
+			wantPractMin:  20, // 15 ref routing + 5 degen
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			content := generateFullContent(tt.frontmatter, tt.bodyContent)
+			score := scorer.Score(content, tt.frontmatter, tt.bodyContent)
+
+			if tt.wantTier != "" && score.Tier != tt.wantTier {
+				t.Errorf("Score() tier = %q, want %q (overall: %d, struct: %d, pract: %d, comp: %d, doc: %d)",
+					score.Tier, tt.wantTier, score.Overall,
+					score.Structural, score.Practices, score.Composition, score.Documentation)
+			}
+			if tt.wantStructMin > 0 && score.Structural < tt.wantStructMin {
+				t.Errorf("Score() structural = %d, want >= %d", score.Structural, tt.wantStructMin)
+			}
+			if tt.wantPractMin > 0 && score.Practices < tt.wantPractMin {
+				t.Errorf("Score() practices = %d, want >= %d", score.Practices, tt.wantPractMin)
+			}
+
+			// Verify thin router uses different metrics
+			hasThinMetric := false
+			for _, d := range score.Details {
+				if d.Name == "Reference routing pattern" || d.Name == "Routing table to references" {
+					hasThinMetric = true
+					break
+				}
+			}
+			if !hasThinMetric {
+				t.Error("Expected thin router metrics in details")
+			}
+
+			// Verify overall is sum of categories
+			expectedOverall := score.Structural + score.Practices + score.Composition + score.Documentation
+			if score.Overall != expectedOverall {
+				t.Errorf("Overall = %d, want %d (sum)", score.Overall, expectedOverall)
+			}
+		})
+	}
+}
+
+func TestSkillScorer_ThinRouterPracticeMetrics(t *testing.T) {
+	scorer := NewSkillScorer()
+
+	frontmatter := map[string]any{
+		"name":        "router-skill",
+		"description": strings.Repeat("Comprehensive thin router skill. ", 7),
+	}
+
+	bodyContent := `## Quick Reference
+
+| User Question | Action |
+|---------------|--------|
+| How? | Read(references/how.md) |
+
+## Degeneralization Notes
+
+Extracted from monolith.
+
+## Related Skills
+
+- quality-agent patterns
+- clean-code-patterns
+
+## Anti-Patterns
+
+Brief list of things to avoid.
+
+## Success Criteria
+
+- [ ] Correct routing
+`
+
+	content := generateFullContent(frontmatter, bodyContent)
+	score := scorer.Score(content, frontmatter, bodyContent)
+
+	expectedMetrics := map[string]bool{
+		"Reference routing pattern":    true,
+		"Related skills / cross-links": true,
+		"Degeneralization notes":       true,
+		"Anti-Patterns section":        true,
+		"Success criteria":             true,
+	}
+
+	for metricName, shouldPass := range expectedMetrics {
+		found := false
+		for _, detail := range score.Details {
+			if detail.Name == metricName {
+				found = true
+				if detail.Passed != shouldPass {
+					t.Errorf("Metric %q: passed = %v, want %v", metricName, detail.Passed, shouldPass)
+				}
+				if detail.Category != "practices" {
+					t.Errorf("Metric %q: category = %q, want %q", metricName, detail.Category, "practices")
+				}
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Metric %q not found in details", metricName)
+		}
+	}
+}
+
+func TestSkillScorer_NonThinRouterUnchanged(t *testing.T) {
+	// Verify that standard methodology skills still use the original scoring path
+	scorer := NewSkillScorer()
+
+	frontmatter := map[string]any{
+		"name":        "methodology-skill",
+		"description": "A full methodology skill",
+	}
+
+	bodyContent := `## Workflow
+
+### Phase 1
+Do analysis
+
+### Phase 2
+Implement
+
+## Anti-Patterns
+
+| Anti-Pattern | Problem | Fix |
+|---|---|---|
+| Bad | Why | Good |
+
+## Success Criteria
+
+- [ ] Tests pass
+`
+
+	content := generateFullContent(frontmatter, bodyContent)
+	score := scorer.Score(content, frontmatter, bodyContent)
+
+	// Should NOT have thin router metrics
+	for _, d := range score.Details {
+		if d.Name == "Reference routing pattern" || d.Name == "Routing table to references" {
+			t.Errorf("Standard methodology skill should NOT have thin router metric %q", d.Name)
+		}
+	}
+
+	// Should have standard metrics
+	hasWorkflow := false
+	for _, d := range score.Details {
+		if d.Name == "Workflow section" {
+			hasWorkflow = true
+			break
+		}
+	}
+	if !hasWorkflow {
+		t.Error("Standard methodology skill should have 'Workflow section' metric")
+	}
+}
+
 func TestSkillScorer_AllPracticesMetrics(t *testing.T) {
 	scorer := NewSkillScorer()
 

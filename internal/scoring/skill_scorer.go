@@ -33,6 +33,15 @@ func (s *SkillScorer) scoreStructural(frontmatter map[string]any, bodyContent st
 	fieldScore, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
 	details = append(details, fieldDetails...)
 
+	lineCount := strings.Count(bodyContent, "\n") + 1
+
+	// Thin router skills get different section scoring
+	if isThinRouter(bodyContent, lineCount) {
+		sectionScore, sectionDetails := scoreThinRouterStructural(bodyContent)
+		details = append(details, sectionDetails...)
+		return fieldScore + sectionScore, details
+	}
+
 	// Required sections (20 points) - different for methodology vs reference skills
 	sectionSpecs := s.getSectionSpecs(bodyContent)
 	sectionScore, sectionDetails := ScoreSectionsWithFallback(bodyContent, sectionSpecs, s.antiPatternsFallback)
@@ -70,6 +79,11 @@ func (s *SkillScorer) antiPatternsFallback(content string, sectionName string) b
 
 // scorePractices scores the best practices adherence of a skill.
 func (s *SkillScorer) scorePractices(bodyContent string) (int, []Metric) {
+	lineCount := strings.Count(bodyContent, "\n") + 1
+	if isThinRouter(bodyContent, lineCount) {
+		return scoreThinRouterPractices(bodyContent)
+	}
+
 	var details []Metric
 	practices := 0
 
@@ -273,4 +287,146 @@ func (s *SkillScorer) scoreCodeExamples(bodyContent string) (int, Metric) {
 		Passed:    codeBlockCount >= 3,
 		Note:      codeNote,
 	}
+}
+
+// Pre-compiled patterns for thin router detection.
+var (
+	thinRouterReadRefsPattern  = regexp.MustCompile(`Read\(references/`)
+	thinRouterTableRefsPattern = regexp.MustCompile(`\|\s*Read\(references/`)
+)
+
+// isThinRouter detects skills that intentionally delegate to references/ files.
+// These thin routing skills should not be penalized for omitting inline methodology
+// sections when they properly route to reference files.
+// Skills with full methodology markers (Workflow/Phase sections) are never thin routers.
+func isThinRouter(bodyContent string, lineCount int) bool {
+	// Full methodology skills are never thin routers
+	if IsMethodologySkill(bodyContent) {
+		return false
+	}
+
+	indicators := 0
+
+	if strings.Contains(bodyContent, "references/") {
+		indicators++
+	}
+	if strings.Contains(bodyContent, "degeneralized") || strings.Contains(bodyContent, "Degeneralization") {
+		indicators++
+	}
+	if lineCount < 150 && thinRouterReadRefsPattern.MatchString(bodyContent) {
+		indicators++
+	}
+	if thinRouterTableRefsPattern.MatchString(bodyContent) {
+		indicators++
+	}
+
+	return indicators >= 2
+}
+
+// Pre-compiled patterns for thin router scoring.
+var (
+	thinRouterRoutingTablePattern = regexp.MustCompile(`\|.*\|.*Read\(references/`)
+	thinRouterRefsPattern         = regexp.MustCompile(`references/\w+`)
+	thinRouterDecisionPattern     = regexp.MustCompile(`(?i)(\|\s*Intent\s*\||\|\s*Decision\s*\||\|\s*When\s*\||\|\s*User Question\s*\|)`)
+	thinRouterAntiPatternsPattern = regexp.MustCompile(`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`)
+	thinRouterSuccessPattern      = regexp.MustCompile(`(?i)(## Success Criteria|success criteria|- \[ \])`)
+	thinRouterRelatedSkillsPattern = regexp.MustCompile(`(?i)(related skills|see also|cross-link|## Related)`)
+)
+
+// scoreThinRouterStructural scores structural elements for thin router skills (20 points max).
+// Replaces standard section requirements with thin-router-specific checks:
+//   - Routing table to references: 10 pts
+//   - Reference file mentions: 5 pts
+//   - Decision matrix or intent table: 5 pts
+func scoreThinRouterStructural(bodyContent string) (int, []Metric) {
+	var details []Metric
+	total := 0
+
+	// Routing table to references (10 points)
+	hasRoutingTable := thinRouterRoutingTablePattern.MatchString(bodyContent)
+	routingPts := boolToInt(hasRoutingTable) * 10
+	total += routingPts
+	details = append(details, Metric{
+		Category: "structural", Name: "Routing table to references",
+		Points: routingPts, MaxPoints: 10, Passed: hasRoutingTable,
+	})
+
+	// Reference file mentions (5 points)
+	hasRefs := thinRouterRefsPattern.MatchString(bodyContent)
+	refPts := boolToInt(hasRefs) * 5
+	total += refPts
+	details = append(details, Metric{
+		Category: "structural", Name: "Reference file mentions",
+		Points: refPts, MaxPoints: 5, Passed: hasRefs,
+	})
+
+	// Decision matrix or intent table (5 points)
+	hasDecision := thinRouterDecisionPattern.MatchString(bodyContent)
+	decisionPts := boolToInt(hasDecision) * 5
+	total += decisionPts
+	details = append(details, Metric{
+		Category: "structural", Name: "Decision matrix or intent table",
+		Points: decisionPts, MaxPoints: 5, Passed: hasDecision,
+	})
+
+	return total, details
+}
+
+// scoreThinRouterPractices scores practices for thin router skills (40 points max).
+// Replaces standard methodology checks with delegation-focused checks:
+//   - Reference routing (Read(references/...) pattern): 15 pts
+//   - Related skills / cross-links: 10 pts
+//   - Degeneralization notes: 5 pts
+//   - Anti-patterns (even brief): 5 pts
+//   - Success criteria (even brief): 5 pts
+func scoreThinRouterPractices(bodyContent string) (int, []Metric) {
+	var details []Metric
+	total := 0
+
+	// Reference routing pattern (15 points)
+	hasRefRouting := thinRouterReadRefsPattern.MatchString(bodyContent)
+	refPts := boolToInt(hasRefRouting) * 15
+	total += refPts
+	details = append(details, Metric{
+		Category: "practices", Name: "Reference routing pattern",
+		Points: refPts, MaxPoints: 15, Passed: hasRefRouting,
+	})
+
+	// Related skills / cross-links (10 points)
+	hasRelated := thinRouterRelatedSkillsPattern.MatchString(bodyContent)
+	relatedPts := boolToInt(hasRelated) * 10
+	total += relatedPts
+	details = append(details, Metric{
+		Category: "practices", Name: "Related skills / cross-links",
+		Points: relatedPts, MaxPoints: 10, Passed: hasRelated,
+	})
+
+	// Degeneralization notes (5 points)
+	hasDegen := strings.Contains(bodyContent, "degeneralized") || strings.Contains(bodyContent, "Degeneralization")
+	degenPts := boolToInt(hasDegen) * 5
+	total += degenPts
+	details = append(details, Metric{
+		Category: "practices", Name: "Degeneralization notes",
+		Points: degenPts, MaxPoints: 5, Passed: hasDegen,
+	})
+
+	// Anti-patterns (even brief) (5 points)
+	hasAntiPatterns := thinRouterAntiPatternsPattern.MatchString(bodyContent)
+	antiPts := boolToInt(hasAntiPatterns) * 5
+	total += antiPts
+	details = append(details, Metric{
+		Category: "practices", Name: antiPatternsSection,
+		Points: antiPts, MaxPoints: 5, Passed: hasAntiPatterns,
+	})
+
+	// Success criteria (even brief) (5 points)
+	hasSuccess := thinRouterSuccessPattern.MatchString(bodyContent)
+	successPts := boolToInt(hasSuccess) * 5
+	total += successPts
+	details = append(details, Metric{
+		Category: "practices", Name: "Success criteria",
+		Points: successPts, MaxPoints: 5, Passed: hasSuccess,
+	})
+
+	return total, details
 }
