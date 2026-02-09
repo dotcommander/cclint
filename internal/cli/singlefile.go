@@ -26,12 +26,36 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/project"
 )
+
+// DiscoveryCache caches the result of file discovery for a given root path.
+// This prevents repeated full-discovery scans when linting multiple files
+// in single-file mode (e.g., LintFiles iterating over N files).
+//
+// Thread-safe via sync.Once: the first call to Get() triggers discovery,
+// subsequent calls return the cached result.
+type DiscoveryCache struct {
+	once  sync.Once
+	files []discovery.File
+	err   error
+}
+
+// Get returns cached discovery results, performing discovery on first call.
+// The rootPath is used to create the FileDiscovery instance.
+func (dc *DiscoveryCache) Get(rootPath string) ([]discovery.File, error) {
+	dc.once.Do(func() {
+		discoverer := discovery.NewFileDiscovery(rootPath, false)
+		dc.files, dc.err = discoverer.DiscoverFiles()
+	})
+	return dc.files, dc.err
+}
 
 // SingleFileLinterContext holds state for single-file linting operations.
 //
@@ -46,8 +70,11 @@ type SingleFileLinterContext struct {
 	Validator *cue.Validator
 
 	// Lazy-loaded for cross-file validation
-	crossValidator *CrossFileValidator
+	crossValidator *crossfile.CrossFileValidator
 	crossLoaded    bool
+
+	// Shared discovery cache (optional, set by LintFiles for multi-file mode)
+	discoveryCache *DiscoveryCache
 }
 
 // NewSingleFileLinterContext creates a context for linting a single file.
@@ -149,17 +176,28 @@ func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, 
 // for cross-file validation (agent→skill, command→agent, etc.).
 // The result is cached for subsequent calls.
 //
+// When a DiscoveryCache is set (multi-file mode via LintFiles), discovery
+// results are shared across all SingleFileLinterContext instances, avoiding
+// redundant N+1 discovery scans.
+//
 // Returns nil if discovery fails (cross-file validation will be skipped).
-func (ctx *SingleFileLinterContext) EnsureCrossFileValidator() *CrossFileValidator {
+func (ctx *SingleFileLinterContext) EnsureCrossFileValidator() *crossfile.CrossFileValidator {
 	if ctx.crossLoaded {
 		return ctx.crossValidator
 	}
 
-	// Discover all files for cross-file validation
-	discoverer := discovery.NewFileDiscovery(ctx.RootPath, false)
-	files, err := discoverer.DiscoverFiles()
+	// Use shared cache if available, otherwise discover directly
+	var files []discovery.File
+	var err error
+	if ctx.discoveryCache != nil {
+		files, err = ctx.discoveryCache.Get(ctx.RootPath)
+	} else {
+		discoverer := discovery.NewFileDiscovery(ctx.RootPath, false)
+		files, err = discoverer.DiscoverFiles()
+	}
+
 	if err == nil && len(files) > 0 {
-		ctx.crossValidator = NewCrossFileValidator(files)
+		ctx.crossValidator = crossfile.NewCrossFileValidator(files)
 	}
 	ctx.crossLoaded = true
 
@@ -214,10 +252,20 @@ func findProjectRootForFile(absPath string) (string, error) {
 //   - 1: Lint errors found
 //   - 2: Invalid invocation (returned as error)
 func LintSingleFile(filePath, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
+	return lintSingleFileWithCache(filePath, rootPath, typeOverride, quiet, verbose, nil)
+}
+
+// lintSingleFileWithCache is the internal implementation of LintSingleFile
+// that accepts an optional DiscoveryCache for sharing discovery results
+// across multiple single-file lint invocations (used by LintFiles).
+func lintSingleFileWithCache(filePath, rootPath, typeOverride string, quiet, verbose bool, cache *DiscoveryCache) (*LintSummary, error) {
 	ctx, err := NewSingleFileLinterContext(filePath, rootPath, typeOverride, quiet, verbose)
 	if err != nil {
 		return nil, err
 	}
+
+	// Attach shared discovery cache if provided
+	ctx.discoveryCache = cache
 
 	summary := &LintSummary{
 		ProjectRoot: ctx.RootPath,
@@ -281,10 +329,15 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		StartTime: time.Now(),
 	}
 
+	// Shared discovery cache prevents N+1 full-discovery scans when
+	// linting multiple files. The first file triggers discovery; all
+	// subsequent files reuse the cached result.
+	cache := &DiscoveryCache{}
+
 	var firstRoot string
 
 	for _, fp := range filePaths {
-		result, err := LintSingleFile(fp, rootPath, typeOverride, quiet, verbose)
+		result, err := lintSingleFileWithCache(fp, rootPath, typeOverride, quiet, verbose, cache)
 		if err != nil {
 			// Record as failed result with error message
 			summary.Results = append(summary.Results, LintResult{
