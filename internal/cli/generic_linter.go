@@ -100,62 +100,34 @@ func lintFileCore(filePath, contents string, linter ComponentLinter, validator *
 	}
 
 	// Pre-validation checks (filename, empty content, etc.) - optional capability
-	if pv, ok := linter.(PreValidator); ok {
-		preErrors := pv.PreValidate(filePath, contents)
-		if len(preErrors) > 0 {
-			result.Errors = append(result.Errors, preErrors...)
-			// Check if any are fatal (should abort further validation)
-			for _, e := range preErrors {
-				if e.Severity == "error" && strings.Contains(e.Message, "is empty") {
-					result.Success = len(result.Errors) == 0
-					return result
-				}
-			}
-		}
+	if shouldAbort := runPreValidation(&result, filePath, contents, linter); shouldAbort {
+		return result
 	}
 
 	// Parse content
-	data, body, err := linter.ParseContent(contents)
-	if err != nil {
+	data, body, parseErr := linter.ParseContent(contents)
+	if parseErr != nil {
 		result.Errors = append(result.Errors, cue.ValidationError{
 			File:     filePath,
-			Message:  err.Error(),
-			Severity: "error",
+			Message:  parseErr.Error(),
+			Severity: cue.SeverityError,
 		})
 		result.Success = false
 		return result
 	}
 
-	// CUE validation
-	if cueErrors, cueErr := linter.ValidateCUE(validator, data); cueErr != nil {
-		result.Errors = append(result.Errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Validation error: %v", cueErr),
-			Severity: "error",
-		})
-	} else if cueErrors != nil {
-		result.Errors = append(result.Errors, cueErrors...)
-	}
-
-	// Component-specific validation
-	specificErrors := linter.ValidateSpecific(data, filePath, contents)
-	categorizeIssues(&result, specificErrors)
-
-	// Best practice checks - optional capability
-	if bpv, ok := linter.(BestPracticeValidator); ok {
-		if bpIssues := bpv.ValidateBestPractices(filePath, contents, data); bpIssues != nil {
-			categorizeIssues(&result, bpIssues)
-		}
-	}
-
-	// Cross-file validation - optional capability
-	if crossValidator != nil {
-		if cfv, ok := linter.(CrossFileValidatable); ok {
-			if crossErrors := cfv.ValidateCrossFile(crossValidator, filePath, contents, data); crossErrors != nil {
-				categorizeIssues(&result, crossErrors)
-			}
-		}
-	}
+	// Run all validation steps
+	runCUEValidation(&result, filePath, linter, validator, data)
+	runComponentSpecificValidation(&result, linter, data, filePath, contents)
+	runBestPracticeValidation(&result, linter, filePath, contents, data)
+	runCrossFileValidation(crossFileValidationParams{
+		result:         &result,
+		linter:         linter,
+		crossValidator: crossValidator,
+		filePath:       filePath,
+		contents:       contents,
+		data:           data,
+	})
 
 	// Secrets detection (common to all types)
 	secretWarnings := detectSecrets(contents, filePath)
@@ -184,13 +156,95 @@ func lintFileCore(filePath, contents string, linter ComponentLinter, validator *
 	return result
 }
 
+// runPreValidation runs pre-validation checks and returns true if validation should abort.
+func runPreValidation(result *LintResult, filePath, contents string, linter ComponentLinter) bool {
+	pv, ok := linter.(PreValidator)
+	if !ok {
+		return false
+	}
+
+	preErrors := pv.PreValidate(filePath, contents)
+	if len(preErrors) == 0 {
+		return false
+	}
+
+	result.Errors = append(result.Errors, preErrors...)
+
+	// Check if any are fatal (should abort further validation)
+	for _, e := range preErrors {
+		if e.Severity == cue.SeverityError && strings.Contains(e.Message, "is empty") {
+			result.Success = len(result.Errors) == 0
+			return true
+		}
+	}
+	return false
+}
+
+// runCUEValidation runs CUE schema validation.
+func runCUEValidation(result *LintResult, filePath string, linter ComponentLinter, validator *cue.Validator, data map[string]any) {
+	cueErrors, cueErr := linter.ValidateCUE(validator, data)
+	if cueErr != nil {
+		result.Errors = append(result.Errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Validation error: %v", cueErr),
+			Severity: cue.SeverityError,
+		})
+	} else if cueErrors != nil {
+		result.Errors = append(result.Errors, cueErrors...)
+	}
+}
+
+// runComponentSpecificValidation runs component-specific validation rules.
+func runComponentSpecificValidation(result *LintResult, linter ComponentLinter, data map[string]any, filePath, contents string) {
+	specificErrors := linter.ValidateSpecific(data, filePath, contents)
+	categorizeIssues(result, specificErrors)
+}
+
+// runBestPracticeValidation runs best practice checks.
+func runBestPracticeValidation(result *LintResult, linter ComponentLinter, filePath, contents string, data map[string]any) {
+	bpv, ok := linter.(BestPracticeValidator)
+	if !ok {
+		return
+	}
+
+	if bpIssues := bpv.ValidateBestPractices(filePath, contents, data); bpIssues != nil {
+		categorizeIssues(result, bpIssues)
+	}
+}
+
+// crossFileValidationParams groups parameters for cross-file validation.
+type crossFileValidationParams struct {
+	result         *LintResult
+	linter         ComponentLinter
+	crossValidator *CrossFileValidator
+	filePath       string
+	contents       string
+	data           map[string]any
+}
+
+// runCrossFileValidation runs cross-file validation checks.
+func runCrossFileValidation(params crossFileValidationParams) {
+	if params.crossValidator == nil {
+		return
+	}
+
+	cfv, ok := params.linter.(CrossFileValidatable)
+	if !ok {
+		return
+	}
+
+	if crossErrors := cfv.ValidateCrossFile(params.crossValidator, params.filePath, params.contents, params.data); crossErrors != nil {
+		categorizeIssues(params.result, crossErrors)
+	}
+}
+
 // categorizeIssues distributes validation issues into errors, warnings, or suggestions.
 func categorizeIssues(result *LintResult, issues []cue.ValidationError) {
 	for _, issue := range issues {
 		switch issue.Severity {
-		case "suggestion":
+		case cue.SeveritySuggestion:
 			result.Suggestions = append(result.Suggestions, issue)
-		case "warning":
+		case cue.SeverityWarning:
 			result.Warnings = append(result.Warnings, issue)
 		default:
 			result.Errors = append(result.Errors, issue)
@@ -273,7 +327,7 @@ func DetectXMLTags(content, fieldName, filePath, fileContents string) *cue.Valid
 		return &cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("%s contains XML-like tags which are not allowed", fieldName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(fileContents, strings.ToLower(fieldName)),
 		}
@@ -290,13 +344,13 @@ func CheckSizeLimit(contents string, limit int, tolerance float64, componentType
 	if lines > maxLines {
 		var message string
 		switch componentType {
-		case "agent":
+		case cue.TypeAgent:
 			message = fmt.Sprintf("Agent is %d lines. Best practice: keep agents under ~%d lines (%d%s%d%%) - move methodology to skills instead.",
 				lines, maxLines, limit, "\u00B1", int(tolerance*100))
-		case "command":
+		case cue.TypeCommand:
 			message = fmt.Sprintf("Command is %d lines. Best practice: keep commands under ~%d lines (%d%s%d%%) - delegate to specialist agents instead of implementing logic directly.",
 				lines, maxLines, limit, "\u00B1", int(tolerance*100))
-		case "skill":
+		case cue.TypeSkill:
 			message = fmt.Sprintf("Skill is %d lines. Best practice: keep skills under ~%d lines (%d%s%d%%) - move heavy docs to references/ subdirectory.",
 				lines, maxLines, limit, "\u00B1", int(tolerance*100))
 		default:

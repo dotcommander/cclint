@@ -10,6 +10,9 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
+// frontmatterDelimiter is the YAML frontmatter delimiter
+const frontmatterDelimiter = "---"
+
 // LintCommands runs linting on command files using the generic linter.
 func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
@@ -77,107 +80,132 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 func validateCommandBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
-	// XML tag detection in text fields - FROM ANTHROPIC DOCS
+	suggestions = append(suggestions, checkDescriptionXMLTags(data, filePath, contents)...)
+	suggestions = append(suggestions, checkCommandSizeLimit(contents, filePath)...)
+	suggestions = append(suggestions, checkImplementationPatterns(contents, filePath)...)
+	suggestions = append(suggestions, checkAllowedToolsWithTask(contents, filePath)...)
+
+	hasTaskDelegation := strings.Contains(contents, "Task(")
+	suggestions = append(suggestions, checkBloatSections(contents, filePath, hasTaskDelegation)...)
+	suggestions = append(suggestions, checkExcessiveExamples(contents, filePath)...)
+	suggestions = append(suggestions, checkSuccessCriteriaFormat(contents, filePath)...)
+
+	lines := strings.Count(contents, "\n")
+	suggestions = append(suggestions, checkFatCommandUsage(contents, filePath, lines, hasTaskDelegation)...)
+
+	suggestions = append(suggestions, validateCommandPreprocessing(filePath, contents)...)
+	suggestions = append(suggestions, validateCommandSubstitution(filePath, contents, data)...)
+
+	return suggestions
+}
+
+func checkDescriptionXMLTags(data map[string]any, filePath, contents string) []cue.ValidationError {
 	if description, ok := data["description"].(string); ok {
 		if xmlErr := DetectXMLTags(description, "Description", filePath, contents); xmlErr != nil {
-			suggestions = append(suggestions, *xmlErr)
+			return []cue.ValidationError{*xmlErr}
 		}
 	}
+	return nil
+}
 
-	// Count total lines (±10% tolerance: 50 base) - OUR OBSERVATION
-	lines := strings.Count(contents, "\n")
+func checkCommandSizeLimit(contents, filePath string) []cue.ValidationError {
 	if sizeErr := CheckSizeLimit(contents, 50, 0.10, "command", filePath); sizeErr != nil {
-		suggestions = append(suggestions, *sizeErr)
+		return []cue.ValidationError{*sizeErr}
 	}
+	return nil
+}
 
-	// Check for direct implementation patterns - OUR OBSERVATION (thin command pattern)
+func checkImplementationPatterns(contents, filePath string) []cue.ValidationError {
 	if strings.Contains(contents, "## Implementation") || strings.Contains(contents, "### Steps") {
-		suggestions = append(suggestions, cue.ValidationError{
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Command contains implementation steps. Consider delegating to a specialist agent instead.",
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
-		})
+		}}
 	}
+	return nil
+}
 
-	// Check for missing allowed-tools when Task tool is mentioned - OUR OBSERVATION
+func checkAllowedToolsWithTask(contents, filePath string) []cue.ValidationError {
 	if strings.Contains(contents, "Task(") && !strings.Contains(contents, "allowed-tools:") {
-		suggestions = append(suggestions, cue.ValidationError{
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Command uses Task() but lacks 'allowed-tools' permission. Add 'allowed-tools: Task' to frontmatter.",
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
-		})
+		}}
+	}
+	return nil
+}
+
+func checkBloatSections(contents, filePath string, hasTaskDelegation bool) []cue.ValidationError {
+	if !hasTaskDelegation {
+		return nil
 	}
 
-	// Thin command pattern: Commands should delegate to agents, not contain methodology.
-	hasTaskDelegation := strings.Contains(contents, "Task(")
-
-	// === BLOAT SECTIONS DETECTOR (thin commands only) ===
-	if hasTaskDelegation {
-		bloatSections := []struct {
-			pattern string
-			message string
-		}{
-			{"## Quick Reference", "Thin command has '## Quick Reference' - belongs in skill, not command"},
-			{"## Usage", "Thin command has '## Usage' - agent has full context, remove"},
-			{"## Workflow", "Thin command has '## Workflow' - duplicates agent content, remove"},
-			{"## When to use", "Thin command has '## When to use' - belongs in description, remove"},
-			{"## What it does", "Thin command has '## What it does' - belongs in description, remove"},
-		}
-		for _, section := range bloatSections {
-			if strings.Contains(contents, section.pattern) {
-				suggestions = append(suggestions, cue.ValidationError{
-					File:     filePath,
-					Message:  section.message,
-					Severity: "suggestion",
-					Source:   cue.SourceCClintObserve,
-				})
-			}
-		}
+	bloatSections := []struct {
+		pattern string
+		message string
+	}{
+		{"## Quick Reference", "Thin command has '## Quick Reference' - belongs in skill, not command"},
+		{"## Usage", "Thin command has '## Usage' - agent has full context, remove"},
+		{"## Workflow", "Thin command has '## Workflow' - duplicates agent content, remove"},
+		{"## When to use", "Thin command has '## When to use' - belongs in description, remove"},
+		{"## What it does", "Thin command has '## What it does' - belongs in description, remove"},
 	}
 
-	// === EXCESSIVE EXAMPLES DETECTOR === - OUR OBSERVATION
+	var suggestions []cue.ValidationError
+	for _, section := range bloatSections {
+		if strings.Contains(contents, section.pattern) {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  section.message,
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	}
+	return suggestions
+}
+
+func checkExcessiveExamples(contents, filePath string) []cue.ValidationError {
 	exampleCount := strings.Count(contents, "```bash") + strings.Count(contents, "```shell")
 	if exampleCount > 2 {
-		suggestions = append(suggestions, cue.ValidationError{
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Command has %d code examples. Best practice: max 2 examples.", exampleCount),
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
-		})
+		}}
 	}
+	return nil
+}
 
-	// === SUCCESS CRITERIA FORMAT DETECTOR === - OUR OBSERVATION
-	// Success criteria should be checkboxes, not prose
+func checkSuccessCriteriaFormat(contents, filePath string) []cue.ValidationError {
 	hasSuccessSection := strings.Contains(contents, "## Success") || strings.Contains(contents, "Success criteria:")
 	hasCheckboxes := strings.Contains(contents, "- [ ]")
 	if hasSuccessSection && !hasCheckboxes {
-		suggestions = append(suggestions, cue.ValidationError{
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Success criteria should use checkbox format '- [ ]' not prose",
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
-		})
+		}}
 	}
+	return nil
+}
 
-	// Only suggest Usage section for FAT commands (>40 lines without Task delegation) - OUR OBSERVATION
+func checkFatCommandUsage(contents, filePath string, lines int, hasTaskDelegation bool) []cue.ValidationError {
 	if !hasTaskDelegation && lines > 40 && !strings.Contains(contents, "## Usage") && !strings.Contains(contents, "## Workflow") {
-		suggestions = append(suggestions, cue.ValidationError{
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Fat command without Task delegation lacks '## Usage' section. Consider delegating to a specialist agent.",
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
-		})
+		}}
 	}
-
-	// === PREPROCESSING DIRECTIVE VALIDATION === - OUR OBSERVATION
-	suggestions = append(suggestions, validateCommandPreprocessing(filePath, contents)...)
-
-	// === SUBSTITUTION VARIABLE VALIDATION === - OUR OBSERVATION
-	suggestions = append(suggestions, validateCommandSubstitution(filePath, contents, data)...)
-
-	return suggestions
+	return nil
 }
 
 // dangerousCommandPatterns lists shell patterns that are obviously destructive.
@@ -208,69 +236,83 @@ func validateCommandPreprocessing(filePath string, contents string) []cue.Valida
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// Track frontmatter boundaries
-		if trimmed == "---" {
-			if !inFrontmatter && !frontmatterDone {
-				inFrontmatter = true
-				continue
-			} else if inFrontmatter {
-				inFrontmatter = false
-				frontmatterDone = true
-				continue
-			}
-		}
+		// Update parsing state (frontmatter, code blocks)
+		inFrontmatter, frontmatterDone, inCodeBlock = updateParsingState(
+			trimmed, inFrontmatter, frontmatterDone, inCodeBlock,
+		)
 
-		// Skip lines inside frontmatter
-		if inFrontmatter {
+		// Skip lines inside frontmatter or code blocks
+		if inFrontmatter || inCodeBlock {
 			continue
 		}
 
-		// Track code blocks to avoid false positives on examples
-		if strings.HasPrefix(trimmed, "```") {
-			inCodeBlock = !inCodeBlock
-			continue
-		}
-		if inCodeBlock {
-			continue
-		}
-
-		// Detect !command preprocessing directives
-		if !strings.HasPrefix(trimmed, "!") {
-			continue
-		}
-
-		command := strings.TrimSpace(trimmed[1:])
-
-		// Empty command after !
-		if command == "" {
-			issues = append(issues, cue.ValidationError{
-				File:     filePath,
-				Message:  "Empty preprocessing directive '!' with no command",
-				Severity: "error",
-				Source:   cue.SourceCClintObserve,
-				Line:     i + 1,
-			})
-			continue
-		}
-
-		// Check for dangerous patterns
-		for _, dp := range dangerousCommandPatterns {
-			if dp.pattern.MatchString(command) {
-				issues = append(issues, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Dangerous preprocessing command: %s", dp.message),
-					Severity: "error",
-					Source:   cue.SourceCClintObserve,
-					Line:     i + 1,
-				})
-				break
-			}
-		}
+		// Check for preprocessing directives
+		issues = appendPreprocessingIssues(issues, trimmed, filePath, i+1)
 	}
 
 	return issues
 }
 
+// updateParsingState updates the parsing state based on the current line.
+// Returns the new state values.
+func updateParsingState(trimmed string, inFrontmatter, frontmatterDone, inCodeBlock bool) (newInFrontmatter, newFrontmatterDone, newInCodeBlock bool) {
+	// Track frontmatter boundaries
+	if trimmed == frontmatterDelimiter {
+		if !inFrontmatter && !frontmatterDone {
+			return true, false, inCodeBlock
+		}
+		return false, true, inCodeBlock
+	}
+
+	// Track code blocks
+	if strings.HasPrefix(trimmed, "```") {
+		return inFrontmatter, frontmatterDone, !inCodeBlock
+	}
+
+	return inFrontmatter, frontmatterDone, inCodeBlock
+}
+
+// appendPreprocessingIssues checks for preprocessing directives and adds issues.
+// Returns the updated issues slice.
+func appendPreprocessingIssues(issues []cue.ValidationError, trimmed, filePath string, lineNum int) []cue.ValidationError {
+	// Must start with ! to be a preprocessing directive
+	if !strings.HasPrefix(trimmed, "!") {
+		return issues
+	}
+
+	command := strings.TrimSpace(trimmed[1:])
+
+	// Empty command after !
+	if command == "" {
+		return append(issues, cue.ValidationError{
+			File:     filePath,
+			Message:  "Empty preprocessing directive '!' with no command",
+			Severity: "error",
+			Source:   cue.SourceCClintObserve,
+			Line:     lineNum,
+		})
+	}
+
+	// Check for dangerous patterns
+	return appendDangerousPatternIssue(issues, command, filePath, lineNum)
+}
+
+// appendDangerousPatternIssue checks for dangerous command patterns and adds an issue if found.
+func appendDangerousPatternIssue(issues []cue.ValidationError, command, filePath string, lineNum int) []cue.ValidationError {
+	for _, dp := range dangerousCommandPatterns {
+		if dp.pattern.MatchString(command) {
+			issues = append(issues, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Dangerous preprocessing command: %s", dp.message),
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+				Line:     lineNum,
+			})
+			break
+		}
+	}
+	return issues
+}
 // positionalArgPattern matches $1, $2, ... $99 substitution variables.
 var positionalArgPattern = regexp.MustCompile(`\$(\d+)`)
 
@@ -352,7 +394,7 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 
 // extractBody returns content after frontmatter delimiters.
 func extractBody(contents string) string {
-	parts := strings.SplitN(contents, "---", 3)
+	parts := strings.SplitN(contents, frontmatterDelimiter, 3)
 	if len(parts) >= 3 {
 		return parts[2]
 	}
@@ -388,7 +430,7 @@ func findSubstitutionLine(contents string, pattern string) int {
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		if trimmed == "---" {
+		if trimmed == frontmatterDelimiter {
 			if !inFrontmatter && !frontmatterDone {
 				inFrontmatter = true
 				continue

@@ -115,7 +115,7 @@ func validateRelativePaths(contents, skillPath string) []cue.ValidationError {
 
 		// Check for absolute paths
 		if strings.HasPrefix(linkPath, "/") || strings.HasPrefix(linkPath, "~") {
-			line := findLineNumber(contents, match[0])
+			line := findSubstringLine(contents, match[0])
 			issues = append(issues, cue.ValidationError{
 				File:     skillPath,
 				Message:  fmt.Sprintf("Use relative path instead of absolute: '%s'", linkPath),
@@ -143,8 +143,7 @@ func validateReferenceDepth(contents string, skillDir, skillPath string) []cue.V
 		}
 		linkPath := match[2]
 
-		// Skip URLs and anchors
-		if strings.HasPrefix(linkPath, "http") || strings.HasPrefix(linkPath, "#") {
+		if !isLocalReferenceLink(linkPath) {
 			continue
 		}
 
@@ -153,49 +152,71 @@ func validateReferenceDepth(contents string, skillDir, skillPath string) []cue.V
 			continue
 		}
 
-		// Resolve the full path
-		fullPath := filepath.Join(skillDir, linkPath)
-		if _, err := os.Stat(fullPath); err != nil {
-			continue
-		}
-
-		// Read the referenced file and check for nested references
-		refContent, err := os.ReadFile(fullPath)
-		if err != nil {
-			continue
-		}
-
-		// Check if the referenced file contains links to other references/
-		nestedMatches := linkPattern.FindAllStringSubmatch(string(refContent), -1)
-		for _, nested := range nestedMatches {
-			if len(nested) < 3 {
-				continue
-			}
-			nestedPath := nested[2]
-
-			// Skip URLs and anchors
-			if strings.HasPrefix(nestedPath, "http") || strings.HasPrefix(nestedPath, "#") {
-				continue
-			}
-
-			// Check if it links to another references/ file
-			if strings.Contains(nestedPath, "references/") || strings.HasSuffix(nestedPath, ".md") {
-				issues = append(issues, cue.ValidationError{
-					File:     skillPath,
-					Message:  fmt.Sprintf("Reference chain detected: SKILL.md → %s → %s (keep references 1 level deep)", linkPath, nestedPath),
-					Severity: "suggestion",
-					Source:   cue.SourceAgentSkillsIO,
-				})
-				break // Only report once per referenced file
-			}
+		// Check for nested references in the linked file
+		if nestedIssues := checkNestedReferences(linkPath, skillDir, skillPath, linkPattern); len(nestedIssues) > 0 {
+			issues = append(issues, nestedIssues...)
 		}
 	}
 
 	return issues
 }
 
-// findLineNumber finds the line number of a substring in content.
-func findLineNumber(content, substr string) int {
+// isLocalReferenceLink checks if a link is a local reference (not URL or anchor).
+func isLocalReferenceLink(linkPath string) bool {
+	return !(strings.HasPrefix(linkPath, "http") || strings.HasPrefix(linkPath, "#"))
+}
+
+// checkNestedReferences checks if a referenced file contains links to other references/.
+// Returns validation errors for each nested reference chain found.
+func checkNestedReferences(linkPath, skillDir, skillPath string, linkPattern *regexp.Regexp) []cue.ValidationError {
+	var issues []cue.ValidationError
+
+	// Resolve the full path
+	fullPath := filepath.Join(skillDir, linkPath)
+	if _, err := os.Stat(fullPath); err != nil {
+		return issues
+	}
+
+	// Read the referenced file
+	refContent, err := os.ReadFile(fullPath)
+	if err != nil {
+		return issues
+	}
+
+	// Check for nested references/
+	nestedMatches := linkPattern.FindAllStringSubmatch(string(refContent), -1)
+	for _, nested := range nestedMatches {
+		if len(nested) < 3 {
+			continue
+		}
+		nestedPath := nested[2]
+
+		if !isLocalReferenceLink(nestedPath) {
+			continue
+		}
+
+		// Check if it links to another references/ file
+		if hasNestedReferenceLink(nestedPath) {
+			issues = append(issues, cue.ValidationError{
+				File:     skillPath,
+				Message:  fmt.Sprintf("Reference chain detected: SKILL.md → %s → %s (keep references 1 level deep)", linkPath, nestedPath),
+				Severity: "suggestion",
+				Source:   cue.SourceAgentSkillsIO,
+			})
+			break // Only report once per referenced file
+		}
+	}
+
+	return issues
+}
+
+// hasNestedReferenceLink checks if a link path indicates a nested reference.
+func hasNestedReferenceLink(nestedPath string) bool {
+	return strings.Contains(nestedPath, "references/") || strings.HasSuffix(nestedPath, ".md")
+}
+
+// findSubstringLine finds the line number of a substring in content.
+func findSubstringLine(content, substr string) int {
 	idx := strings.Index(content, substr)
 	if idx == -1 {
 		return 0

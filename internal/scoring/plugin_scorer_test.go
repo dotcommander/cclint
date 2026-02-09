@@ -397,7 +397,7 @@ func TestPluginScorer_CompositionScoring(t *testing.T) {
 				t.Errorf("Composition score = %d, want %d (size: %d)", score.Composition, tt.wantPoints, len(content))
 			}
 
-			var compMetric *ScoringMetric
+			var compMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Category == "composition" {
 					compMetric = &score.Details[i]
@@ -481,7 +481,7 @@ func TestPluginScorer_DescriptionQuality(t *testing.T) {
 			content := string(jsonBytes)
 			score := scorer.Score(content, jsonData, "")
 
-			var descMetric *ScoringMetric
+			var descMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Description quality" {
 					descMetric = &score.Details[i]
@@ -538,7 +538,7 @@ func TestPluginScorer_ReadmeField(t *testing.T) {
 			content := string(jsonBytes)
 			score := scorer.Score(content, jsonData, "")
 
-			var readmeMetric *ScoringMetric
+			var readmeMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Has readme" {
 					readmeMetric = &score.Details[i]

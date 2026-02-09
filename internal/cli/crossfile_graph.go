@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/dotcommander/cclint/internal/cue"
 )
 
 // Cycle represents a circular dependency in the component graph
@@ -15,40 +17,83 @@ type Cycle struct {
 // getNeighbors returns the neighboring nodes for a given component in the dependency graph.
 // This extracts neighbor resolution logic from DetectCycles for testability.
 func (v *CrossFileValidator) getNeighbors(componentType, name string) []string {
-	var neighbors []string
 	taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
 
 	switch componentType {
-	case "command":
-		if cmd, exists := v.commands[name]; exists {
-			neighbors = v.extractAgentRefsFromTask(cmd.Contents, taskPattern, "")
+	case cue.TypeCommand:
+		return v.getCommandNeighbors(name, taskPattern)
+	case cue.TypeAgent:
+		return v.getAgentNeighbors(name, taskPattern)
+	case cue.TypeSkill:
+		return v.getSkillNeighbors(name)
+	}
+	return nil
+}
+
+// getCommandNeighbors returns neighbors for a command component.
+func (v *CrossFileValidator) getCommandNeighbors(name string, taskPattern *regexp.Regexp) []string {
+	if cmd, exists := v.commands[name]; exists {
+		return v.extractAgentRefsFromTask(cmd.Contents, taskPattern, "")
+	}
+	return nil
+}
+
+// getAgentNeighbors returns neighbors for an agent component.
+func (v *CrossFileValidator) getAgentNeighbors(name string, taskPattern *regexp.Regexp) []string {
+	var neighbors []string
+
+	if agent, exists := v.agents[name]; exists {
+		// Add skill references
+		skillRefs := v.findValidSkillReferences(agent.Contents)
+		neighbors = append(neighbors, skillRefs...)
+
+		// Add agent references (exclude self)
+		agentRefs := v.extractAgentRefsFromTask(agent.Contents, taskPattern, name)
+		neighbors = append(neighbors, agentRefs...)
+	}
+
+	return neighbors
+}
+
+// getSkillNeighbors returns neighbors for a skill component.
+func (v *CrossFileValidator) getSkillNeighbors(name string) []string {
+	var neighbors []string
+
+	if skill, exists := v.skills[name]; exists {
+		// Add agent references
+		agentRefs := v.extractAgentRefsFromPatterns(skill.Contents)
+		neighbors = append(neighbors, agentRefs...)
+
+		// Add other skill references (exclude self)
+		skillRefs := v.findOtherSkillReferences(skill.Contents, name)
+		neighbors = append(neighbors, skillRefs...)
+	}
+
+	return neighbors
+}
+
+// findValidSkillReferences finds skill references that exist in the validator.
+func (v *CrossFileValidator) findValidSkillReferences(contents string) []string {
+	var refs []string
+	for _, skillRef := range findSkillReferences(contents) {
+		if _, exists := v.skills[skillRef]; exists {
+			refs = append(refs, "skill:"+skillRef)
 		}
-	case "agent":
-		if agent, exists := v.agents[name]; exists {
-			// Agents reference skills
-			for _, skillRef := range findSkillReferences(agent.Contents) {
-				if _, exists := v.skills[skillRef]; exists {
-					neighbors = append(neighbors, "skill:"+skillRef)
-				}
-			}
-			// Agents might delegate to other agents (exclude self)
-			neighbors = append(neighbors, v.extractAgentRefsFromTask(agent.Contents, taskPattern, name)...)
-		}
-	case "skill":
-		if skill, exists := v.skills[name]; exists {
-			// Skills might delegate to agents
-			neighbors = append(neighbors, v.extractAgentRefsFromPatterns(skill.Contents)...)
-			// Skills might reference other skills (exclude self)
-			for _, skillRef := range findSkillReferences(skill.Contents) {
-				if skillRef != name {
-					if _, exists := v.skills[skillRef]; exists {
-						neighbors = append(neighbors, "skill:"+skillRef)
-					}
-				}
+	}
+	return refs
+}
+
+// findOtherSkillReferences finds skill references excluding the current skill.
+func (v *CrossFileValidator) findOtherSkillReferences(contents string, excludeName string) []string {
+	var refs []string
+	for _, skillRef := range findSkillReferences(contents) {
+		if skillRef != excludeName {
+			if _, exists := v.skills[skillRef]; exists {
+				refs = append(refs, "skill:"+skillRef)
 			}
 		}
 	}
-	return neighbors
+	return refs
 }
 
 // extractAgentRefsFromTask extracts agent references from Task() calls.
@@ -107,14 +152,10 @@ func (v *CrossFileValidator) extractAgentRefsFromPatterns(contents string) []str
 //
 // Back edges (gray -> gray) indicate cycles.
 func (v *CrossFileValidator) DetectCycles() []Cycle {
-	var cycles []Cycle
-
-	// Track visit state: 0=white, 1=gray, 2=black
 	visitState := make(map[string]int)
-
-	// Track current path for cycle reconstruction
 	path := []string{}
 	inPath := make(map[string]bool)
+	cycles := []Cycle{}
 
 	// DFS visit function
 	var visit func(componentType, name string)
@@ -128,23 +169,22 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 
 		// Visit neighbors
 		for _, neighbor := range v.getNeighbors(componentType, name) {
-			switch {
-			case visitState[neighbor] == 0:
+			if visitState[neighbor] == 0 {
 				// White: unvisited, recurse
 				parts := strings.SplitN(neighbor, ":", 2)
 				if len(parts) == 2 {
 					visit(parts[0], parts[1])
 				}
-			case visitState[neighbor] == 1 && inPath[neighbor]:
-				// Gray and in current path: back edge = cycle detected
+			} else if visitState[neighbor] == 1 && inPath[neighbor] {
+				// Gray and in current path: cycle detected
 				if cyclePath := reconstructCycle(path, neighbor); cyclePath != nil {
 					cycles = append(cycles, Cycle{
 						Path: cyclePath,
 						Type: determineCycleType(cyclePath),
 					})
 				}
-				// Black (2): already visited, skip
 			}
+			// Black (2): already visited, skip
 		}
 
 		// Mark as black (visited)
@@ -153,7 +193,15 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 		delete(inPath, nodeID)
 	}
 
-	// Start DFS from all commands (typical entry points)
+	// Visit all nodes
+	v.visitAllNodes(visitState, visit)
+
+	return cycles
+}
+
+// visitAllNodes visits all nodes starting from each component type.
+func (v *CrossFileValidator) visitAllNodes(visitState map[string]int, visit func(string, string)) {
+	// Visit all commands
 	for cmdName := range v.commands {
 		nodeID := "command:" + cmdName
 		if visitState[nodeID] == 0 {
@@ -161,7 +209,7 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 		}
 	}
 
-	// Also check agents not reachable from commands
+	// Visit all agents
 	for agentName := range v.agents {
 		nodeID := "agent:" + agentName
 		if visitState[nodeID] == 0 {
@@ -169,15 +217,13 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 		}
 	}
 
-	// Also check skills not reachable from agents/commands
+	// Visit all skills
 	for skillName := range v.skills {
 		nodeID := "skill:" + skillName
 		if visitState[nodeID] == 0 {
 			visit("skill", skillName)
 		}
 	}
-
-	return cycles
 }
 
 // reconstructCycle extracts the cycle path from the DFS stack starting at the neighbor node.
@@ -248,11 +294,11 @@ type ChainLink struct {
 // TraceChain traces the full delegation chain starting from a component
 func (v *CrossFileValidator) TraceChain(componentType string, name string) *ChainLink {
 	switch componentType {
-	case "command":
+	case cue.TypeCommand:
 		return v.traceFromCommand(name)
-	case "agent":
+	case cue.TypeAgent:
 		return v.traceFromAgent(name)
-	case "skill":
+	case cue.TypeSkill:
 		return v.traceFromSkill(name)
 	}
 	return nil

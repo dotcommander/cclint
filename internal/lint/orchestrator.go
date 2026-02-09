@@ -96,10 +96,47 @@ func (o *Orchestrator) Run() (*Result, error) {
 	var allSummaries []*cli.LintSummary
 
 	// Run all linters and collect summaries
+	allIssues, allSummaries, errs := o.runAllLinters(b, result)
+	if errs != nil {
+		return nil, errs
+	}
+
+	// Output all results using compact formatter (for console)
+	if outputErr := o.formatOutput(allSummaries); outputErr != nil {
+		return nil, outputErr
+	}
+
+	// Run project-wide memory checks
+	o.runMemoryChecks()
+
+	// Create/update baseline if requested
+	if o.opts.CreateBaseline {
+		if err := o.saveBaseline(allIssues, baselineFile); err != nil {
+			return nil, err
+		}
+		// When creating baseline, exit successfully to accept current state
+		result.HasErrors = false
+		return result, nil
+	}
+
+	// Print baseline filtering summary
+	o.printBaselineSummary(b, result)
+
+	// Print validation reminder
+	o.printValidationReminder()
+
+	return result, nil
+}
+
+// runAllLinters runs all configured linters and collects results.
+func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, []*cli.LintSummary, error) {
+	var allIssues []cue.ValidationError
+	var allSummaries []*cli.LintSummary
+
 	for _, l := range o.linters {
 		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck)
 		if err != nil {
-			return nil, fmt.Errorf("error running %s linter: %w", l.Name, err)
+			return nil, nil, fmt.Errorf("error running %s linter: %w", l.Name, err)
 		}
 
 		// Skip empty results (no files of this type)
@@ -132,39 +169,36 @@ func (o *Orchestrator) Run() (*Result, error) {
 		}
 	}
 
-	// Output all results using compact formatter (for console)
-	if o.cfg.Format == "console" && !o.cfg.Quiet {
-		formatter := output.NewCompactFormatter(o.cfg.Quiet, o.cfg.Verbose, o.cfg.ShowScores, o.cfg.ShowImprovements)
-		if err := formatter.FormatAll(allSummaries); err != nil {
-			return nil, fmt.Errorf("error formatting output: %w", err)
-		}
+	return allIssues, allSummaries, nil
+}
+
+// formatOutput formats and outputs all lint results.
+func (o *Orchestrator) formatOutput(allSummaries []*cli.LintSummary) error {
+	if o.cfg.Format != "console" || o.cfg.Quiet {
+		return nil
 	}
 
-	// Run project-wide memory checks
-	o.runMemoryChecks()
-
-	// Create/update baseline if requested
-	if o.opts.CreateBaseline {
-		if err := o.saveBaseline(allIssues, baselineFile); err != nil {
-			return nil, err
-		}
-		// When creating baseline, exit successfully to accept current state
-		result.HasErrors = false
-		return result, nil
+	formatter := output.NewCompactFormatter(o.cfg.Quiet, o.cfg.Verbose, o.cfg.ShowScores, o.cfg.ShowImprovements)
+	if err := formatter.FormatAll(allSummaries); err != nil {
+		return fmt.Errorf("error formatting output: %w", err)
 	}
+	return nil
+}
 
-	// Print baseline filtering summary
-	if o.opts.UseBaseline && b != nil && result.BaselineIgnored > 0 && !o.cfg.Quiet {
-		fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-			result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
+// printBaselineSummary prints a summary of baseline filtering if active.
+func (o *Orchestrator) printBaselineSummary(b *baseline.Baseline, result *Result) {
+	if !o.opts.UseBaseline || b == nil || result.BaselineIgnored == 0 || o.cfg.Quiet {
+		return
 	}
+	fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
+		result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
+}
 
-	// Print validation reminder (unless quiet mode)
+// printValidationReminder prints a reminder to validate suggestions.
+func (o *Orchestrator) printValidationReminder() {
 	if !o.cfg.Quiet {
 		fmt.Println("\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
 	}
-
-	return result, nil
 }
 
 // resolveBaselinePath returns the absolute path to the baseline file.

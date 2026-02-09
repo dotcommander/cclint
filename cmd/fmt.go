@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	fmtCheck  bool
-	fmtWrite  bool
-	fmtDiff   bool
-	fmtFiles  []string // Explicit file paths
-	fmtType   string   // Force component type
+	fmtCheck bool
+	fmtWrite bool
+	fmtDiff  bool
+	fmtFiles []string // Explicit file paths
+	fmtType  string   // Force component type
 )
 
 var fmtCmd = &cobra.Command{
@@ -209,7 +209,7 @@ func emitFormatted(absPath, displayPath, original, formatted string) error {
 	case fmtDiff:
 		fmt.Print(format.Diff(original, formatted, displayPath))
 	case fmtWrite:
-		if err := os.WriteFile(absPath, []byte(formatted), 0644); err != nil {
+		if err := os.WriteFile(absPath, []byte(formatted), 0600); err != nil {
 			return fmt.Errorf("error writing %s: %w", absPath, err)
 		}
 		if !quiet {

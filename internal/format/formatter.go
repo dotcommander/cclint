@@ -35,21 +35,28 @@ func NewComponentFormatter(componentType string) Formatter {
 	}
 }
 
+// parseResult holds the result of parsing frontmatter from content.
+type parseResult struct {
+	frontmatter    string
+	body           string
+	hasFrontmatter bool
+	err            error
+}
+
 // parseFrontmatterRaw extracts frontmatter and body without fully parsing YAML.
-// Returns frontmatter content (without ---), body content, and error.
-func parseFrontmatterRaw(content string) (frontmatter, body string, hasFrontmatter bool, err error) {
+func parseFrontmatterRaw(content string) parseResult {
 	trimmed := strings.TrimLeft(content, " \t")
 	if !strings.HasPrefix(trimmed, "---") {
-		return "", content, false, nil
+		return parseResult{body: content}
 	}
 
 	// Find the closing ---
 	parts := strings.SplitN(content, "---", 3)
 	if len(parts) < 3 {
-		return "", content, false, fmt.Errorf("unclosed frontmatter (missing closing ---)")
+		return parseResult{body: content, err: fmt.Errorf("unclosed frontmatter (missing closing ---)")}
 	}
 
-	return parts[1], parts[2], true, nil
+	return parseResult{frontmatter: parts[1], body: parts[2], hasFrontmatter: true}
 }
 
 // normalizeFrontmatter reorders and normalizes YAML frontmatter fields.
@@ -138,25 +145,25 @@ func normalizeMarkdown(body string, hasFrontmatter bool) string {
 type AgentFormatter struct{}
 
 func (f *AgentFormatter) Format(content string) (string, error) {
-	fm, body, hasFrontmatter, err := parseFrontmatterRaw(content)
-	if err != nil {
-		return content, err
+	result := parseFrontmatterRaw(content)
+	if result.err != nil {
+		return content, result.err
 	}
 
-	if !hasFrontmatter {
+	if !result.hasFrontmatter {
 		// No frontmatter - just normalize markdown
-		return normalizeMarkdown(content, false), nil
+		return normalizeMarkdown(result.body, false), nil
 	}
 
 	// Normalize frontmatter with agent-specific field order
 	priorityFields := []string{"name", "description", "model", "tools", "allowed-tools"}
-	normalizedFM, err := normalizeFrontmatter(fm, priorityFields)
+	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
 	if err != nil {
 		return content, err
 	}
 
 	// Normalize body
-	normalizedBody := normalizeMarkdown(body, true)
+	normalizedBody := normalizeMarkdown(result.body, true)
 
 	// Reassemble
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
@@ -166,23 +173,23 @@ func (f *AgentFormatter) Format(content string) (string, error) {
 type CommandFormatter struct{}
 
 func (f *CommandFormatter) Format(content string) (string, error) {
-	fm, body, hasFrontmatter, err := parseFrontmatterRaw(content)
-	if err != nil {
-		return content, err
+	result := parseFrontmatterRaw(content)
+	if result.err != nil {
+		return content, result.err
 	}
 
-	if !hasFrontmatter {
-		return normalizeMarkdown(content, false), nil
+	if !result.hasFrontmatter {
+		return normalizeMarkdown(result.body, false), nil
 	}
 
 	// Normalize frontmatter with command-specific field order
 	priorityFields := []string{"name", "description", "allowed-tools"}
-	normalizedFM, err := normalizeFrontmatter(fm, priorityFields)
+	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
 	if err != nil {
 		return content, err
 	}
 
-	normalizedBody := normalizeMarkdown(body, true)
+	normalizedBody := normalizeMarkdown(result.body, true)
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
 }
 
@@ -190,23 +197,23 @@ func (f *CommandFormatter) Format(content string) (string, error) {
 type SkillFormatter struct{}
 
 func (f *SkillFormatter) Format(content string) (string, error) {
-	fm, body, hasFrontmatter, err := parseFrontmatterRaw(content)
-	if err != nil {
-		return content, err
+	result := parseFrontmatterRaw(content)
+	if result.err != nil {
+		return content, result.err
 	}
 
-	if !hasFrontmatter {
-		return normalizeMarkdown(content, false), nil
+	if !result.hasFrontmatter {
+		return normalizeMarkdown(result.body, false), nil
 	}
 
 	// Normalize frontmatter with skill-specific field order
 	priorityFields := []string{"name", "description"}
-	normalizedFM, err := normalizeFrontmatter(fm, priorityFields)
+	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
 	if err != nil {
 		return content, err
 	}
 
-	normalizedBody := normalizeMarkdown(body, true)
+	normalizedBody := normalizeMarkdown(result.body, true)
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
 }
 
@@ -214,23 +221,23 @@ func (f *SkillFormatter) Format(content string) (string, error) {
 type GenericFormatter struct{}
 
 func (f *GenericFormatter) Format(content string) (string, error) {
-	fm, body, hasFrontmatter, err := parseFrontmatterRaw(content)
-	if err != nil {
-		return content, err
+	result := parseFrontmatterRaw(content)
+	if result.err != nil {
+		return content, result.err
 	}
 
-	if !hasFrontmatter {
-		return normalizeMarkdown(content, false), nil
+	if !result.hasFrontmatter {
+		return normalizeMarkdown(result.body, false), nil
 	}
 
 	// Generic alphabetical order
 	priorityFields := []string{"name", "description"}
-	normalizedFM, err := normalizeFrontmatter(fm, priorityFields)
+	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
 	if err != nil {
 		return content, err
 	}
 
-	normalizedBody := normalizeMarkdown(body, true)
+	normalizedBody := normalizeMarkdown(result.body, true)
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
 }
 

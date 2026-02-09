@@ -21,6 +21,22 @@ const (
 	SourceAgentSkillsIO = "agentskills-io"     // agentskills.io specification
 )
 
+// Severity level constants
+const (
+	SeverityError      = "error"
+	SeverityWarning    = "warning"
+	SeveritySuggestion = "suggestion"
+	SeverityInfo       = "info"
+)
+
+// Component type constants
+const (
+	TypeAgent   = "agent"
+	TypeCommand = "command"
+	TypeSkill   = "skill"
+	TypeRule    = "rule"
+)
+
 // ValidationError represents a validation error
 type ValidationError struct {
 	File     string

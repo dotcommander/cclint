@@ -118,39 +118,13 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 	var errors []cue.ValidationError
 
 	// Find the primary agent this command delegates to
-	var primaryAgent string
-	var primaryAgentContents string
-	for _, match := range taskMatches {
-		if len(match) < 2 {
-			continue
-		}
-		agentRef := strings.TrimSpace(match[1])
-		agentRef = strings.Trim(agentRef, `"'`)
-		if strings.Contains(agentRef, "subagent_type") {
-			continue
-		}
-		if agentFile, exists := v.agents[agentRef]; exists {
-			primaryAgent = agentRef
-			primaryAgentContents = agentFile.Contents
-			break
-		}
-	}
-
+	primaryAgent, primaryAgentContents := v.findPrimaryAgent(taskMatches)
 	if primaryAgent == "" {
 		return errors
 	}
 
 	// Collect skill contents referenced by primary agent
-	var skillContents []string
-	skillRefPattern := regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-	skillMatches := skillRefPattern.FindAllStringSubmatch(primaryAgentContents, -1)
-	for _, sm := range skillMatches {
-		if len(sm) >= 2 {
-			if skillFile, exists := v.skills[sm[1]]; exists {
-				skillContents = append(skillContents, skillFile.Contents)
-			}
-		}
-	}
+	skillContents := v.collectAgentSkillContents(primaryAgentContents)
 
 	// Find flags documented in command
 	flagPattern := regexp.MustCompile(`--([a-z][a-z0-9-]*)`)
@@ -167,16 +141,8 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 		}
 		seenFlags[flag] = true
 
-		foundInAgent := strings.Contains(primaryAgentContents, "--"+flag) || strings.Contains(primaryAgentContents, flag)
-		foundInSkill := false
-		for _, sc := range skillContents {
-			if strings.Contains(sc, "--"+flag) || strings.Contains(sc, flag) {
-				foundInSkill = true
-				break
-			}
-		}
-
-		if !foundInAgent && !foundInSkill {
+		// Check if flag is found in agent or skills
+		if !v.isFlagInAgentOrSkills(flag, primaryAgentContents, skillContents) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Flag '--%s' documented but not found in agent '%s' or its skills - may be fake", flag, primaryAgent),
@@ -187,6 +153,54 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 	}
 
 	return errors
+}
+
+// findPrimaryAgent finds the primary agent that the command delegates to.
+func (v *CrossFileValidator) findPrimaryAgent(taskMatches [][]string) (agentName, agentContents string) {
+	for _, match := range taskMatches {
+		if len(match) < 2 {
+			continue
+		}
+		agentRef := strings.TrimSpace(match[1])
+		agentRef = strings.Trim(agentRef, `"'`)
+		if strings.Contains(agentRef, "subagent_type") {
+			continue
+		}
+		if agentFile, exists := v.agents[agentRef]; exists {
+			return agentRef, agentFile.Contents
+		}
+	}
+	return "", ""
+}
+
+// collectAgentSkillContents collects the contents of skills referenced by an agent.
+func (v *CrossFileValidator) collectAgentSkillContents(agentContents string) []string {
+	var skillContents []string
+	skillRefPattern := regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
+	skillMatches := skillRefPattern.FindAllStringSubmatch(agentContents, -1)
+	for _, sm := range skillMatches {
+		if len(sm) >= 2 {
+			if skillFile, exists := v.skills[sm[1]]; exists {
+				skillContents = append(skillContents, skillFile.Contents)
+			}
+		}
+	}
+	return skillContents
+}
+
+// isFlagInAgentOrSkills checks if a flag is found in agent contents or skill contents.
+func (v *CrossFileValidator) isFlagInAgentOrSkills(flag, agentContents string, skillContents []string) bool {
+	foundInAgent := strings.Contains(agentContents, "--"+flag) || strings.Contains(agentContents, flag)
+	if foundInAgent {
+		return true
+	}
+
+	for _, sc := range skillContents {
+		if strings.Contains(sc, "--"+flag) || strings.Contains(sc, flag) {
+			return true
+		}
+	}
+	return false
 }
 
 // checkUnusedAllowedTools detects tools declared in allowed-tools but never used.
@@ -484,54 +498,75 @@ func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatt
 
 // FindOrphanedSkills finds skills that aren't referenced by any command, agent, or other skill
 func (v *CrossFileValidator) FindOrphanedSkills() []cue.ValidationError {
-	var orphans []cue.ValidationError
+	// Collect all references into a single map
+	referencedSkills := v.getAllReferencedSkills()
+
+	// Find orphans
+	return v.findSkillOrphans(referencedSkills)
+}
+
+// getAllReferencedSkills returns a combined map of all referenced skills.
+func (v *CrossFileValidator) getAllReferencedSkills() map[string]bool {
 	referencedSkills := make(map[string]bool)
 
-	// Check commands for skill references via Task() and Skill() patterns
+	// Collect from commands
+	v.collectCommandReferences(referencedSkills)
+
+	// Collect from agents
+	v.collectAgentReferences(referencedSkills)
+
+	// Collect from skills
+	v.collectSkillToSkillReferencesMap(referencedSkills)
+
+	return referencedSkills
+}
+
+// collectCommandReferences collects skill references from commands.
+func (v *CrossFileValidator) collectCommandReferences(referencedSkills map[string]bool) {
+	taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
 	for _, cmd := range v.commands {
-		taskPattern := regexp.MustCompile(`Task\(([^,\)]+)`)
-		matches := taskPattern.FindAllStringSubmatch(cmd.Contents, -1)
-		for _, match := range matches {
-			if len(match) < 2 {
-				continue
-			}
-			agentRef := strings.TrimSpace(match[1])
-			agentRef = strings.Trim(agentRef, `"'`)
-			if strings.HasSuffix(agentRef, "-specialist") {
-				continue
-			}
-			if _, exists := v.skills[agentRef]; exists {
-				referencedSkills[agentRef] = true
+		// Check Task() pattern
+		for _, match := range taskPattern.FindAllStringSubmatch(cmd.Contents, -1) {
+			if len(match) >= 2 {
+				agentRef := strings.TrimSpace(strings.Trim(match[1], `"'`))
+				if !strings.HasSuffix(agentRef, "-specialist") {
+					if _, exists := v.skills[agentRef]; exists {
+						referencedSkills[agentRef] = true
+					}
+				}
 			}
 		}
-		// Also check Skill() and Skill: references in commands
-		skillRefs := findSkillReferences(cmd.Contents)
-		for _, skillRef := range skillRefs {
+		// Check Skill() and Skill: references
+		for _, skillRef := range findSkillReferences(cmd.Contents) {
 			referencedSkills[skillRef] = true
 		}
 	}
+}
 
-	// Check agents for skill declarations
+// collectAgentReferences collects skill references from agents.
+func (v *CrossFileValidator) collectAgentReferences(referencedSkills map[string]bool) {
 	for _, agent := range v.agents {
-		skillRefs := findSkillReferences(agent.Contents)
-		for _, skillRef := range skillRefs {
+		for _, skillRef := range findSkillReferences(agent.Contents) {
 			referencedSkills[skillRef] = true
 		}
 	}
+}
 
-	// Check skills for references to other skills
+// collectSkillToSkillReferencesMap collects skill references from other skills.
+func (v *CrossFileValidator) collectSkillToSkillReferencesMap(referencedSkills map[string]bool) {
 	for _, skill := range v.skills {
+		currentSkillName := crossExtractSkillName(skill.RelPath)
 		for skillName := range v.skills {
-			if skillName == crossExtractSkillName(skill.RelPath) {
-				continue
-			}
-			if strings.Contains(skill.Contents, skillName) {
+			if skillName != currentSkillName && strings.Contains(skill.Contents, skillName) {
 				referencedSkills[skillName] = true
 			}
 		}
 	}
+}
 
-	// Find orphans
+// findSkillOrphans returns validation errors for orphaned skills.
+func (v *CrossFileValidator) findSkillOrphans(referencedSkills map[string]bool) []cue.ValidationError {
+	var orphans []cue.ValidationError
 	for skillName, skillFile := range v.skills {
 		if !referencedSkills[skillName] {
 			orphans = append(orphans, cue.ValidationError{

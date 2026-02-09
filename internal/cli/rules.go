@@ -29,10 +29,10 @@ type RuleLinter struct {
 
 // Compile-time interface compliance checks
 var (
-	_ ComponentLinter    = (*RuleLinter)(nil)
-	_ PreValidator       = (*RuleLinter)(nil)
+	_ ComponentLinter       = (*RuleLinter)(nil)
+	_ PreValidator          = (*RuleLinter)(nil)
 	_ BestPracticeValidator = (*RuleLinter)(nil)
-	_ BatchPostProcessor = (*RuleLinter)(nil)
+	_ BatchPostProcessor    = (*RuleLinter)(nil)
 )
 
 // NewRuleLinter creates a new RuleLinter.
@@ -41,7 +41,7 @@ func NewRuleLinter() *RuleLinter {
 }
 
 func (l *RuleLinter) Type() string {
-	return "rule"
+	return cue.TypeRule
 }
 
 func (l *RuleLinter) FileType() discovery.FileType {

@@ -70,11 +70,35 @@ var knownAgentFields = map[string]bool{
 	"mcpServers":      true, // Optional: MCP server names available to agent
 }
 
-// validateAgentSpecific implements agent-specific validation rules
+// validateAgentSpecific implements agent-specific validation rules.
+// Orchestrates validation by delegating to focused check functions.
 func validateAgentSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	// Frontmatter field validation
+	errors = append(errors, validateUnknownFields(data, filePath, contents)...)
+	errors = append(errors, validateRequiredFields(data, filePath, contents)...)
+
+	// Individual field validation
+	errors = append(errors, validateAgentColor(data, filePath)...)
+	errors = append(errors, validateAgentMemory(data, filePath, contents)...)
+	errors = append(errors, validateAgentModel(data, filePath, contents)...)
+	errors = append(errors, validateAgentMCPServersField(data, filePath, contents)...)
+	errors = append(errors, validateAgentPermissionMode(data, filePath, contents)...)
+	errors = append(errors, validateAgentMaxTurns(data, filePath, contents)...)
+	errors = append(errors, validateAgentAutonomousPattern(data, filePath, contents)...)
+
+	// Cross-field validation
+	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "agent")...)
+	errors = append(errors, validateAgentHooks(data, filePath)...)
+	errors = append(errors, validateAgentBestPractices(filePath, contents, data)...)
+
+	return errors
+}
+
+// validateUnknownFields checks for unsupported frontmatter fields.
+func validateUnknownFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
 	for key := range data {
 		if !knownAgentFields[key] {
 			errors = append(errors, cue.ValidationError{
@@ -86,8 +110,13 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 			})
 		}
 	}
+	return errors
+}
 
-	// Check required fields - FROM ANTHROPIC DOCS: "name" and "description" are Required
+// validateRequiredFields validates name and description requirements.
+func validateRequiredFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
 	if name, ok := data["name"].(string); !ok || name == "" {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -96,6 +125,8 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})
+	} else {
+		errors = append(errors, validateAgentName(name, filePath, contents)...)
 	}
 
 	if description, ok := data["description"].(string); !ok || description == "" {
@@ -107,7 +138,6 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
 	} else if !strings.Contains(description, "PROACTIVELY") {
-		// Check for PROACTIVELY pattern - REQUIRED for agent discoverability
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Description MUST include 'Use PROACTIVELY when...' pattern for agent discoverability.",
@@ -117,149 +147,175 @@ func validateAgentSpecific(data map[string]any, filePath string, contents string
 		})
 	}
 
-	// Check name format - FROM ANTHROPIC DOCS: "Unique identifier using lowercase letters and hyphens"
-	if name, ok := data["name"].(string); ok {
-		errors = append(errors, validateAgentName(name, filePath, contents)...)
-	}
-
-	// Check valid colors - OUR OBSERVATION (not documented by Anthropic)
-	if color, ok := data["color"].(string); ok {
-		validColors := map[string]bool{
-			"red":     true,
-			"blue":    true,
-			"green":   true,
-			"yellow":  true,
-			"purple":  true,
-			"orange":  true,
-			"pink":    true,
-			"cyan":    true,
-		}
-		if !validColors[color] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Invalid color '%s'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan", color),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-			})
-		}
-	}
-
-	// Validate memory scope (v2.1.33+)
-	if memory, ok := data["memory"].(string); ok {
-		validMemoryScopes := map[string]bool{
-			"user":    true,
-			"project": true,
-			"local":   true,
-		}
-		if !validMemoryScopes[memory] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Invalid memory scope '%s'. Valid scopes: user, project, local", memory),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "memory"),
-			})
-		}
-	}
-
-	// Validate model value - must be a known model name with optional version suffix
-	if model, ok := data["model"].(string); ok {
-		if !validModelPattern.MatchString(model) {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m])", model),
-				Severity: "warning",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindFrontmatterFieldLine(contents, "model"),
-			})
-		}
-	}
-
-	// Validate mcpServers - must be an array of non-empty strings
-	if mcpServers, ok := data["mcpServers"]; ok {
-		errors = append(errors, validateAgentMCPServers(mcpServers, filePath, contents)...)
-	}
-
-	// Validate permissionMode enum
-	if permMode, ok := data["permissionMode"].(string); ok {
-		validPermModes := map[string]bool{
-			"default":           true,
-			"acceptEdits":       true,
-			"delegate":          true,
-			"dontAsk":           true,
-			"bypassPermissions": true,
-			"plan":              true,
-		}
-		if !validPermModes[permMode] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan", permMode),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "permissionMode"),
-			})
-		}
-	}
-
-	// Validate maxTurns - must be a positive integer
-	if maxTurns, ok := data["maxTurns"]; ok {
-		switch v := maxTurns.(type) {
-		case int:
-			if v <= 0 {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Invalid maxTurns value %d; must be a positive integer", v),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-					Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
-				})
-			}
-		case float64:
-			if v <= 0 || v != float64(int(v)) {
-				errors = append(errors, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", v),
-					Severity: "error",
-					Source:   cue.SourceAnthropicDocs,
-					Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
-				})
-			}
-		default:
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", maxTurns),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
-			})
-		}
-	}
-
-	// Info: maxTurns + dontAsk is a common autonomous agent pattern
-	if _, hasMaxTurns := data["maxTurns"]; hasMaxTurns {
-		if permMode, ok := data["permissionMode"].(string); ok && permMode == "dontAsk" {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "Agent uses maxTurns with permissionMode 'dontAsk' - this is a common pattern for autonomous sub-agents.",
-				Severity: "info",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
-			})
-		}
-	}
-
-	// Validate tool field naming (agents use 'tools:', not 'allowed-tools:')
-	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "agent")...)
-
-	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
-	if hooks, ok := data["hooks"]; ok {
-		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
-	}
-
-	// Best practice checks
-	errors = append(errors, validateAgentBestPractices(filePath, contents, data)...)
-
 	return errors
+}
+
+// validateAgentColor validates the color field.
+func validateAgentColor(data map[string]any, filePath string) []cue.ValidationError {
+	color, ok := data["color"].(string)
+	if !ok {
+		return nil
+	}
+
+	validColors := map[string]bool{
+		"red": true, "blue": true, "green": true, "yellow": true,
+		"purple": true, "orange": true, "pink": true, "cyan": true,
+	}
+	if validColors[color] {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("Invalid color '%s'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan", color),
+		Severity: "suggestion",
+		Source:   cue.SourceCClintObserve,
+	}}
+}
+
+// validateAgentMemory validates the memory scope field.
+func validateAgentMemory(data map[string]any, filePath, contents string) []cue.ValidationError {
+	memory, ok := data["memory"].(string)
+	if !ok {
+		return nil
+	}
+
+	validScopes := map[string]bool{"user": true, "project": true, "local": true}
+	if validScopes[memory] {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("Invalid memory scope '%s'. Valid scopes: user, project, local", memory),
+		Severity: "error",
+		Source:   cue.SourceAnthropicDocs,
+		Line:     FindFrontmatterFieldLine(contents, "memory"),
+	}}
+}
+
+// validateAgentModel validates the model field.
+func validateAgentModel(data map[string]any, filePath, contents string) []cue.ValidationError {
+	model, ok := data["model"].(string)
+	if !ok {
+		return nil
+	}
+
+	if validModelPattern.MatchString(model) {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m])", model),
+		Severity: "warning",
+		Source:   cue.SourceCClintObserve,
+		Line:     FindFrontmatterFieldLine(contents, "model"),
+	}}
+}
+
+// validateAgentMCPServersField validates the mcpServers field.
+func validateAgentMCPServersField(data map[string]any, filePath, contents string) []cue.ValidationError {
+	mcpServers, ok := data["mcpServers"]
+	if !ok {
+		return nil
+	}
+	return validateAgentMCPServers(mcpServers, filePath, contents)
+}
+
+// validateAgentPermissionMode validates the permissionMode field.
+func validateAgentPermissionMode(data map[string]any, filePath, contents string) []cue.ValidationError {
+	permMode, ok := data["permissionMode"].(string)
+	if !ok {
+		return nil
+	}
+
+	validModes := map[string]bool{
+		"default": true, "acceptEdits": true, "delegate": true,
+		"dontAsk": true, "bypassPermissions": true, "plan": true,
+	}
+	if validModes[permMode] {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan", permMode),
+		Severity: "error",
+		Source:   cue.SourceAnthropicDocs,
+		Line:     FindFrontmatterFieldLine(contents, "permissionMode"),
+	}}
+}
+
+// validateAgentMaxTurns validates the maxTurns field is a positive integer.
+func validateAgentMaxTurns(data map[string]any, filePath, contents string) []cue.ValidationError {
+	maxTurns, ok := data["maxTurns"]
+	if !ok {
+		return nil
+	}
+
+	switch v := maxTurns.(type) {
+	case int:
+		if v > 0 {
+			return nil
+		}
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Invalid maxTurns value %d; must be a positive integer", v),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+		}}
+	case float64:
+		if v > 0 && v == float64(int(v)) {
+			return nil
+		}
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", v),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+		}}
+	default:
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", maxTurns),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+		}}
+	}
+}
+
+// validateAgentAutonomousPattern checks for maxTurns + dontAsk pattern.
+func validateAgentAutonomousPattern(data map[string]any, filePath, contents string) []cue.ValidationError {
+	_, hasMaxTurns := data["maxTurns"]
+	if !hasMaxTurns {
+		return nil
+	}
+
+	permMode, ok := data["permissionMode"].(string)
+	if !ok || permMode != "dontAsk" {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  "Agent uses maxTurns with permissionMode 'dontAsk' - this is a common pattern for autonomous sub-agents.",
+		Severity: "info",
+		Source:   cue.SourceCClintObserve,
+		Line:     FindFrontmatterFieldLine(contents, "maxTurns"),
+	}}
+}
+
+// validateAgentHooks validates the hooks field.
+func validateAgentHooks(data map[string]any, filePath string) []cue.ValidationError {
+	hooks, ok := data["hooks"]
+	if !ok {
+		return nil
+	}
+	return ValidateComponentHooks(hooks, filePath)
 }
 
 // hasEditingTools checks if the tools field includes editing capabilities

@@ -319,12 +319,12 @@ alpha: first`,
 
 func TestParseFrontmatterRaw(t *testing.T) {
 	tests := []struct {
-		name              string
-		input             string
-		expectedFM        string
-		expectedBody      string
-		expectedHasFM     bool
-		expectError       bool
+		name          string
+		input         string
+		expectedFM    string
+		expectedBody  string
+		expectedHasFM bool
+		expectError   bool
 	}{
 		{
 			name: "valid frontmatter",
@@ -338,12 +338,12 @@ Body content`,
 			expectError:   false,
 		},
 		{
-			name:              "no frontmatter",
-			input:             "Just body content",
-			expectedFM:        "",
-			expectedBody:      "Just body content",
-			expectedHasFM:     false,
-			expectError:       false,
+			name:          "no frontmatter",
+			input:         "Just body content",
+			expectedFM:    "",
+			expectedBody:  "Just body content",
+			expectedHasFM: false,
+			expectError:   false,
 		},
 		{
 			name: "unclosed frontmatter",
@@ -359,25 +359,25 @@ Body without closing`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fm, body, hasFM, err := parseFrontmatterRaw(tt.input)
+			result := parseFrontmatterRaw(tt.input)
 
-			if tt.expectError && err == nil {
+			if tt.expectError && result.err == nil {
 				t.Error("Expected error but got nil")
 			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Unexpected error: %v", err)
+			if !tt.expectError && result.err != nil {
+				t.Errorf("Unexpected error: %v", result.err)
 			}
 
-			if hasFM != tt.expectedHasFM {
-				t.Errorf("hasFrontmatter = %v, expected %v", hasFM, tt.expectedHasFM)
+			if result.hasFrontmatter != tt.expectedHasFM {
+				t.Errorf("hasFrontmatter = %v, expected %v", result.hasFrontmatter, tt.expectedHasFM)
 			}
 
 			if !tt.expectError {
-				if fm != tt.expectedFM {
-					t.Errorf("frontmatter = %q, expected %q", fm, tt.expectedFM)
+				if result.frontmatter != tt.expectedFM {
+					t.Errorf("frontmatter = %q, expected %q", result.frontmatter, tt.expectedFM)
 				}
-				if body != tt.expectedBody {
-					t.Errorf("body = %q, expected %q", body, tt.expectedBody)
+				if result.body != tt.expectedBody {
+					t.Errorf("body = %q, expected %q", result.body, tt.expectedBody)
 				}
 			}
 		})

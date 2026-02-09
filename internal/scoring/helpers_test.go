@@ -12,7 +12,7 @@ func TestScoreRequiredFields(t *testing.T) {
 		specs        []FieldSpec
 		wantScore    int
 		wantMetrics  int
-		checkMetrics func([]ScoringMetric) error
+		checkMetrics func([]Metric) error
 	}{
 		{
 			name: "All fields present",
@@ -588,7 +588,7 @@ func TestScoreCompositionMetricStructure(t *testing.T) {
 	_, metric := ScoreComposition(50, thresholds)
 
 	// Verify metric structure
-	wantMetric := ScoringMetric{
+	wantMetric := Metric{
 		Category:  "composition",
 		Name:      "Line count",
 		Points:    10,

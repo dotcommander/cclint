@@ -455,20 +455,17 @@ func TestDefaultFormatterFactory_CreateFormatter_AllFormats(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			formatter, err := factory.CreateFormatter(tt.format)
 
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("CreateFormatter(%q) error = nil, want error", tt.format)
-				}
-				if formatter != nil {
-					t.Errorf("CreateFormatter(%q) returned formatter when error expected", tt.format)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("CreateFormatter(%q) error = %v, want nil", tt.format, err)
-				}
-				if formatter == nil {
-					t.Errorf("CreateFormatter(%q) returned nil formatter", tt.format)
-				}
+			if tt.wantErr && err == nil {
+				t.Errorf("CreateFormatter(%q) error = nil, want error", tt.format)
+			}
+			if tt.wantErr && formatter != nil {
+				t.Errorf("CreateFormatter(%q) returned formatter when error expected", tt.format)
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("CreateFormatter(%q) error = %v, want nil", tt.format, err)
+			}
+			if !tt.wantErr && formatter == nil {
+				t.Errorf("CreateFormatter(%q) returned nil formatter", tt.format)
 			}
 		})
 	}
@@ -558,22 +555,24 @@ func TestOutputter_Format_Integration(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("Format() error = nil, want error containing %q", tt.errContains)
-				} else if tt.errContains != "" && err.Error() != tt.errContains {
+					return
+				}
+				if tt.errContains != "" && err.Error() != tt.errContains {
 					t.Errorf("Format() error = %q, want error containing %q", err.Error(), tt.errContains)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("Format() error = %v, want nil", err)
-				}
+				return
+			}
+			if err != nil {
+				t.Errorf("Format() error = %v, want nil", err)
+			}
 
-				// Verify summary was populated correctly
-				if tt.summary.ProjectRoot != tt.config.Root {
-					t.Errorf("Format() did not set ProjectRoot correctly: got %q, want %q", tt.summary.ProjectRoot, tt.config.Root)
-				}
+			// Verify summary was populated correctly
+			if tt.summary.ProjectRoot != tt.config.Root {
+				t.Errorf("Format() did not set ProjectRoot correctly: got %q, want %q", tt.summary.ProjectRoot, tt.config.Root)
+			}
 
-				if tt.summary.StartTime.IsZero() {
-					t.Error("Format() did not set StartTime")
-				}
+			if tt.summary.StartTime.IsZero() {
+				t.Error("Format() did not set StartTime")
 			}
 		})
 	}

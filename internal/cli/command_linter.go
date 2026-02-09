@@ -28,7 +28,7 @@ func NewCommandLinter() *CommandLinter {
 }
 
 func (l *CommandLinter) Type() string {
-	return "command"
+	return cue.TypeCommand
 }
 
 func (l *CommandLinter) FileType() discovery.FileType {

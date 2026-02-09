@@ -320,7 +320,7 @@ func TestAgentScorer_DescriptionQuality(t *testing.T) {
 			content := generateFullContent(frontmatter, "Body content")
 			score := scorer.Score(content, frontmatter, "Body content")
 
-			var descMetric *ScoringMetric
+			var descMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Description quality" {
 					descMetric = &score.Details[i]
@@ -393,7 +393,7 @@ func TestAgentScorer_SectionStructure(t *testing.T) {
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
 
-			var structMetric *ScoringMetric
+			var structMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Section structure" {
 					structMetric = &score.Details[i]
@@ -455,7 +455,7 @@ func TestAgentScorer_CompositionScoring(t *testing.T) {
 				t.Errorf("Composition score = %d, want %d", score.Composition, tt.wantPoints)
 			}
 
-			var compMetric *ScoringMetric
+			var compMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Category == "composition" {
 					compMetric = &score.Details[i]

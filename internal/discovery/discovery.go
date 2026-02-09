@@ -363,66 +363,72 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 			return nil, fmt.Errorf("error evaluating pattern %s: %w", pattern, err)
 		}
 
-		// Process each match
 		for _, match := range matches {
-			// Get full path by joining with root
-			fullPath := filepath.Join(fd.rootPath, match)
-
-			// Get file info
-			info, err := os.Stat(fullPath)
-			if err != nil {
-				continue // Skip files we can't stat
+			f, ok := fd.processMatch(match)
+			if ok {
+				files = append(files, f)
 			}
-
-			// Skip directories
-			if info.IsDir() {
-				continue
-			}
-
-			// For symlinks, follow if requested
-			if info.Mode()&os.ModeSymlink != 0 {
-				if fd.followSymlinks {
-					realPath, evalErr := filepath.EvalSymlinks(fullPath)
-					if evalErr != nil {
-						continue
-					}
-					// Validate that symlink target is within project root
-					if !strings.HasPrefix(realPath, fd.rootPath) {
-						continue
-					}
-					match = realPath
-					info, err = os.Stat(match)
-					if err != nil {
-						continue
-					}
-				} else {
-					continue // Skip symlinks if not following
-				}
-			}
-
-			// match is already relative to rootPath (from os.DirFS)
-			relPath := match
-
-			// Read file contents
-			contents, err := os.ReadFile(fullPath)
-			if err != nil {
-				continue // Skip files we can't read
-			}
-
-			// Determine file type based on path
-			fileType := fd.determineFileType(relPath)
-
-			files = append(files, File{
-				Path:     fullPath,
-				RelPath:  relPath,
-				Size:     info.Size(),
-				Type:     fileType,
-				Contents: string(contents),
-			})
 		}
 	}
 
 	return files, nil
+}
+
+// processMatch converts a glob match into a File, returning false if the match should be skipped.
+func (fd *FileDiscovery) processMatch(match string) (File, bool) {
+	fullPath := filepath.Join(fd.rootPath, match)
+
+	info, err := os.Stat(fullPath)
+	if err != nil || info.IsDir() {
+		return File{}, false
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		resolved, resolvedInfo, ok := fd.resolveSymlink(fullPath)
+		if !ok {
+			return File{}, false
+		}
+		match = resolved
+		info = resolvedInfo
+	}
+
+	contents, err := os.ReadFile(fullPath)
+	if err != nil {
+		return File{}, false
+	}
+
+	relPath := match
+	return File{
+		Path:     fullPath,
+		RelPath:  relPath,
+		Size:     info.Size(),
+		Type:     fd.determineFileType(relPath),
+		Contents: string(contents),
+	}, true
+}
+
+// resolveSymlink follows a symlink if configured, returning the resolved path and info.
+// Returns false if the symlink should be skipped.
+func (fd *FileDiscovery) resolveSymlink(fullPath string) (string, os.FileInfo, bool) {
+	if !fd.followSymlinks {
+		return "", nil, false
+	}
+
+	realPath, err := filepath.EvalSymlinks(fullPath)
+	if err != nil {
+		return "", nil, false
+	}
+
+	if !strings.HasPrefix(realPath, fd.rootPath) {
+		return "", nil, false
+	}
+
+	info, err := os.Stat(realPath)
+	if err != nil {
+		return "", nil, false
+	}
+
+	return realPath, info, true
 }
 
 // determineFileType determines the file type based on its path.

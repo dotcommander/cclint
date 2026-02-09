@@ -31,7 +31,7 @@ func NewAgentLinter() *AgentLinter {
 }
 
 func (l *AgentLinter) Type() string {
-	return "agent"
+	return cue.TypeAgent
 }
 
 func (l *AgentLinter) FileType() discovery.FileType {
@@ -92,35 +92,50 @@ func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 		}
 		cyclesReported[cycleDesc] = true
 
-		// Find agents involved in the cycle
-		agentsInCycle := make(map[string]bool)
-		for _, node := range cycle.Path {
-			parts := strings.SplitN(node, ":", 2)
-			if len(parts) == 2 && parts[0] == "agent" {
-				agentsInCycle[parts[1]] = true
-			}
-		}
+		// Report cycle errors to all agents in the cycle
+		l.reportCycleError(summary, cycle, cycleDesc)
+	}
+}
 
-		// Report to each agent once
-		for agentName := range agentsInCycle {
-			for i, result := range summary.Results {
-				resultName := crossExtractAgentName(result.File)
-				if resultName == agentName {
-					summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
-						File:     result.File,
-						Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
-						Severity: "error",
-						Source:   cue.SourceCClintObserve,
-					})
-					summary.TotalErrors++
-					if summary.Results[i].Success {
-						summary.Results[i].Success = false
-						summary.SuccessfulFiles--
-						summary.FailedFiles++
-					}
-					break
-				}
+// reportCycleError reports a cycle error to all agents involved in the cycle.
+func (l *AgentLinter) reportCycleError(summary *LintSummary, cycle Cycle, cycleDesc string) {
+	agentsInCycle := extractAgentsFromCycle(cycle.Path)
+
+	for agentName := range agentsInCycle {
+		addCycleToSummary(summary, agentName, cycleDesc)
+	}
+}
+
+// extractAgentsFromCycle extracts agent names from cycle path nodes.
+func extractAgentsFromCycle(path []string) map[string]bool {
+	agentsInCycle := make(map[string]bool)
+	for _, node := range path {
+		parts := strings.SplitN(node, ":", 2)
+		if len(parts) == 2 && parts[0] == cue.TypeAgent {
+			agentsInCycle[parts[1]] = true
+		}
+	}
+	return agentsInCycle
+}
+
+// addCycleToSummary adds a cycle error to the summary for a specific agent.
+func addCycleToSummary(summary *LintSummary, agentName, cycleDesc string) {
+	for i := range summary.Results {
+		resultName := crossExtractAgentName(summary.Results[i].File)
+		if resultName == agentName {
+			summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
+				File:     summary.Results[i].File,
+				Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+			})
+			summary.TotalErrors++
+			if summary.Results[i].Success {
+				summary.Results[i].Success = false
+				summary.SuccessfulFiles--
+				summary.FailedFiles++
 			}
+			break
 		}
 	}
 }

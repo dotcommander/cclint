@@ -33,9 +33,9 @@ type CompositionThresholds struct {
 
 // ScoreRequiredFields scores the presence of required frontmatter fields.
 // It follows the Open/Closed Principle - new fields can be added via the specs slice.
-func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []ScoringMetric) {
+func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []Metric) {
 	var total int
-	var details []ScoringMetric
+	var details []Metric
 
 	for _, field := range specs {
 		_, exists := frontmatter[field.Name]
@@ -44,7 +44,7 @@ func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []
 			points = field.Points
 		}
 		total += points
-		details = append(details, ScoringMetric{
+		details = append(details, Metric{
 			Category:  "structural",
 			Name:      "Has " + field.Name,
 			Points:    points,
@@ -58,9 +58,9 @@ func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []
 
 // ScoreSections scores the presence of required sections in content.
 // It follows the Open/Closed Principle - new sections can be added via the specs slice.
-func ScoreSections(content string, specs []SectionSpec) (int, []ScoringMetric) {
+func ScoreSections(content string, specs []SectionSpec) (int, []Metric) {
 	var total int
-	var details []ScoringMetric
+	var details []Metric
 
 	for _, sec := range specs {
 		matched, _ := regexp.MatchString(sec.Pattern, content)
@@ -69,7 +69,7 @@ func ScoreSections(content string, specs []SectionSpec) (int, []ScoringMetric) {
 			points = sec.Points
 		}
 		total += points
-		details = append(details, ScoringMetric{
+		details = append(details, Metric{
 			Category:  "structural",
 			Name:      sec.Name,
 			Points:    points,
@@ -86,9 +86,9 @@ func ScoreSections(content string, specs []SectionSpec) (int, []ScoringMetric) {
 type SectionFallbackFunc func(content string, sectionName string) bool
 
 // ScoreSectionsWithFallback scores sections with an optional fallback check.
-func ScoreSectionsWithFallback(content string, specs []SectionSpec, fallback SectionFallbackFunc) (int, []ScoringMetric) {
+func ScoreSectionsWithFallback(content string, specs []SectionSpec, fallback SectionFallbackFunc) (int, []Metric) {
 	var total int
-	var details []ScoringMetric
+	var details []Metric
 
 	for _, sec := range specs {
 		matched, _ := regexp.MatchString(sec.Pattern, content)
@@ -101,7 +101,7 @@ func ScoreSectionsWithFallback(content string, specs []SectionSpec, fallback Sec
 			points = sec.Points
 		}
 		total += points
-		details = append(details, ScoringMetric{
+		details = append(details, Metric{
 			Category:  "structural",
 			Name:      sec.Name,
 			Points:    points,
@@ -115,7 +115,7 @@ func ScoreSectionsWithFallback(content string, specs []SectionSpec, fallback Sec
 
 // ScoreComposition scores the component based on line count.
 // It follows the Open/Closed Principle - thresholds can be customized per component type.
-func ScoreComposition(lines int, thresholds CompositionThresholds) (int, ScoringMetric) {
+func ScoreComposition(lines int, thresholds CompositionThresholds) (int, Metric) {
 	var points int
 	var note string
 	var passed bool
@@ -143,7 +143,7 @@ func ScoreComposition(lines int, thresholds CompositionThresholds) (int, Scoring
 		passed = false
 	}
 
-	return points, ScoringMetric{
+	return points, Metric{
 		Category:  "composition",
 		Name:      "Line count",
 		Points:    points,

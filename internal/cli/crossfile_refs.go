@@ -70,6 +70,17 @@ func parseAllowedTools(s string) []string {
 	return tools
 }
 
+// toolPatterns maps standard tools to their usage detection functions.
+var toolPatterns = map[string]func(string) bool{
+	"Task":  func(c string) bool { return strings.Contains(c, "Task(") },
+	"Read":  func(c string) bool { return strings.Contains(c, "Read(") || strings.Contains(c, "Read tool") },
+	"Write": func(c string) bool { return strings.Contains(c, "Write(") || strings.Contains(c, "Write tool") },
+	"Edit":  func(c string) bool { return strings.Contains(c, "Edit(") || strings.Contains(c, "Edit tool") },
+	"Bash":  func(c string) bool { return strings.Contains(c, "Bash(") || strings.Contains(c, "Bash tool") },
+	"Glob":  func(c string) bool { return strings.Contains(c, "Glob(") || strings.Contains(c, "Glob tool") },
+	"Grep":  func(c string) bool { return strings.Contains(c, "Grep(") || strings.Contains(c, "Grep tool") },
+}
+
 // isToolUsed checks if a tool is referenced in the content body.
 func isToolUsed(tool string, contents string) bool {
 	// For Task(specific-agent), check if that specific agent is called
@@ -81,25 +92,13 @@ func isToolUsed(tool string, contents string) bool {
 		return pattern.MatchString(contents)
 	}
 
-	// Check standard tools
-	switch tool {
-	case "Task":
-		return strings.Contains(contents, "Task(")
-	case "Read":
-		return strings.Contains(contents, "Read(") || strings.Contains(contents, "Read tool")
-	case "Write":
-		return strings.Contains(contents, "Write(") || strings.Contains(contents, "Write tool")
-	case "Edit":
-		return strings.Contains(contents, "Edit(") || strings.Contains(contents, "Edit tool")
-	case "Bash":
-		return strings.Contains(contents, "Bash(") || strings.Contains(contents, "Bash tool")
-	case "Glob":
-		return strings.Contains(contents, "Glob(") || strings.Contains(contents, "Glob tool")
-	case "Grep":
-		return strings.Contains(contents, "Grep(") || strings.Contains(contents, "Grep tool")
-	default:
-		return strings.Contains(contents, tool)
+	// Check standard tools using pattern map
+	if check, ok := toolPatterns[tool]; ok {
+		return check(contents)
 	}
+
+	// Default: check if tool name appears anywhere
+	return strings.Contains(contents, tool)
 }
 
 // Helper functions for cross-file validation - name extraction

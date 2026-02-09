@@ -71,11 +71,19 @@ issues:
     - generated
     - third_party
   exclude-rules:
-    # Test files: allow duplication and magic strings
+    # Test files: table-driven tests are inherently long and complex
     - path: _test\.go
       linters:
         - dupl
         - goconst
+        - funlen
+        - gocognit
+        - gocyclo
+        - revive
+    # Test files: 0644 permissions are fine in temp dirs
+    - path: _test\.go
+      linters:
+        - gosec
     # Cobra cmd/ dirs: globals and init() are idiomatic
     - path: cmd/
       linters:
@@ -89,5 +97,11 @@ issues:
     - path: internal/discovery/
       linters:
         - gochecknoglobals
+    # Output formatters: complex presentation logic is expected
+    - path: internal/output/
+      linters:
+        - gocognit
+        - nestif
+        - goconst
   max-issues-per-linter: 0
   max-same-issues: 0

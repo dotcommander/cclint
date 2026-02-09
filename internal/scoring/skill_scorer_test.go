@@ -394,7 +394,7 @@ func TestSkillScorer_DescriptionQuality(t *testing.T) {
 			content := generateFullContent(frontmatter, "Body")
 			score := scorer.Score(content, frontmatter, "Body")
 
-			var descMetric *ScoringMetric
+			var descMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Description quality" {
 					descMetric = &score.Details[i]
@@ -468,7 +468,7 @@ func TestSkillScorer_CodeExamples(t *testing.T) {
 			content := generateFullContent(frontmatter, tt.body)
 			score := scorer.Score(content, frontmatter, tt.body)
 
-			var codeMetric *ScoringMetric
+			var codeMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Code examples" {
 					codeMetric = &score.Details[i]
@@ -526,7 +526,7 @@ func TestSkillScorer_CompositionScoring(t *testing.T) {
 				t.Errorf("Composition score = %d, want %d", score.Composition, tt.wantPoints)
 			}
 
-			var compMetric *ScoringMetric
+			var compMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Category == "composition" {
 					compMetric = &score.Details[i]
@@ -586,7 +586,7 @@ func TestSkillScorer_SemanticRouting(t *testing.T) {
 			content := generateFullContent(frontmatter, tt.body)
 			score := scorer.Score(content, frontmatter, tt.body)
 
-			var routingMetric *ScoringMetric
+			var routingMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Semantic routing table" {
 					routingMetric = &score.Details[i]
@@ -668,7 +668,7 @@ Bad things
 			content := generateFullContent(frontmatter, tt.body)
 			score := scorer.Score(content, frontmatter, tt.body)
 
-			var antiPatternMetric *ScoringMetric
+			var antiPatternMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Anti-Patterns section" {
 					antiPatternMetric = &score.Details[i]

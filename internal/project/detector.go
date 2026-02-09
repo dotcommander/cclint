@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 )
 
-// ProjectInfo contains information about the detected project
-type ProjectInfo struct {
+// Info contains information about the detected project.
+// Named 'Info' instead of 'ProjectInfo' to avoid stuttering (project.Info vs project.ProjectInfo).
+type Info struct {
 	Root       string
 	IsClaude   bool
 	HasGit     bool
@@ -74,9 +75,10 @@ func isProjectRoot(path string) bool {
 	return false
 }
 
-// DetectProjectInfo detects project information at the given path
-func DetectProjectInfo(rootPath string) (*ProjectInfo, error) {
-	projectInfo := &ProjectInfo{
+// Detect detects project information at the given path.
+// Named 'Detect' instead of 'DetectProjectInfo' to avoid stuttering.
+func Detect(rootPath string) (*Info, error) {
+	projectInfo := &Info{
 		Root:     rootPath,
 		IsClaude: false,
 		HasGit:   false,

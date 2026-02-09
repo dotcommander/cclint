@@ -28,24 +28,9 @@ func runComponentLint(linterName string, linter LinterFunc) error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
-	// Determine baseline path (relative to project root)
-	baselineFile := baselinePath
-	if !filepath.IsAbs(baselineFile) {
-		baselineFile = filepath.Join(cfg.Root, baselineFile)
-	}
-
-	// Load baseline if requested
-	var b *baseline.Baseline
-	if useBaseline || createBaseline {
-		if _, statErr := os.Stat(baselineFile); statErr == nil {
-			var loadErr error
-			b, loadErr = baseline.LoadBaseline(baselineFile)
-			if loadErr != nil && !cfg.Quiet {
-				fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", loadErr)
-				b = nil
-			}
-		}
-	}
+	// Determine and load baseline if requested
+	baselineFile := getBaselinePath(cfg.Root)
+	b := loadBaselineIfRequested(baselineFile, cfg.Quiet)
 
 	// Run component-specific linter
 	summary, err := linter(cfg.Root, cfg.Quiet, cfg.Verbose, cfg.NoCycleCheck)
@@ -54,45 +39,102 @@ func runComponentLint(linterName string, linter LinterFunc) error {
 	}
 
 	// Collect issues for baseline creation
-	var allIssues []cue.ValidationError
-	if createBaseline {
-		allIssues = cli.CollectAllIssues(summary)
-	}
+	allIssues := collectIssuesIfCreatingBaseline(summary)
 
 	// Filter with baseline if active
-	var totalIgnored, errorsIgnored, suggestionsIgnored int
-	if useBaseline && b != nil {
-		totalIgnored, errorsIgnored, suggestionsIgnored = cli.FilterResults(summary, b)
-	}
+	totalIgnored, errorsIgnored, suggestionsIgnored := filterWithBaseline(summary, b)
 
 	// Format and output results
+	if err := formatAndOutputResults(cfg, summary); err != nil {
+		return err
+	}
+
+	// Handle baseline creation
+	if createBaseline {
+		return handleBaselineCreation(baselineFile, allIssues, cfg.Quiet)
+	}
+
+	// Print baseline filtering summary
+	printBaselineSummary(totalIgnored, errorsIgnored, suggestionsIgnored, cfg.Quiet)
+
+	return nil
+}
+
+// getBaselinePath returns the absolute path to the baseline file.
+func getBaselinePath(projectRoot string) string {
+	if filepath.IsAbs(baselinePath) {
+		return baselinePath
+	}
+	return filepath.Join(projectRoot, baselinePath)
+}
+
+// loadBaselineIfRequested loads the baseline file if baseline mode is enabled.
+func loadBaselineIfRequested(baselineFile string, quiet bool) *baseline.Baseline {
+	if !useBaseline && !createBaseline {
+		return nil
+	}
+
+	if _, err := os.Stat(baselineFile); err != nil {
+		return nil
+	}
+
+	b, err := baseline.LoadBaseline(baselineFile)
+	if err != nil && !quiet {
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load baseline: %v\n", err)
+		return nil
+	}
+
+	return b
+}
+
+// collectIssuesIfCreatingBaseline collects all issues if baseline creation is requested.
+func collectIssuesIfCreatingBaseline(summary *cli.LintSummary) []cue.ValidationError {
+	if !createBaseline {
+		return nil
+	}
+	return cli.CollectAllIssues(summary)
+}
+
+// filterWithBaseline filters results using baseline if active.
+// Returns counts of ignored issues.
+func filterWithBaseline(summary *cli.LintSummary, b *baseline.Baseline) (total, errors, suggestions int) {
+	if !useBaseline || b == nil {
+		return 0, 0, 0
+	}
+	return cli.FilterResults(summary, b)
+}
+
+// formatAndOutputResults formats and outputs the lint results.
+func formatAndOutputResults(cfg *config.Config, summary *cli.LintSummary) error {
 	outputter := outputters.NewOutputter(cfg)
 	if err := outputter.Format(summary, cfg.Format); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
-
-	// Create/update baseline if requested (do this BEFORE exiting on errors)
-	if createBaseline {
-		b = baseline.CreateBaseline(allIssues)
-		b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-
-		if err := b.SaveBaseline(baselineFile); err != nil {
-			return fmt.Errorf("failed to save baseline: %w", err)
-		}
-
-		if !cfg.Quiet {
-			fmt.Printf("\nBaseline created: %s (%d issues)\n", baselineFile, len(b.Fingerprints))
-		}
-
-		// When creating baseline, exit 0 (success) to accept current state
-		return nil
-	}
-
-	// Print baseline filtering summary
-	if useBaseline && b != nil && totalIgnored > 0 && !cfg.Quiet {
-		fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-			totalIgnored, errorsIgnored, suggestionsIgnored)
-	}
-
 	return nil
+}
+
+// handleBaselineCreation creates and saves the baseline file.
+func handleBaselineCreation(baselineFile string, allIssues []cue.ValidationError, quiet bool) error {
+	b := baseline.CreateBaseline(allIssues)
+	b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
+
+	if err := b.SaveBaseline(baselineFile); err != nil {
+		return fmt.Errorf("failed to save baseline: %w", err)
+	}
+
+	if !quiet {
+		fmt.Printf("\nBaseline created: %s (%d issues)\n", baselineFile, len(b.Fingerprints))
+	}
+
+	// When creating baseline, exit 0 (success) to accept current state
+	return nil
+}
+
+// printBaselineSummary prints the baseline filtering summary if there are ignored issues.
+func printBaselineSummary(total, errors, suggestions int, quiet bool) {
+	if total == 0 || quiet {
+		return
+	}
+	fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
+		total, errors, suggestions)
 }

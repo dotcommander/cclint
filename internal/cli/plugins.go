@@ -48,7 +48,19 @@ var pluginPathFields = []string{
 func validatePluginSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Check for unknown fields
+	errors = append(errors, validateUnknownPluginFields(data, filePath, contents)...)
+	errors = append(errors, validatePluginName(data, filePath, contents)...)
+	errors = append(errors, validatePluginDescription(data, filePath, contents)...)
+	errors = append(errors, validatePluginVersion(data, filePath, contents)...)
+	errors = append(errors, validatePluginAuthor(data, filePath, contents)...)
+	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
+	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
+
+	return errors
+}
+
+func validateUnknownPluginFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
 	for key := range data {
 		if !knownPluginFields[key] {
 			errors = append(errors, cue.ValidationError{
@@ -60,103 +72,113 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 			})
 		}
 	}
+	return errors
+}
 
-	// Check required fields - FROM ANTHROPIC DOCS
-	if name, ok := data["name"].(string); !ok || name == "" {
-		errors = append(errors, cue.ValidationError{
+func validatePluginName(data map[string]any, filePath, contents string) []cue.ValidationError {
+	name, ok := data["name"].(string)
+	if !ok || name == "" {
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Required field 'name' is missing or empty",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "name"),
-		})
-	} else {
-		// Reserved word check
-		reservedWords := map[string]bool{"anthropic": true, "claude": true}
-		if reservedWords[strings.ToLower(name)] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindJSONFieldLine(contents, "name"),
-			})
-		}
-
-		// Character limit check
-		if len(name) > 64 {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Name exceeds 64 character limit (%d chars)", len(name)),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindJSONFieldLine(contents, "name"),
-			})
-		}
+		}}
 	}
 
-	if description, ok := data["description"].(string); !ok || description == "" {
+	var errors []cue.ValidationError
+	reservedWords := map[string]bool{"anthropic": true, "claude": true}
+	if reservedWords[strings.ToLower(name)] {
 		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		})
+	}
+
+	if len(name) > 64 {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name exceeds 64 character limit (%d chars)", len(name)),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		})
+	}
+
+	return errors
+}
+
+func validatePluginDescription(data map[string]any, filePath, contents string) []cue.ValidationError {
+	desc, ok := data["description"].(string)
+	if !ok || desc == "" {
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Required field 'description' is missing or empty",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "description"),
-		})
-	} else if len(description) > 1024 {
-		errors = append(errors, cue.ValidationError{
+		}}
+	}
+
+	if len(desc) > 1024 {
+		return []cue.ValidationError{{
 			File:     filePath,
-			Message:  fmt.Sprintf("Description exceeds 1024 character limit (%d chars)", len(description)),
+			Message:  fmt.Sprintf("Description exceeds 1024 character limit (%d chars)", len(desc)),
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "description"),
-		})
+		}}
 	}
 
-	// Version field - recommended (Anthropic's own plugins omit this, using marketplace.json instead)
-	if version, ok := data["version"].(string); !ok || version == "" {
-		errors = append(errors, cue.ValidationError{
+	return nil
+}
+
+func validatePluginVersion(data map[string]any, filePath, contents string) []cue.ValidationError {
+	version, ok := data["version"].(string)
+	if !ok || version == "" {
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Consider adding 'version' field in semver format (e.g., 1.0.0)",
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
 			Line:     FindJSONFieldLine(contents, "version"),
-		})
-	} else {
-		// Validate semver format if present
-		if err := ValidateSemver(version, filePath, FindJSONFieldLine(contents, "version")); err != nil {
-			errors = append(errors, *err)
-		}
+		}}
 	}
 
-	// Author.name - required
-	if author, ok := data["author"].(map[string]any); !ok {
-		errors = append(errors, cue.ValidationError{
+	if err := ValidateSemver(version, filePath, FindJSONFieldLine(contents, "version")); err != nil {
+		return []cue.ValidationError{*err}
+	}
+
+	return nil
+}
+
+func validatePluginAuthor(data map[string]any, filePath, contents string) []cue.ValidationError {
+	author, ok := data["author"].(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Required field 'author' is missing",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "author"),
-		})
-	} else {
-		if authorName, ok := author["name"].(string); !ok || authorName == "" {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "Required field 'author.name' is missing or empty",
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     FindJSONFieldLine(contents, "name"),
-			})
-		}
+		}}
 	}
 
-	// Validate paths in path-bearing fields
-	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
+	if authorName, ok := author["name"].(string); !ok || authorName == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Required field 'author.name' is missing or empty",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		}}
+	}
 
-	// Best practice checks
-	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
-
-	return errors
+	return nil
 }
 
 // validatePluginPaths checks that path-bearing fields use relative paths

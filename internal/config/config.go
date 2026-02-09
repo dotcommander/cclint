@@ -11,21 +11,21 @@ import (
 
 // Config represents the cclint configuration
 type Config struct {
-	Root             string            `mapstructure:"root"`
-	Exclude          []string          `mapstructure:"exclude"`
-	FollowSymlinks   bool              `mapstructure:"followSymlinks"`
-	Format           string            `mapstructure:"format"`
-	Output           string            `mapstructure:"output"`
-	FailOn           string            `mapstructure:"failOn"`
-	Quiet            bool              `mapstructure:"quiet"`
-	Verbose          bool              `mapstructure:"verbose"`
-	ShowScores       bool              `mapstructure:"showScores"`
-	ShowImprovements bool              `mapstructure:"showImprovements"`
-	NoCycleCheck     bool              `mapstructure:"no-cycle-check"`
-	Rules            RulesConfig       `mapstructure:"rules"`
-	Schemas          SchemaConfig      `mapstructure:"schemas"`
-	Concurrency      int               `mapstructure:"concurrency"`
-	Parallel         bool              `mapstructure:"parallel"`
+	Root             string       `mapstructure:"root"`
+	Exclude          []string     `mapstructure:"exclude"`
+	FollowSymlinks   bool         `mapstructure:"followSymlinks"`
+	Format           string       `mapstructure:"format"`
+	Output           string       `mapstructure:"output"`
+	FailOn           string       `mapstructure:"failOn"`
+	Quiet            bool         `mapstructure:"quiet"`
+	Verbose          bool         `mapstructure:"verbose"`
+	ShowScores       bool         `mapstructure:"showScores"`
+	ShowImprovements bool         `mapstructure:"showImprovements"`
+	NoCycleCheck     bool         `mapstructure:"no-cycle-check"`
+	Rules            RulesConfig  `mapstructure:"rules"`
+	Schemas          SchemaConfig `mapstructure:"schemas"`
+	Concurrency      int          `mapstructure:"concurrency"`
+	Parallel         bool         `mapstructure:"parallel"`
 }
 
 // RulesConfig contains rule configuration
@@ -35,8 +35,8 @@ type RulesConfig struct {
 
 // SchemaConfig contains schema configuration
 type SchemaConfig struct {
-	Enabled       bool                   `mapstructure:"enabled"`
-	Extensions   map[string]any `mapstructure:"extensions"`
+	Enabled    bool           `mapstructure:"enabled"`
+	Extensions map[string]any `mapstructure:"extensions"`
 }
 
 // LoadConfig loads configuration from various sources
@@ -129,7 +129,7 @@ func SaveConfig(config *Config, path string) error {
 	}
 
 	// Write to file
-	if err := os.WriteFile(path, jsonData, 0644); err != nil {
+	if err := os.WriteFile(path, jsonData, 0600); err != nil {
 		return fmt.Errorf("error writing config file: %w", err)
 	}
 

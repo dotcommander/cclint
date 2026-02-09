@@ -7,20 +7,21 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/cue"
 )
 
 // MarkdownFormatter formats output as Markdown
 type MarkdownFormatter struct {
-	quiet     bool
-	verbose   bool
+	quiet      bool
+	verbose    bool
 	outputFile string
 }
 
 // NewMarkdownFormatter creates a new MarkdownFormatter
 func NewMarkdownFormatter(quiet, verbose bool, outputFile string) *MarkdownFormatter {
 	return &MarkdownFormatter{
-		quiet:     quiet,
-		verbose:   verbose,
+		quiet:      quiet,
+		verbose:    verbose,
 		outputFile: outputFile,
 	}
 }
@@ -29,14 +30,23 @@ func NewMarkdownFormatter(quiet, verbose bool, outputFile string) *MarkdownForma
 func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
 	var builder strings.Builder
 
-	// Header
+	f.writeHeader(&builder, summary)
+	f.writeSummaryTable(&builder, summary)
+	f.writeDetailedResults(&builder, summary)
+	f.writeConclusion(&builder, summary)
+
+	return f.writeOutput(builder.String())
+}
+
+func (f *MarkdownFormatter) writeHeader(builder *strings.Builder, summary *cli.LintSummary) {
 	builder.WriteString("# CCLint Report\n\n")
 	builder.WriteString(fmt.Sprintf("**Generated:** %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 	builder.WriteString(fmt.Sprintf("**Project:** %s\n\n", detectProjectRootForMarkdown()))
 	builder.WriteString(fmt.Sprintf("**Duration:** %v\n\n", time.Since(summary.StartTime).Round(time.Millisecond)))
 	builder.WriteString(strings.Repeat("-", 50) + "\n\n")
+}
 
-	// Summary Table
+func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary *cli.LintSummary) {
 	builder.WriteString("## Summary\n\n")
 	builder.WriteString("| Metric | Count |\n")
 	builder.WriteString("|--------|-------|\n")
@@ -46,91 +56,87 @@ func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
 	builder.WriteString(fmt.Sprintf("| Errors | %d |\n", summary.TotalErrors))
 	builder.WriteString(fmt.Sprintf("| Warnings | %d |\n", summary.TotalWarnings))
 	builder.WriteString("\n")
+}
 
-	// Detailed Results
+func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summary *cli.LintSummary) {
 	builder.WriteString("## Detailed Results\n\n")
 
 	if summary.TotalFiles == 0 {
 		builder.WriteString("*No files found to validate.*\n")
-	} else {
-		// Table of contents for multiple files
-		if summary.TotalFiles > 1 {
-			builder.WriteString("### Files\n\n")
-			for _, result := range summary.Results {
-				fileName := strings.TrimPrefix(result.File, "./")
-				builder.WriteString(fmt.Sprintf("- [%s](#%s)\n", fileName, createAnchor(fileName)))
-			}
-			builder.WriteString("\n")
-		}
-
-		// Individual file results
-		for _, result := range summary.Results {
-			if !f.verbose && result.Success {
-				continue // Skip successful files unless verbose
-			}
-
-			fileName := strings.TrimPrefix(result.File, "./")
-			builder.WriteString(fmt.Sprintf("### %s\n\n", fileName))
-			builder.WriteString(fmt.Sprintf("Status: %s\n\n", getStatusEmoji(result.Success)))
-			builder.WriteString(fmt.Sprintf("Type: `%s`\n\n", result.Type))
-
-			// Errors
-			if len(result.Errors) > 0 {
-				builder.WriteString("#### Errors\n\n")
-				for _, err := range result.Errors {
-					builder.WriteString(fmt.Sprintf("- **%s** - %s", err.File, err.Message))
-					if err.Line > 0 {
-						builder.WriteString(fmt.Sprintf(" (line %d)", err.Line))
-					}
-					if err.Source != "" {
-						builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(err.Source)))
-					}
-					builder.WriteString("\n")
-				}
-				builder.WriteString("\n")
-			}
-
-			// Warnings
-			if len(result.Warnings) > 0 {
-				builder.WriteString("#### Warnings\n\n")
-				for _, warning := range result.Warnings {
-					builder.WriteString(fmt.Sprintf("- **%s** - %s", warning.File, warning.Message))
-					if warning.Line > 0 {
-						builder.WriteString(fmt.Sprintf(" (line %d)", warning.Line))
-					}
-					if warning.Source != "" {
-						builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(warning.Source)))
-					}
-					builder.WriteString("\n")
-				}
-				builder.WriteString("\n")
-			}
-
-			if !f.verbose {
-				builder.WriteString("---\n\n")
-			}
-		}
+		return
 	}
 
-	// Conclusion
+	f.writeTableOfContents(builder, summary)
+	f.writeFileResults(builder, summary)
+}
+
+func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summary *cli.LintSummary) {
+	if summary.TotalFiles <= 1 {
+		return
+	}
+	builder.WriteString("### Files\n\n")
+	for _, result := range summary.Results {
+		fileName := strings.TrimPrefix(result.File, "./")
+		builder.WriteString(fmt.Sprintf("- [%s](#%s)\n", fileName, createAnchor(fileName)))
+	}
+	builder.WriteString("\n")
+}
+
+func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *cli.LintSummary) {
+	for _, result := range summary.Results {
+		if !f.verbose && result.Success {
+			continue
+		}
+
+		fileName := strings.TrimPrefix(result.File, "./")
+		builder.WriteString(fmt.Sprintf("### %s\n\n", fileName))
+		builder.WriteString(fmt.Sprintf("Status: %s\n\n", getStatusEmoji(result.Success)))
+		builder.WriteString(fmt.Sprintf("Type: `%s`\n\n", result.Type))
+
+		f.writeIssues(builder, result.Errors, "Errors")
+		f.writeIssues(builder, result.Warnings, "Warnings")
+
+		if !f.verbose {
+			builder.WriteString("---\n\n")
+		}
+	}
+}
+
+func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.ValidationError, title string) {
+	if len(issues) == 0 {
+		return
+	}
+	builder.WriteString(fmt.Sprintf("#### %s\n\n", title))
+	for _, issue := range issues {
+		builder.WriteString(fmt.Sprintf("- **%s** - %s", issue.File, issue.Message))
+		if issue.Line > 0 {
+			builder.WriteString(fmt.Sprintf(" (line %d)", issue.Line))
+		}
+		if issue.Source != "" {
+			builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(issue.Source)))
+		}
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\n")
+}
+
+func (f *MarkdownFormatter) writeConclusion(builder *strings.Builder, summary *cli.LintSummary) {
 	builder.WriteString("## Conclusion\n\n")
 	if summary.FailedFiles == 0 {
 		builder.WriteString("✓ All files passed validation!\n")
 	} else {
 		builder.WriteString(fmt.Sprintf("✗ %d files failed validation\n", summary.FailedFiles))
 	}
+}
 
-	// Write to file or stdout
-	content := builder.String()
+func (f *MarkdownFormatter) writeOutput(content string) error {
 	if f.outputFile != "" {
-		err := os.WriteFile(f.outputFile, []byte(content), 0644)
-		if err != nil {
+		if err := os.WriteFile(f.outputFile, []byte(content), 0600); err != nil {
 			return fmt.Errorf("error writing to file %s: %w", f.outputFile, err)
 		}
-	} else {
-		fmt.Print(content)
+		return nil
 	}
-
+	fmt.Print(content)
 	return nil
 }
 

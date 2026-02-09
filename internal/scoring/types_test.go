@@ -114,7 +114,7 @@ func TestNewQualityScore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			details := []ScoringMetric{
+			details := []Metric{
 				{Category: "structural", Name: "test", Points: tt.structural, MaxPoints: 40, Passed: true},
 			}
 			score := NewQualityScore(tt.structural, tt.practices, tt.composition, tt.documentation, details)
@@ -144,8 +144,8 @@ func TestNewQualityScore(t *testing.T) {
 	}
 }
 
-func TestScoringMetric(t *testing.T) {
-	metric := ScoringMetric{
+func TestMetric(t *testing.T) {
+	metric := Metric{
 		Category:  "structural",
 		Name:      "Has name",
 		Points:    10,

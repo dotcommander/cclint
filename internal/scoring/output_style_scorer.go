@@ -14,9 +14,30 @@ func NewOutputStyleScorer() *OutputStyleScorer {
 
 // Score evaluates an output style and returns a QualityScore.
 func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
-	var details []ScoringMetric
+	var details []Metric
 
 	// === STRUCTURAL (40 points max) ===
+	structural, structuralDetails := s.scoreStructural(content, frontmatter)
+	details = append(details, structuralDetails...)
+
+	// === PRACTICES (40 points max) ===
+	practices, practiceDetails := s.scorePractices(frontmatter, bodyContent)
+	details = append(details, practiceDetails...)
+
+	// === COMPOSITION (10 points max) ===
+	composition, compositionMetric := s.scoreComposition(content)
+	details = append(details, compositionMetric)
+
+	// === DOCUMENTATION (10 points max) ===
+	documentation, docDetails := s.scoreDocumentation(frontmatter, bodyContent)
+	details = append(details, docDetails...)
+
+	return NewQualityScore(structural, practices, composition, documentation, details)
+}
+
+// scoreStructural scores the structural completeness of an output style.
+func (s *OutputStyleScorer) scoreStructural(content string, frontmatter map[string]any) (int, []Metric) {
+	var details []Metric
 	structural := 0
 
 	// Has frontmatter at all (10 points)
@@ -24,7 +45,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 	if hasFrontmatter {
 		structural += 10
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "structural",
 		Name:      "Has frontmatter",
 		Points:    boolToInt(hasFrontmatter) * 10,
@@ -38,7 +59,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		structural += 15
 		hasName = true
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "structural",
 		Name:      "Has name",
 		Points:    boolToInt(hasName) * 15,
@@ -52,7 +73,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		structural += 15
 		hasDescription = true
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "structural",
 		Name:      "Has description",
 		Points:    boolToInt(hasDescription) * 15,
@@ -60,7 +81,12 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		Passed:    hasDescription,
 	})
 
-	// === PRACTICES (40 points max) ===
+	return structural, details
+}
+
+// scorePractices scores the best practices adherence of an output style.
+func (s *OutputStyleScorer) scorePractices(frontmatter map[string]any, bodyContent string) (int, []Metric) {
+	var details []Metric
 	practices := 0
 
 	// Has body content (20 points)
@@ -68,7 +94,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 	if hasBody {
 		practices += 20
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "practices",
 		Name:      "Has body content",
 		Points:    boolToInt(hasBody) * 20,
@@ -82,7 +108,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		practices += 10
 		hasKeepCoding = true
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "practices",
 		Name:      "Has keep-coding-instructions",
 		Points:    boolToInt(hasKeepCoding) * 10,
@@ -96,7 +122,7 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 	if hasSubstantialBody {
 		practices += 10
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "practices",
 		Name:      "Substantial body content",
 		Points:    boolToInt(hasSubstantialBody) * 10,
@@ -105,7 +131,11 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		Note:      bodyLengthNote(bodyLen),
 	})
 
-	// === COMPOSITION (10 points max) ===
+	return practices, details
+}
+
+// scoreComposition scores the composition/line count of an output style.
+func (s *OutputStyleScorer) scoreComposition(content string) (int, Metric) {
 	composition := 0
 	lines := strings.Count(content, "\n") + 1
 	var compositionNote string
@@ -134,54 +164,32 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		compositionPassed = false
 	}
 
-	details = append(details, ScoringMetric{
+	return composition, Metric{
 		Category:  "composition",
 		Name:      "File size",
 		Points:    composition,
 		MaxPoints: 10,
 		Passed:    compositionPassed,
 		Note:      compositionNote,
-	})
+	}
+}
 
-	// === DOCUMENTATION (10 points max) ===
+// scoreDocumentation scores the documentation quality of an output style.
+func (s *OutputStyleScorer) scoreDocumentation(frontmatter map[string]any, bodyContent string) (int, []Metric) {
+	var details []Metric
 	documentation := 0
 
 	// Description quality (5 points)
-	desc, _ := frontmatter["description"].(string)
-	descLen := len(desc)
-	descPoints := 0
-	var descNote string
-	switch {
-	case descLen >= 100:
-		descPoints = 5
-		descNote = "Comprehensive"
-	case descLen >= 50:
-		descPoints = 3
-		descNote = "Adequate"
-	case descLen > 0:
-		descPoints = 1
-		descNote = "Brief"
-	default:
-		descNote = "Missing"
-	}
+	descPoints, descMetric := s.scoreDescriptionQuality(frontmatter)
 	documentation += descPoints
-	details = append(details, ScoringMetric{
-		Category:  "documentation",
-		Name:      "Description quality",
-		Points:    descPoints,
-		MaxPoints: 5,
-		Passed:    descLen >= 50,
-		Note:      descNote,
-	})
+	details = append(details, descMetric)
 
 	// Body uses markdown formatting (5 points)
-	hasFormatting := strings.Contains(bodyContent, "#") ||
-		strings.Contains(bodyContent, "- ") ||
-		strings.Contains(bodyContent, "```")
+	hasFormatting := s.hasMarkdownFormatting(bodyContent)
 	if hasFormatting {
 		documentation += 5
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "documentation",
 		Name:      "Uses markdown formatting",
 		Points:    boolToInt(hasFormatting) * 5,
@@ -189,7 +197,45 @@ func (s *OutputStyleScorer) Score(content string, frontmatter map[string]any, bo
 		Passed:    hasFormatting,
 	})
 
-	return NewQualityScore(structural, practices, composition, documentation, details)
+	return documentation, details
+}
+
+// scoreDescriptionQuality scores the description based on its length.
+func (s *OutputStyleScorer) scoreDescriptionQuality(frontmatter map[string]any) (int, Metric) {
+	desc, _ := frontmatter["description"].(string)
+	descLen := len(desc)
+	descPoints := 0
+	var descNote string
+
+	switch {
+	case descLen >= 100:
+		descPoints = 5
+		descNote = descComprehensive
+	case descLen >= 50:
+		descPoints = 3
+		descNote = descAdequate
+	case descLen > 0:
+		descPoints = 1
+		descNote = descBrief
+	default:
+		descNote = descMissing
+	}
+
+	return descPoints, Metric{
+		Category:  "documentation",
+		Name:      "Description quality",
+		Points:    descPoints,
+		MaxPoints: 5,
+		Passed:    descLen >= 50,
+		Note:      descNote,
+	}
+}
+
+// hasMarkdownFormatting checks if the content uses markdown formatting.
+func (s *OutputStyleScorer) hasMarkdownFormatting(bodyContent string) bool {
+	return strings.Contains(bodyContent, "#") ||
+		strings.Contains(bodyContent, "- ") ||
+		strings.Contains(bodyContent, "```")
 }
 
 // bodyLengthNote returns a human-readable note for body length.

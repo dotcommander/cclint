@@ -14,9 +14,9 @@ import (
 
 // Baseline represents a snapshot of known issues that should be ignored
 type Baseline struct {
-	Version      string   `json:"version"`
-	CreatedAt    string   `json:"created_at"`
-	Fingerprints []string `json:"fingerprints"`
+	Version      string          `json:"version"`
+	CreatedAt    string          `json:"created_at"`
+	Fingerprints []string        `json:"fingerprints"`
 	index        map[string]bool // For fast lookup
 }
 
@@ -71,7 +71,7 @@ func (b *Baseline) SaveBaseline(path string) error {
 		return fmt.Errorf("failed to marshal baseline: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write baseline file: %w", err)
 	}
 

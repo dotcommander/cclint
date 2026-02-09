@@ -153,7 +153,6 @@ func GetAgentImprovements(content string, data map[string]any) []ImprovementReco
 		})
 	}
 
-
 	if !strings.Contains(content, "## Foundation") {
 		recs = append(recs, ImprovementRecommendation{
 			Description: "Add '## Foundation' section with Skill: reference",
@@ -362,7 +361,7 @@ func ValidateToolFieldName(data map[string]any, filePath string, contents string
 	var errors []cue.ValidationError
 
 	switch componentType {
-	case "agent":
+	case cue.TypeAgent:
 		// Agents must use 'tools:', not 'allowed-tools:'
 		if _, hasAllowedTools := data["allowed-tools"]; hasAllowedTools {
 			errors = append(errors, cue.ValidationError{
@@ -373,7 +372,7 @@ func ValidateToolFieldName(data map[string]any, filePath string, contents string
 				Line:     FindFrontmatterFieldLine(contents, "allowed-tools"),
 			})
 		}
-	case "command", "skill":
+	case cue.TypeCommand, cue.TypeSkill:
 		// Commands and skills must use 'allowed-tools:', not 'tools:'
 		if _, hasTools := data["tools"]; hasTools {
 			errors = append(errors, cue.ValidationError{
@@ -423,10 +422,10 @@ func isPlaceholderSecret(line string) bool {
 		"here}",
 		"-here",
 		"_here",
-		"file-value",  // Documentation example
-		"env-value",   // Documentation example
-		"some-value",  // Generic example
-		"value-here",  // Generic example
+		"file-value", // Documentation example
+		"env-value",  // Documentation example
+		"some-value", // Generic example
+		"value-here", // Generic example
 	}
 
 	// Skip lines that are clearly documentation/comments showing examples
@@ -444,9 +443,9 @@ func isPlaceholderSecret(line string) bool {
 
 	// AWS example keys (from AWS documentation)
 	awsExamplePatterns := []string{
-		"akiaiosfodnn7example",           // AWS example access key
-		"wjalrxutnfemi/k7mdeng",          // AWS example secret key prefix
-		"examplekey",                      // Generic example
+		"akiaiosfodnn7example",  // AWS example access key
+		"wjalrxutnfemi/k7mdeng", // AWS example secret key prefix
+		"examplekey",            // Generic example
 	}
 
 	for _, p := range awsExamplePatterns {

@@ -60,91 +60,139 @@ func (f *ConsoleFormatter) printHeader(summary *cli.LintSummary) {
 
 // printFileResults prints results for each file
 func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
-	for _, result := range summary.Results {
-		// Show file if it has errors or warnings (suggestions only in verbose mode)
-		hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0
-		if !hasIssues && !f.verbose {
+	for i := range summary.Results {
+		if !f.shouldShowFile(&summary.Results[i]) {
 			continue
 		}
 
-		// Print file header
-		status := "✓"
-		if len(result.Errors) > 0 {
-			status = "✗"
-		} else if f.verbose && len(result.Suggestions) > 0 {
-			status = "💡"
-		}
+		f.printFileHeader(&summary.Results[i])
+		f.printFileIssues(&summary.Results[i])
+		f.printScoreDetails(&summary.Results[i])
+		f.printImprovements(&summary.Results[i])
+	}
+}
 
-		var fileStyle lipgloss.Style
-		if f.colorize {
-			if len(result.Errors) > 0 {
-				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
-			} else if f.verbose && len(result.Suggestions) > 0 {
-				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // gray
-			} else {
-				fileStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
-			}
-		}
+// shouldShowFile determines if a file result should be displayed.
+func (f *ConsoleFormatter) shouldShowFile(result *cli.LintResult) bool {
+	hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0
+	return hasIssues || f.verbose
+}
 
-		// Add quality score if available and enabled
-		scoreStr := ""
-		if f.showScores && result.Quality != nil {
-			scoreStyle := lipgloss.NewStyle()
-			if f.colorize {
-				switch result.Quality.Tier {
-				case "A":
-					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
-				case "B":
-					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // blue
-				case "C":
-					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
-				default:
-					scoreStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
-				}
-			}
-			scoreStr = fmt.Sprintf(" [%s %s]", scoreStyle.Render(result.Quality.Tier), scoreStyle.Render(fmt.Sprintf("%d", result.Quality.Overall)))
-		}
+// printFileHeader prints the file header with status icon and quality score.
+func (f *ConsoleFormatter) printFileHeader(result *cli.LintResult) {
+	status := f.getFileStatus(result)
+	fileStyle := f.getFileStyle(result)
+	scoreStr := f.formatScoreString(result)
 
-		fmt.Printf("%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
+	fmt.Printf("%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
+}
 
-		// Print errors and warnings
-		for _, err := range result.Errors {
-			f.printValidationError(err, "error")
-		}
-		for _, warning := range result.Warnings {
-			f.printValidationError(warning, "warning")
-		}
-		// Only print suggestions in verbose mode
-		if f.verbose {
-			for _, suggestion := range result.Suggestions {
-				f.printValidationError(suggestion, "suggestion")
-			}
-		}
+// getFileStatus returns the status icon for a file result.
+func (f *ConsoleFormatter) getFileStatus(result *cli.LintResult) string {
+	if len(result.Errors) > 0 {
+		return "✗"
+	}
+	if f.verbose && len(result.Suggestions) > 0 {
+		return "💡"
+	}
+	return "✓"
+}
 
-		// Print score details if verbose and scores enabled
-		if f.verbose && f.showScores && result.Quality != nil {
-			fmt.Printf("    Score: %d/100 (%s)\n", result.Quality.Overall, result.Quality.Tier)
-			fmt.Printf("      Structural: %d/40  Practices: %d/40  Composition: %d/10  Documentation: %d/10\n",
-				result.Quality.Structural, result.Quality.Practices, result.Quality.Composition, result.Quality.Documentation)
-		}
+// getFileStyle returns the lipgloss style for a file based on its status.
+func (f *ConsoleFormatter) getFileStyle(result *cli.LintResult) lipgloss.Style {
+	if !f.colorize {
+		return lipgloss.NewStyle()
+	}
 
-		// Print improvements if enabled
-		if f.showImprovements && len(result.Improvements) > 0 {
-			impStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // cyan
-			ptsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
-			fmt.Printf("    %s\n", impStyle.Render("Improvements:"))
-			for _, imp := range result.Improvements {
-				lineRef := ""
-				if imp.Line > 0 {
-					lineRef = fmt.Sprintf(" (line %d)", imp.Line)
-				}
-				fmt.Printf("      %s %s%s\n",
-					ptsStyle.Render(fmt.Sprintf("+%d pts:", imp.PointValue)),
-					imp.Description,
-					lineRef)
-			}
+	switch {
+	case len(result.Errors) > 0:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
+	case f.verbose && len(result.Suggestions) > 0:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // gray
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
+	}
+}
+
+// formatScoreString formats the quality score string for display.
+func (f *ConsoleFormatter) formatScoreString(result *cli.LintResult) string {
+	if !f.showScores || result.Quality == nil {
+		return ""
+	}
+
+	scoreStyle := f.getScoreStyle(result.Quality.Tier)
+	return fmt.Sprintf(" [%s %s]", scoreStyle.Render(result.Quality.Tier), scoreStyle.Render(fmt.Sprintf("%d", result.Quality.Overall)))
+}
+
+// getScoreStyle returns the lipgloss style for a quality tier.
+func (f *ConsoleFormatter) getScoreStyle(tier string) lipgloss.Style {
+	if !f.colorize {
+		return lipgloss.NewStyle()
+	}
+
+	switch tier {
+	case "A":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
+	case "B":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // blue
+	case "C":
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
+	}
+}
+
+// printFileIssues prints all errors, warnings, and suggestions for a file.
+func (f *ConsoleFormatter) printFileIssues(result *cli.LintResult) {
+	for _, err := range result.Errors {
+		f.printValidationError(err, "error")
+	}
+	for _, warning := range result.Warnings {
+		f.printValidationError(warning, "warning")
+	}
+	if f.verbose {
+		for _, suggestion := range result.Suggestions {
+			f.printValidationError(suggestion, "suggestion")
 		}
 	}
+}
+
+// printScoreDetails prints detailed score breakdown in verbose mode.
+func (f *ConsoleFormatter) printScoreDetails(result *cli.LintResult) {
+	if !f.verbose || !f.showScores || result.Quality == nil {
+		return
+	}
+
+	fmt.Printf("    Score: %d/100 (%s)\n", result.Quality.Overall, result.Quality.Tier)
+	fmt.Printf("      Structural: %d/40  Practices: %d/40  Composition: %d/10  Documentation: %d/10\n",
+		result.Quality.Structural, result.Quality.Practices, result.Quality.Composition, result.Quality.Documentation)
+}
+
+// printImprovements prints improvement suggestions if enabled.
+func (f *ConsoleFormatter) printImprovements(result *cli.LintResult) {
+	if !f.showImprovements || len(result.Improvements) == 0 {
+		return
+	}
+
+	impStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // cyan
+	ptsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
+
+	fmt.Printf("    %s\n", impStyle.Render("Improvements:"))
+	for _, imp := range result.Improvements {
+		f.printImprovement(imp, ptsStyle)
+	}
+}
+
+// printImprovement prints a single improvement line.
+func (f *ConsoleFormatter) printImprovement(imp cli.ImprovementRecommendation, ptsStyle lipgloss.Style) {
+	lineRef := ""
+	if imp.Line > 0 {
+		lineRef = fmt.Sprintf(" (line %d)", imp.Line)
+	}
+	fmt.Printf("      %s %s%s\n",
+		ptsStyle.Render(fmt.Sprintf("+%d pts:", imp.PointValue)),
+		imp.Description,
+		lineRef)
 }
 
 // printValidationError prints a validation error with appropriate styling
@@ -168,13 +216,16 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 		sourceStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true) // dim
 	}
 
-	prefix := "    "
-	if severity == "error" {
+	var prefix string
+	switch severity {
+	case "error":
 		prefix = "    ✘ "
-	} else if severity == "warning" {
+	case "warning":
 		prefix = "    ⚠ "
-	} else if severity == "suggestion" {
+	case "suggestion":
 		prefix = "    💡 "
+	default:
+		prefix = "    "
 	}
 
 	// Format source tag (only show in verbose mode for suggestions)
@@ -241,16 +292,15 @@ func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
 			componentType = "files"
 		}
 		msg := fmt.Sprintf("✓ All %d %s passed", summary.TotalFiles, componentType)
-
-		// Perfect success: 0 errors, 0 warnings, 0 suggestions → celebration
 		perfectSuccess := summary.TotalErrors == 0 && summary.TotalWarnings == 0 && summary.TotalSuggestions == 0
 
-		if f.colorize && perfectSuccess && f.isTTY() {
+		switch {
+		case f.colorize && perfectSuccess && f.isTTY():
 			f.printCelebration(msg)
-		} else if f.colorize {
+		case f.colorize:
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 			fmt.Printf("%s\n", style.Render(msg))
-		} else {
+		default:
 			fmt.Println(msg)
 		}
 	}
@@ -264,31 +314,8 @@ func (f *ConsoleFormatter) isTTY() bool {
 	return term.IsTerminal(int(os.Stdout.Fd()))
 }
 
-// printCelebration shows a sparkle animation for perfect success
+// printCelebration shows a sparkle animation for perfect success.
+// Delegates to the package-level helper to avoid code duplication.
 func (f *ConsoleFormatter) printCelebration(msg string) {
-	green := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	bold := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
-	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
-
-	frames := []struct {
-		text  string
-		delay time.Duration
-	}{
-		{green.Render(msg), 200 * time.Millisecond},
-		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
-		{bold.Render("🎉 " + msg + " 🎉"), 400 * time.Millisecond},
-		{yellow.Render("✨ " + msg + " ✨"), 300 * time.Millisecond},
-		{green.Render(msg), 0},
-	}
-
-	for i, frame := range frames {
-		if i > 0 {
-			fmt.Print("\r\033[K")
-		}
-		fmt.Print(frame.text)
-		if frame.delay > 0 {
-			time.Sleep(frame.delay)
-		}
-	}
-	fmt.Println()
+	printCelebration(msg)
 }

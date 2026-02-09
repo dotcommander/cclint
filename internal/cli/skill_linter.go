@@ -35,7 +35,7 @@ func NewSkillLinter() *SkillLinter {
 }
 
 func (l *SkillLinter) Type() string {
-	return "skill"
+	return cue.TypeSkill
 }
 
 func (l *SkillLinter) FileType() discovery.FileType {
@@ -88,6 +88,41 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	errors = append(errors, checkUnknownSkillFields(data, filePath, contents)...)
+
+	// Name validation (reserved words, format, directory match)
+	if name, ok := data["name"].(string); ok {
+		errors = append(errors, validateSkillName(name, filePath, contents)...)
+	}
+
+	// Validate context field: only valid value is "fork"
+	errors = append(errors, validateSkillContextField(data, filePath, contents)...)
+
+	// Validate agent field: non-empty string; warn if context is not "fork"
+	if agentVal, ok := data["agent"]; ok {
+		errors = append(errors, validateSkillAgentField(agentVal, data, filePath, contents)...)
+	}
+
+	// Validate boolean fields
+	errors = append(errors, validateSkillBooleanFields(data, filePath, contents)...)
+
+	// Validate argument-hint field
+	errors = append(errors, validateSkillArgumentHint(data, filePath, contents)...)
+
+	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
+	if hooks, ok := data["hooks"]; ok {
+		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
+	}
+
+	// Frontmatter suggestion
+	errors = append(errors, checkSkillFrontmatter(filePath, contents)...)
+
+	return errors
+}
+
+// checkUnknownSkillFields checks for unknown frontmatter fields in skill files.
+func checkUnknownSkillFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
 	for key := range data {
 		if !knownSkillFields[key] {
 			errors = append(errors, cue.ValidationError{
@@ -99,30 +134,29 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 			})
 		}
 	}
+	return errors
+}
 
-	// Name validation (reserved words, format, directory match)
-	if name, ok := data["name"].(string); ok {
-		errors = append(errors, validateSkillName(name, filePath, contents)...)
-	}
-
-	// Validate context field: only valid value is "fork"
+// validateSkillContextField validates the context field in skill frontmatter.
+func validateSkillContextField(data map[string]any, filePath, contents string) []cue.ValidationError {
 	if ctxVal, ok := data["context"]; ok {
 		ctxStr, isStr := ctxVal.(string)
 		if !isStr || ctxStr != "fork" {
-			errors = append(errors, cue.ValidationError{
+			return []cue.ValidationError{{
 				File:     filePath,
 				Message:  fmt.Sprintf("context field must be 'fork' (got '%v')", ctxVal),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 				Line:     FindFrontmatterFieldLine(contents, "context"),
-			})
+			}}
 		}
 	}
+	return nil
+}
 
-	// Validate agent field: non-empty string; warn if context is not "fork"
-	if agentVal, ok := data["agent"]; ok {
-		errors = append(errors, validateSkillAgentField(agentVal, data, filePath, contents)...)
-	}
+// validateSkillBooleanFields validates boolean fields in skill frontmatter.
+func validateSkillBooleanFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
 
 	// Validate user-invocable field: must be boolean
 	if uiVal, ok := data["user-invocable"]; ok {
@@ -150,7 +184,12 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 		}
 	}
 
-	// Validate argument-hint field: must be a non-empty string if present
+	return errors
+}
+
+// validateSkillArgumentHint validates the argument-hint field in skill frontmatter.
+func validateSkillArgumentHint(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
 	if ahVal, ok := data["argument-hint"]; ok {
 		ahStr, isStr := ahVal.(string)
 		if !isStr {
@@ -171,28 +210,27 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 			})
 		}
 	}
-
-	// Validate hooks (scoped to component events: PreToolUse, PostToolUse, Stop)
-	if hooks, ok := data["hooks"]; ok {
-		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
-	}
-
-	// Frontmatter suggestion
-	if !strings.HasPrefix(contents, "---") {
-		skillName := extractSkillName(contents, filePath)
-		suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
-		if skillName != "" {
-			suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
-		}
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  suggestion,
-			Severity: "suggestion",
-			Source:   cue.SourceAnthropicDocs,
-		})
-	}
-
 	return errors
+}
+
+// checkSkillFrontmatter checks if the skill has frontmatter and suggests adding it.
+func checkSkillFrontmatter(filePath, contents string) []cue.ValidationError {
+	if strings.HasPrefix(contents, "---") {
+		return nil
+	}
+
+	skillName := extractSkillName(contents, filePath)
+	suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
+	if skillName != "" {
+		suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  suggestion,
+		Severity: "suggestion",
+		Source:   cue.SourceAnthropicDocs,
+	}}
 }
 
 // ValidateBestPractices implements BestPracticeValidator interface

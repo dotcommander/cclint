@@ -66,26 +66,15 @@ func (g *ImportGraph) DetectCycles() [][]string {
 		inPath[node] = true
 
 		for _, neighbor := range g.edges[node] {
-			switch state[neighbor] {
-			case 0: // white: unvisited
+			if state[neighbor] == 0 {
 				visit(neighbor)
-			case 1: // gray: cycle detected
-				if inPath[neighbor] {
-					cycleStart := -1
-					for i, p := range path {
-						if p == neighbor {
-							cycleStart = i
-							break
-						}
-					}
-					if cycleStart >= 0 {
-						cycle := make([]string, len(path)-cycleStart+1)
-						copy(cycle, path[cycleStart:])
-						cycle[len(cycle)-1] = neighbor // close the cycle
-						cycles = append(cycles, cycle)
-					}
+			} else if state[neighbor] == 1 && inPath[neighbor] {
+				// Gray and in path: cycle detected
+				if cycle := extractImportCycle(path, neighbor); cycle != nil {
+					cycles = append(cycles, cycle)
 				}
-			} // black (2): skip
+			}
+			// Black (2): skip
 		}
 
 		state[node] = 2
@@ -169,6 +158,25 @@ func FormatImportCycle(cycle []string) string {
 		}
 	}
 	return sb.String()
+}
+
+// extractImportCycle extracts the cycle path from the DFS stack.
+// Returns nil if the neighbor is not found in the path.
+func extractImportCycle(path []string, neighbor string) []string {
+	cycleStart := -1
+	for i, p := range path {
+		if p == neighbor {
+			cycleStart = i
+			break
+		}
+	}
+	if cycleStart < 0 {
+		return nil
+	}
+	cycle := make([]string, len(path)-cycleStart+1)
+	copy(cycle, path[cycleStart:])
+	cycle[len(cycle)-1] = neighbor
+	return cycle
 }
 
 // DetectImportCycles builds an import graph from the provided file map

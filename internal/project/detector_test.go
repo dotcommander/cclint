@@ -293,8 +293,8 @@ func TestIsProjectRoot(t *testing.T) {
 	}
 }
 
-// TestDetectProjectInfo tests project information detection
-func TestDetectProjectInfo(t *testing.T) {
+// TestDetect tests project information detection
+func TestDetect(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupFunc    func(t *testing.T) string
@@ -405,25 +405,25 @@ func TestDetectProjectInfo(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			rootPath := tt.setupFunc(t)
 
-			info, err := DetectProjectInfo(rootPath)
+			info, err := Detect(rootPath)
 			if err != nil {
-				t.Fatalf("DetectProjectInfo() error = %v", err)
+				t.Fatalf("Detect() error = %v", err)
 			}
 
 			if info.Root != rootPath {
-				t.Errorf("DetectProjectInfo() Root = %v, want %v", info.Root, rootPath)
+				t.Errorf("Detect() Root = %v, want %v", info.Root, rootPath)
 			}
 			if info.Type != tt.wantType {
-				t.Errorf("DetectProjectInfo() Type = %v, want %v", info.Type, tt.wantType)
+				t.Errorf("Detect() Type = %v, want %v", info.Type, tt.wantType)
 			}
 			if info.IsClaude != tt.wantIsClaude {
-				t.Errorf("DetectProjectInfo() IsClaude = %v, want %v", info.IsClaude, tt.wantIsClaude)
+				t.Errorf("Detect() IsClaude = %v, want %v", info.IsClaude, tt.wantIsClaude)
 			}
 			if info.HasGit != tt.wantHasGit {
-				t.Errorf("DetectProjectInfo() HasGit = %v, want %v", info.HasGit, tt.wantHasGit)
+				t.Errorf("Detect() HasGit = %v, want %v", info.HasGit, tt.wantHasGit)
 			}
 			if len(info.FilesFound) != tt.wantFiles {
-				t.Errorf("DetectProjectInfo() FilesFound count = %v, want %v", len(info.FilesFound), tt.wantFiles)
+				t.Errorf("Detect() FilesFound count = %v, want %v", len(info.FilesFound), tt.wantFiles)
 			}
 		})
 	}
@@ -533,13 +533,13 @@ func TestEdgeCases(t *testing.T) {
 		}
 	})
 
-	t.Run("DetectProjectInfo with empty path", func(t *testing.T) {
-		info, err := DetectProjectInfo("")
+	t.Run("Detect with empty path", func(t *testing.T) {
+		info, err := Detect("")
 		if err != nil {
-			t.Fatalf("DetectProjectInfo() with empty path failed: %v", err)
+			t.Fatalf("Detect() with empty path failed: %v", err)
 		}
 		if info.Type != "unknown" {
-			t.Errorf("DetectProjectInfo() with empty path should have unknown type, got %v", info.Type)
+			t.Errorf("Detect() with empty path should have unknown type, got %v", info.Type)
 		}
 	})
 
@@ -566,10 +566,10 @@ func TestEdgeCases(t *testing.T) {
 	})
 }
 
-// TestProjectInfoStructure tests the ProjectInfo struct
-func TestProjectInfoStructure(t *testing.T) {
-	t.Run("ProjectInfo initialization", func(t *testing.T) {
-		info := &ProjectInfo{
+// TestInfoStructure tests the Info struct
+func TestInfoStructure(t *testing.T) {
+	t.Run("Info initialization", func(t *testing.T) {
+		info := &Info{
 			Root:       "/test/path",
 			IsClaude:   true,
 			HasGit:     true,

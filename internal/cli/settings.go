@@ -20,21 +20,21 @@ func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool) 
 
 // Valid hook events according to Anthropic documentation
 var validHookEvents = map[string]bool{
-	"PreToolUse":          true,
-	"PermissionRequest":   true,
-	"PostToolUse":         true,
-	"PostToolUseFailure":  true,
-	"Notification":        true,
-	"UserPromptSubmit":    true,
-	"Stop":                true,
-	"SubagentStart":       true,
-	"SubagentStop":        true,
-	"PreCompact":          true,
-	"Setup":               true, // matcher values: "init", "maintenance" (not tool names)
-	"SessionStart":        true,
-	"SessionEnd":          true,
-	"TeammateIdle":        true, // multi-agent workflow event (v2.1.33+)
-	"TaskCompleted":       true, // multi-agent workflow event (v2.1.33+)
+	"PreToolUse":         true,
+	"PermissionRequest":  true,
+	"PostToolUse":        true,
+	"PostToolUseFailure": true,
+	"Notification":       true,
+	"UserPromptSubmit":   true,
+	"Stop":               true,
+	"SubagentStart":      true,
+	"SubagentStop":       true,
+	"PreCompact":         true,
+	"Setup":              true, // matcher values: "init", "maintenance" (not tool names)
+	"SessionStart":       true,
+	"SessionEnd":         true,
+	"TeammateIdle":       true, // multi-agent workflow event (v2.1.33+)
+	"TaskCompleted":      true, // multi-agent workflow event (v2.1.33+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.
@@ -63,23 +63,23 @@ var validHookTypes = map[string]bool{
 
 // knownToolNames lists the tool names recognized by Claude Code.
 var knownToolNames = map[string]bool{
-	"Bash":          true,
-	"Read":          true,
-	"Write":         true,
-	"Edit":          true,
-	"Glob":          true,
-	"Grep":          true,
-	"Task":          true,
-	"Skill":         true,
-	"WebSearch":     true,
-	"WebFetch":      true,
-	"TodoRead":      true,
-	"TodoWrite":     true,
-	"TaskOutput":    true,
-	"AskUser":       true,
-	"mcp__":         true, // MCP tool prefix (matched specially)
-	"computer":      true,
-	"text_editor":   true,
+	"Bash":           true,
+	"Read":           true,
+	"Write":          true,
+	"Edit":           true,
+	"Glob":           true,
+	"Grep":           true,
+	"Task":           true,
+	"Skill":          true,
+	"WebSearch":      true,
+	"WebFetch":       true,
+	"TodoRead":       true,
+	"TodoWrite":      true,
+	"TaskOutput":     true,
+	"AskUser":        true,
+	"mcp__":          true, // MCP tool prefix (matched specially)
+	"computer":       true,
+	"text_editor":    true,
 	"MultiModelTool": true,
 }
 
@@ -648,39 +648,48 @@ func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, f
 		}}
 	}
 
-	return validateInnerHookType(innerHookMap, hookTypeStr, eventName, hookIdx, innerIdx, filePath)
+	hookCtx := hookContext{EventName: eventName, HookIdx: hookIdx, InnerIdx: innerIdx, FilePath: filePath}
+	return validateInnerHookType(innerHookMap, hookTypeStr, hookCtx)
+}
+
+// hookContext holds context information for hook validation
+type hookContext struct {
+	EventName string
+	HookIdx   int
+	InnerIdx  int
+	FilePath  string
 }
 
 // validateInnerHookType validates type-specific requirements for a hook entry.
-func validateInnerHookType(hookMap map[string]any, hookType, eventName string, hookIdx, innerIdx int, filePath string) []cue.ValidationError {
+func validateInnerHookType(hookMap map[string]any, hookType string, ctx hookContext) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	switch hookType {
-	case "command":
+	case cue.TypeCommand:
 		cmdVal, exists := hookMap["command"]
 		if !exists {
 			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", eventName, hookIdx, innerIdx),
+				File:     ctx.FilePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 			})
 		} else if cmdStr, ok := cmdVal.(string); ok {
-			errors = append(errors, validateHookCommandSecurity(cmdStr, eventName, hookIdx, innerIdx, filePath)...)
+			errors = append(errors, validateHookCommandSecurity(cmdStr, ctx)...)
 		}
 	case "prompt":
-		if !promptHookEvents[eventName] {
+		if !promptHookEvents[ctx.EventName] {
 			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", eventName, hookIdx, innerIdx, eventName),
+				File:     ctx.FilePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", ctx.EventName, ctx.HookIdx, ctx.InnerIdx, ctx.EventName),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}
 		if _, exists := hookMap["prompt"]; !exists {
 			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", eventName, hookIdx, innerIdx),
+				File:     ctx.FilePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
 				Severity: "error",
 				Source:   cue.SourceAnthropicDocs,
 			})
@@ -690,49 +699,72 @@ func validateInnerHookType(hookMap map[string]any, hookType, eventName string, h
 	return errors
 }
 
-// validateHookCommandSecurity checks for security issues in hook commands
-func validateHookCommandSecurity(cmd string, eventName string, hookIdx int, innerIdx int, filePath string) []cue.ValidationError {
-	var warnings []cue.ValidationError
-	location := fmt.Sprintf("Event '%s' hook %d inner hook %d", eventName, hookIdx, innerIdx)
+// validateHookCommandSecurity checks for security issues in hook commands.
+// Delegates to specific check functions for each security concern.
+func validateHookCommandSecurity(cmd string, ctx hookContext) []cue.ValidationError {
+	location := fmt.Sprintf("Event '%s' hook %d inner hook %d", ctx.EventName, ctx.HookIdx, ctx.InnerIdx)
 
-	// Pattern 1: Unquoted variable expansion (potential word splitting/globbing)
+	var warnings []cue.ValidationError
+	warnings = append(warnings, checkUnquotedVariables(cmd, location, ctx.FilePath)...)
+	warnings = append(warnings, checkPathTraversal(cmd, location, ctx.FilePath)...)
+	warnings = append(warnings, checkHardcodedPaths(cmd, location, ctx.FilePath)...)
+	warnings = append(warnings, checkSensitiveFileAccess(cmd, location, ctx.FilePath)...)
+	warnings = append(warnings, checkDangerousPatterns(cmd, location, ctx.FilePath)...)
+
+	return warnings
+}
+
+// checkUnquotedVariables detects unquoted variable expansion.
+func checkUnquotedVariables(cmd, location, filePath string) []cue.ValidationError {
 	// Matches $VAR or ${VAR} not preceded by quote and not followed by quote
 	unquotedVarPattern := regexp.MustCompile(`[^"']\$\{?[A-Za-z_][A-Za-z0-9_]*\}?[^"']|^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?[^"']`)
-	if unquotedVarPattern.MatchString(cmd) {
-		// Check if it's truly unquoted (not a false positive)
-		// Common false positive: $CLAUDE_PROJECT_DIR/path (this is often safe)
-		if !strings.Contains(cmd, `"$`) && !strings.Contains(cmd, `'$`) {
-			warnings = append(warnings, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("%s: Unquoted variable expansion detected. Use \"$VAR\" to prevent word splitting", location),
-				Severity: "warning",
-				Source:   cue.SourceCClintObserve,
-			})
-		}
+	if !unquotedVarPattern.MatchString(cmd) {
+		return nil
 	}
 
-	// Pattern 2: Path traversal attempts
-	if strings.Contains(cmd, "..") {
-		warnings = append(warnings, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("%s: Path traversal '..' detected in hook command - potential security risk", location),
-			Severity: "warning",
-			Source:   cue.SourceCClintObserve,
-		})
+	// Check if it's truly unquoted (not a false positive)
+	// Common false positive: $CLAUDE_PROJECT_DIR/path (this is often safe)
+	if strings.Contains(cmd, `"$`) || strings.Contains(cmd, `'$`) {
+		return nil
 	}
 
-	// Pattern 3: Hardcoded absolute paths without $CLAUDE_PROJECT_DIR
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("%s: Unquoted variable expansion detected. Use \"$VAR\" to prevent word splitting", location),
+		Severity: "warning",
+		Source:   cue.SourceCClintObserve,
+	}}
+}
+
+// checkPathTraversal detects path traversal attempts.
+func checkPathTraversal(cmd, location, filePath string) []cue.ValidationError {
+	if !strings.Contains(cmd, "..") {
+		return nil
+	}
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("%s: Path traversal '..' detected in hook command - potential security risk", location),
+		Severity: "warning",
+		Source:   cue.SourceCClintObserve,
+	}}
+}
+
+// checkHardcodedPaths detects hardcoded absolute paths without $CLAUDE_PROJECT_DIR.
+func checkHardcodedPaths(cmd, location, filePath string) []cue.ValidationError {
 	absolutePathPattern := regexp.MustCompile(`["']/(?:Users|home|var|tmp|etc)/[^\s"']+`)
-	if absolutePathPattern.MatchString(cmd) && !strings.Contains(cmd, "$CLAUDE_PROJECT_DIR") {
-		warnings = append(warnings, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("%s: Hardcoded absolute path detected. Consider using $CLAUDE_PROJECT_DIR for portability", location),
-			Severity: "warning",
-			Source:   cue.SourceCClintObserve,
-		})
+	if !absolutePathPattern.MatchString(cmd) || strings.Contains(cmd, "$CLAUDE_PROJECT_DIR") {
+		return nil
 	}
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  fmt.Sprintf("%s: Hardcoded absolute path detected. Consider using $CLAUDE_PROJECT_DIR for portability", location),
+		Severity: "warning",
+		Source:   cue.SourceCClintObserve,
+	}}
+}
 
-	// Pattern 4: Sensitive file access
+// checkSensitiveFileAccess detects access to sensitive files.
+func checkSensitiveFileAccess(cmd, location, filePath string) []cue.ValidationError {
 	sensitivePatterns := []struct {
 		pattern string
 		message string
@@ -745,6 +777,7 @@ func validateHookCommandSecurity(cmd string, eventName string, hookIdx int, inne
 		{`id_rsa|id_ed25519|id_dsa`, "Accessing SSH private key - high security risk"},
 	}
 
+	var warnings []cue.ValidationError
 	for _, sp := range sensitivePatterns {
 		matched, _ := regexp.MatchString(`(?i)`+sp.pattern, cmd)
 		if matched {
@@ -756,8 +789,11 @@ func validateHookCommandSecurity(cmd string, eventName string, hookIdx int, inne
 			})
 		}
 	}
+	return warnings
+}
 
-	// Pattern 5: Command injection risks (common dangerous patterns)
+// checkDangerousPatterns detects command injection risks.
+func checkDangerousPatterns(cmd, location, filePath string) []cue.ValidationError {
 	dangerousPatterns := []struct {
 		pattern string
 		message string
@@ -768,6 +804,7 @@ func validateHookCommandSecurity(cmd string, eventName string, hookIdx int, inne
 		{`>\s*/dev/`, "Redirecting to /dev/ - verify this is intentional"},
 	}
 
+	var warnings []cue.ValidationError
 	for _, dp := range dangerousPatterns {
 		matched, _ := regexp.MatchString(dp.pattern, cmd)
 		if matched {
@@ -779,6 +816,5 @@ func validateHookCommandSecurity(cmd string, eventName string, hookIdx int, inne
 			})
 		}
 	}
-
 	return warnings
 }

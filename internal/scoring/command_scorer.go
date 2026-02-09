@@ -15,25 +15,23 @@ func NewCommandScorer() *CommandScorer {
 
 // Score evaluates a command and returns a QualityScore
 func (s *CommandScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
-	var details []ScoringMetric
-	lines := strings.Count(content, "\n") + 1
+	return computeCombinedScore(content, frontmatter, bodyContent, s)
+}
 
-	// === STRUCTURAL (40 points max) ===
-	// Required frontmatter fields (10 points each, 30 total)
+// scoreStructural evaluates required frontmatter and task delegation (40 points max).
+func (s *CommandScorer) scoreStructural(frontmatter map[string]any, body string) (int, []Metric) {
 	fieldSpecs := []FieldSpec{
 		{"allowed-tools", 10},
 		{"description", 10},
 		{"argument-hint", 10},
 	}
-	structural, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
-	details = append(details, fieldDetails...)
+	points, details := ScoreRequiredFields(frontmatter, fieldSpecs)
 
-	// Task delegation (10 points)
-	hasTaskDelegation, _ := regexp.MatchString(`Task\([^)]+\)`, bodyContent)
+	hasTaskDelegation, _ := regexp.MatchString(`Task\([^)]+\)`, body)
 	if hasTaskDelegation {
-		structural += 10
+		points += 10
 	}
-	details = append(details, ScoringMetric{
+	details = append(details, Metric{
 		Category:  "structural",
 		Name:      "Task() delegation",
 		Points:    boolToInt(hasTaskDelegation) * 10,
@@ -41,113 +39,95 @@ func (s *CommandScorer) Score(content string, frontmatter map[string]any, bodyCo
 		Passed:    hasTaskDelegation,
 	})
 
-	// === PRACTICES (40 points max) ===
-	// Thin command pattern: Commands delegate to agents, not contain methodology.
-	// Quick Reference and Semantic routing belong in SKILLS, not commands.
-	practices := 0
+	return points, details
+}
 
-	// Success criteria (15 points) - important for validation
-	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, bodyContent)
+// scorePractices evaluates thin-command patterns (40 points max).
+func (s *CommandScorer) scorePractices(body string) (int, []Metric) {
+	var details []Metric
+	points := 0
+
+	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, body)
 	if hasSuccessCriteria {
-		practices += 15
+		points += 15
 	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Success criteria",
-		Points:    boolToInt(hasSuccessCriteria) * 15,
-		MaxPoints: 15,
-		Passed:    hasSuccessCriteria,
+	details = append(details, Metric{
+		Category: "practices", Name: "Success criteria",
+		Points: boolToInt(hasSuccessCriteria) * 15, MaxPoints: 15, Passed: hasSuccessCriteria,
 	})
 
-	// Task delegation present (15 points) - core thin command pattern
-	taskCount := strings.Count(bodyContent, "Task(")
+	taskCount := strings.Count(body, "Task(")
 	hasTask := taskCount >= 1
 	if hasTask {
-		practices += 15
+		points += 15
 	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Task delegation",
-		Points:    boolToInt(hasTask) * 15,
-		MaxPoints: 15,
-		Passed:    hasTask,
-		Note:      pluralize(taskCount, "Task() call"),
+	details = append(details, Metric{
+		Category: "practices", Name: "Task delegation",
+		Points: boolToInt(hasTask) * 15, MaxPoints: 15, Passed: hasTask,
+		Note: pluralize(taskCount, "Task() call"),
 	})
 
-	// Flags/options documented (10 points) - helps Claude understand inputs
-	hasFlags, _ := regexp.MatchString(`(?i)## Flags|--\w+`, bodyContent)
+	hasFlags, _ := regexp.MatchString(`(?i)## Flags|--\w+`, body)
 	if hasFlags {
-		practices += 10
+		points += 10
 	}
-	details = append(details, ScoringMetric{
-		Category:  "practices",
-		Name:      "Flags documented",
-		Points:    boolToInt(hasFlags) * 10,
-		MaxPoints: 10,
-		Passed:    hasFlags,
+	details = append(details, Metric{
+		Category: "practices", Name: "Flags documented",
+		Points: boolToInt(hasFlags) * 10, MaxPoints: 10, Passed: hasFlags,
 	})
 
-	// === COMPOSITION (10 points max) ===
-	// ±10% tolerance: 50 base -> 55 OK threshold
-	commandThresholds := CompositionThresholds{
-		Excellent:     30,
-		ExcellentNote: "Excellent: ≤30 lines",
-		Good:          45,
-		GoodNote:      "Good: ≤45 lines",
-		OK:            55,
-		OKNote:        "OK: ≤55 lines (50±10%)",
-		OverLimit:     65,
-		OverLimitNote: "Over limit: >55 lines",
-		FatNote:       "Fat command: >65 lines",
+	return points, details
+}
+
+// scoreComposition evaluates file length against command thresholds (10 points max).
+func (s *CommandScorer) scoreComposition(lines int) (int, Metric) {
+	thresholds := CompositionThresholds{
+		Excellent: 30, ExcellentNote: "Excellent: ≤30 lines",
+		Good: 45, GoodNote: "Good: ≤45 lines",
+		OK: 55, OKNote: "OK: ≤55 lines (50±10%)",
+		OverLimit: 65, OverLimitNote: "Over limit: >55 lines",
+		FatNote: "Fat command: >65 lines",
 	}
-	composition, compositionMetric := ScoreComposition(lines, commandThresholds)
-	details = append(details, compositionMetric)
+	return ScoreComposition(lines, thresholds)
+}
 
-	// === DOCUMENTATION (10 points max) ===
-	documentation := 0
+// scoreDocumentation evaluates description quality and examples (10 points max).
+func (s *CommandScorer) scoreDocumentation(frontmatter map[string]any, body string) (int, []Metric) {
+	var details []Metric
+	points := 0
 
-	// Description quality (5 points)
 	desc, _ := frontmatter["description"].(string)
-	descLen := len(desc)
-	descPoints := 0
-	var descNote string
-	switch {
-	case descLen >= 50:
-		descPoints = 5
-		descNote = "Clear"
-	case descLen >= 20:
-		descPoints = 3
-		descNote = "Brief"
-	case descLen > 0:
-		descPoints = 1
-		descNote = "Minimal"
-	default:
-		descNote = "Missing"
-	}
-	documentation += descPoints
-	details = append(details, ScoringMetric{
-		Category:  "documentation",
-		Name:      "Description quality",
-		Points:    descPoints,
-		MaxPoints: 5,
-		Passed:    descLen >= 20,
-		Note:      descNote,
+	descPoints, descNote := scoreDescriptionQuality(len(desc))
+	points += descPoints
+	details = append(details, Metric{
+		Category: "documentation", Name: "Description quality",
+		Points: descPoints, MaxPoints: 5, Passed: len(desc) >= 20, Note: descNote,
 	})
 
-	// Code examples (5 points)
-	hasCodeExamples := strings.Contains(bodyContent, "```bash") || strings.Contains(bodyContent, "```")
+	hasCodeExamples := strings.Contains(body, "```bash") || strings.Contains(body, "```")
 	if hasCodeExamples {
-		documentation += 5
+		points += 5
 	}
-	details = append(details, ScoringMetric{
-		Category:  "documentation",
-		Name:      "Code examples",
-		Points:    boolToInt(hasCodeExamples) * 5,
-		MaxPoints: 5,
-		Passed:    hasCodeExamples,
+	details = append(details, Metric{
+		Category: "documentation", Name: "Code examples",
+		Points: boolToInt(hasCodeExamples) * 5, MaxPoints: 5, Passed: hasCodeExamples,
 	})
 
-	return NewQualityScore(structural, practices, composition, documentation, details)
+	return points, details
+}
+
+// scoreDescriptionQuality returns points and note for a description of the given length.
+func scoreDescriptionQuality(length int) (int, string) {
+	switch {
+	case length >= 50:
+		return 5, descClear
+	case length >= 20:
+		return 3, descBrief
+	case length > 0:
+		return 1, descMinimal
+	default:
+		return 0, descMissing
+	}
 }
 
 func pluralize(count int, singular string) string {

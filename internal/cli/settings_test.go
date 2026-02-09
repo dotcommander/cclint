@@ -360,95 +360,96 @@ func TestValidateHooks(t *testing.T) {
 
 func TestValidateHookCommandSecurity(t *testing.T) {
 	tests := []struct {
-		name            string
-		command         string
+		name             string
+		command          string
 		wantWarningCount int
 	}{
 		{
-			name:            "safe command",
-			command:         `echo "test"`,
+			name:             "safe command",
+			command:          `echo "test"`,
 			wantWarningCount: 0,
 		},
 		{
-			name:            "unquoted variable",
-			command:         `echo $VAR`,
+			name:             "unquoted variable",
+			command:          `echo $VAR`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "path traversal",
-			command:         `cat ../../../etc/passwd`,
+			name:             "path traversal",
+			command:          `cat ../../../etc/passwd`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "hardcoded absolute path",
-			command:         `cat "/Users/test/file.txt"`,
+			name:             "hardcoded absolute path",
+			command:          `cat "/Users/test/file.txt"`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "env file access",
-			command:         `cat .env`,
+			name:             "env file access",
+			command:          `cat .env`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "git directory access",
-			command:         `cat .git/config`,
+			name:             "git directory access",
+			command:          `cat .git/config`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "credentials file",
-			command:         `cat credentials.json`,
+			name:             "credentials file",
+			command:          `cat credentials.json`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "ssh directory",
-			command:         `ls .ssh/`,
+			name:             "ssh directory",
+			command:          `ls .ssh/`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "aws config",
-			command:         `cat .aws/credentials`,
+			name:             "aws config",
+			command:          `cat .aws/credentials`,
 			wantWarningCount: 2, // credentials + aws config
 		},
 		{
-			name:            "ssh private key",
-			command:         `cat ~/.ssh/id_rsa`,
+			name:             "ssh private key",
+			command:          `cat ~/.ssh/id_rsa`,
 			wantWarningCount: 2, // ssh + private key
 		},
 		{
-			name:            "eval command",
-			command:         `eval "dangerous"`,
+			name:             "eval command",
+			command:          `eval "dangerous"`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "command substitution",
-			command:         `echo $(whoami)`,
+			name:             "command substitution",
+			command:          `echo $(whoami)`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "backtick substitution",
-			command:         "echo `whoami`",
+			name:             "backtick substitution",
+			command:          "echo `whoami`",
 			wantWarningCount: 1,
 		},
 		{
-			name:            "redirect to dev",
-			command:         `echo test > /dev/null`,
+			name:             "redirect to dev",
+			command:          `echo test > /dev/null`,
 			wantWarningCount: 1,
 		},
 		{
-			name:            "multiple issues",
-			command:         `eval cat $VAR ../../../etc/passwd`,
+			name:             "multiple issues",
+			command:          `eval cat $VAR ../../../etc/passwd`,
 			wantWarningCount: 3, // eval + unquoted var + path traversal
 		},
 		{
-			name:            "safe with CLAUDE_PROJECT_DIR",
-			command:         `cat "$CLAUDE_PROJECT_DIR/file.txt"`,
+			name:             "safe with CLAUDE_PROJECT_DIR",
+			command:          `cat "$CLAUDE_PROJECT_DIR/file.txt"`,
 			wantWarningCount: 0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warnings := validateHookCommandSecurity(tt.command, "TestEvent", 0, 0, "test.json")
+			ctx := hookContext{EventName: "TestEvent", HookIdx: 0, InnerIdx: 0, FilePath: "test.json"}
+			warnings := validateHookCommandSecurity(tt.command, ctx)
 			if len(warnings) != tt.wantWarningCount {
 				t.Errorf("validateHookCommandSecurity() warning count = %d, want %d", len(warnings), tt.wantWarningCount)
 				for _, warn := range warnings {
@@ -541,7 +542,7 @@ func TestValidateSettingsSpecific(t *testing.T) {
 				"mcpServers": map[string]any{
 					"my-server": map[string]any{
 						"command": "npx",
-						"args":   []any{"-y", "@modelcontextprotocol/server-filesystem"},
+						"args":    []any{"-y", "@modelcontextprotocol/server-filesystem"},
 					},
 				},
 			},
@@ -606,7 +607,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"filesystem": map[string]any{
 					"command": "npx",
-					"args":   []any{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
+					"args":    []any{"-y", "@modelcontextprotocol/server-filesystem", "/tmp"},
 				},
 			},
 			wantErrorCount: 0,
@@ -625,7 +626,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"api-server": map[string]any{
 					"command": "node",
-					"args":   []any{"server.js"},
+					"args":    []any{"server.js"},
 					"env": map[string]any{
 						"API_KEY":  "sk-test-123",
 						"NODE_ENV": "production",
@@ -639,8 +640,8 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"local-server": map[string]any{
 					"command": "python",
-					"args":   []any{"server.py"},
-					"cwd":    "/home/user/mcp-servers",
+					"args":    []any{"server.py"},
+					"cwd":     "/home/user/mcp-servers",
 				},
 			},
 			wantErrorCount: 0,
@@ -650,7 +651,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"full-server": map[string]any{
 					"command": "node",
-					"args":   []any{"index.js", "--port", "3000"},
+					"args":    []any{"index.js", "--port", "3000"},
 					"env": map[string]any{
 						"DEBUG": "true",
 					},
@@ -698,7 +699,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"bad-args": map[string]any{
 					"command": "node",
-					"args":   "not an array",
+					"args":    "not an array",
 				},
 			},
 			wantErrorCount: 1,
@@ -708,7 +709,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"bad-arg-elem": map[string]any{
 					"command": "node",
-					"args":   []any{"valid", 42, "also-valid"},
+					"args":    []any{"valid", 42, "also-valid"},
 				},
 			},
 			wantErrorCount: 1,
@@ -718,7 +719,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"bad-env": map[string]any{
 					"command": "node",
-					"env":    "not an object",
+					"env":     "not an object",
 				},
 			},
 			wantErrorCount: 1,
@@ -741,7 +742,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"bad-cwd": map[string]any{
 					"command": "node",
-					"cwd":    42,
+					"cwd":     42,
 				},
 			},
 			wantErrorCount: 1,
@@ -751,7 +752,7 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"good-server": map[string]any{
 					"command": "npx",
-					"args":   []any{"-y", "mcp-server"},
+					"args":    []any{"-y", "mcp-server"},
 				},
 				"bad-server": map[string]any{
 					"args": []any{"--flag"},
@@ -764,9 +765,9 @@ func TestValidateMCPServers(t *testing.T) {
 			mcpServers: map[string]any{
 				"very-bad": map[string]any{
 					"command": 42,
-					"args":   "not array",
-					"env":    "not object",
-					"cwd":    123,
+					"args":    "not array",
+					"env":     "not object",
+					"cwd":     123,
 				},
 			},
 			wantErrorCount: 4,
@@ -794,27 +795,27 @@ func TestValidateMCPServers(t *testing.T) {
 
 func TestValidatePermissions(t *testing.T) {
 	tests := []struct {
-		name       string
-		perms      any
-		wantErrors int
+		name         string
+		perms        any
+		wantErrors   int
 		wantSeverity string // if set, check first error has this severity
 	}{
 		{
-			name:       "nil permissions",
-			perms:      nil,
-			wantErrors: 1,
+			name:         "nil permissions",
+			perms:        nil,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
-			name:       "not an object",
-			perms:      "not an object",
-			wantErrors: 1,
+			name:         "not an object",
+			perms:        "not an object",
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
-			name:       "not an object (array)",
-			perms:      []any{"Bash"},
-			wantErrors: 1,
+			name:         "not an object (array)",
+			perms:        []any{"Bash"},
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -850,7 +851,7 @@ func TestValidatePermissions(t *testing.T) {
 				"allow":  []any{"Read"},
 				"permit": []any{"Write"},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -858,7 +859,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"allow": "Read",
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -866,7 +867,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"deny": 42,
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -874,7 +875,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"allow": []any{""},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -882,7 +883,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"allow": []any{42},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "error",
 		},
 		{
@@ -890,7 +891,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"allow": []any{"FakeTool"},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "suggestion",
 		},
 		{
@@ -898,7 +899,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"deny": []any{"FakeTool(rm*)"},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "suggestion",
 		},
 		{
@@ -924,7 +925,7 @@ func TestValidatePermissions(t *testing.T) {
 			perms: map[string]any{
 				"allow": []any{"Read", "UnknownTool", "Edit"},
 			},
-			wantErrors: 1,
+			wantErrors:   1,
 			wantSeverity: "suggestion",
 		},
 	}
@@ -1084,75 +1085,75 @@ func TestValidateRules(t *testing.T) {
 
 func TestValidateMatcherToolName(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		toolNamePattern string
-		wantErrorCount int
-		wantSeverity   string // check first error severity if set
+		wantErrorCount  int
+		wantSeverity    string // check first error severity if set
 	}{
 		{
-			name:           "empty string returns nothing",
+			name:            "empty string returns nothing",
 			toolNamePattern: "",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid plain tool name",
+			name:            "valid plain tool name",
 			toolNamePattern: "Bash",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid tool with glob pattern",
+			name:            "valid tool with glob pattern",
 			toolNamePattern: "Bash(npm*)",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid tool with complex glob",
+			name:            "valid tool with complex glob",
 			toolNamePattern: "Write(/src/**/*.go)",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid Read tool",
+			name:            "valid Read tool",
 			toolNamePattern: "Read",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid Edit tool",
+			name:            "valid Edit tool",
 			toolNamePattern: "Edit",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid MCP tool",
+			name:            "valid MCP tool",
 			toolNamePattern: "mcp__my_server_tool",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "unknown tool name is suggestion",
+			name:            "unknown tool name is suggestion",
 			toolNamePattern: "FakeTool",
-			wantErrorCount: 1,
-			wantSeverity:   "suggestion",
+			wantErrorCount:  1,
+			wantSeverity:    "suggestion",
 		},
 		{
-			name:           "unknown tool with pattern is suggestion",
+			name:            "unknown tool with pattern is suggestion",
 			toolNamePattern: "FakeTool(rm*)",
-			wantErrorCount: 1,
-			wantSeverity:   "suggestion",
+			wantErrorCount:  1,
+			wantSeverity:    "suggestion",
 		},
 		{
-			name:           "unclosed parenthesis",
+			name:            "unclosed parenthesis",
 			toolNamePattern: "Bash(npm*",
-			wantErrorCount: 1,
-			wantSeverity:   "error",
+			wantErrorCount:  1,
+			wantSeverity:    "error",
 		},
 		{
-			name:           "empty glob inside parens",
+			name:            "empty glob inside parens",
 			toolNamePattern: "Bash()",
-			wantErrorCount: 1,
-			wantSeverity:   "warning",
+			wantErrorCount:  1,
+			wantSeverity:    "warning",
 		},
 		{
-			name:           "invalid glob in parens",
+			name:            "invalid glob in parens",
 			toolNamePattern: "Bash([invalid)",
-			wantErrorCount: 1,
-			wantSeverity:   "error",
+			wantErrorCount:  1,
+			wantSeverity:    "error",
 		},
 		{
 			name:            "unknown tool AND unclosed paren",
@@ -1165,19 +1166,19 @@ func TestValidateMatcherToolName(t *testing.T) {
 			wantErrorCount:  2, // suggestion + error
 		},
 		{
-			name:           "valid Glob tool with star",
+			name:            "valid Glob tool with star",
 			toolNamePattern: "Glob(**/*.ts)",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid Grep tool",
+			name:            "valid Grep tool",
 			toolNamePattern: "Grep",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 		{
-			name:           "valid Task tool with pattern",
+			name:            "valid Task tool with pattern",
 			toolNamePattern: "Task(quality*)",
-			wantErrorCount: 0,
+			wantErrorCount:  0,
 		},
 	}
 
@@ -1365,8 +1366,8 @@ func TestValidateSettingsSpecificWithRules(t *testing.T) {
 			wantErrorCount: 1,
 		},
 		{
-			name: "no rules key is valid",
-			data: map[string]any{},
+			name:           "no rules key is valid",
+			data:           map[string]any{},
 			wantErrorCount: 0,
 		},
 		{

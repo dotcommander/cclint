@@ -247,8 +247,8 @@ func TestCommandScorer_TaskDelegationDetection(t *testing.T) {
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
 
 			// Check structural Task delegation metric
-			var structMetric *ScoringMetric
-			var practMetric *ScoringMetric
+			var structMetric *Metric
+			var practMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Task() delegation" && score.Details[i].Category == "structural" {
 					structMetric = &score.Details[i]
@@ -325,7 +325,7 @@ func TestCommandScorer_DescriptionQuality(t *testing.T) {
 			content := generateFullContent(frontmatter, "Task(test)")
 			score := scorer.Score(content, frontmatter, "Task(test)")
 
-			var descMetric *ScoringMetric
+			var descMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Description quality" {
 					descMetric = &score.Details[i]
@@ -387,7 +387,7 @@ func TestCommandScorer_CompositionScoring(t *testing.T) {
 				t.Errorf("Composition score = %d, want %d", score.Composition, tt.wantPoints)
 			}
 
-			var compMetric *ScoringMetric
+			var compMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Category == "composition" {
 					compMetric = &score.Details[i]
@@ -482,7 +482,7 @@ Task(test)
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
 
-			var successMetric *ScoringMetric
+			var successMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Success criteria" {
 					successMetric = &score.Details[i]
@@ -541,7 +541,7 @@ func TestCommandScorer_CodeExamples(t *testing.T) {
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
 
-			var codeMetric *ScoringMetric
+			var codeMetric *Metric
 			for i := range score.Details {
 				if score.Details[i].Name == "Code examples" {
 					codeMetric = &score.Details[i]
