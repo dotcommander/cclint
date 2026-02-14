@@ -1,110 +1,50 @@
 # cclint
 
-A linter for Claude Code components: agents, commands, skills, plugins, and settings.
+cclint validates Claude Code components before they break in runtime.
+It lints agents, commands, skills, plugins, and settings.
 
-Validates YAML frontmatter, enforces structural patterns, detects security issues, and provides quality scoring with improvement recommendations.
+## Why install
 
-## Installation
+- Catch frontmatter and schema errors before commit
+- Enforce naming, structure, and security rules consistently
+- Track quality with component scoring (0-100)
+- Support gradual rollout with baseline mode
+- Generate machine-readable reports for CI
+
+## Quick start
+
+1. Install:
 
 ```bash
 go install github.com/dotcommander/cclint@latest
 ```
 
-Ensure `~/go/bin` is in your `PATH`.
-
-## Usage
+2. Lint your project:
 
 ```bash
-cclint                    # lint all components
-cclint agents             # lint specific type
-cclint --staged           # lint only git-staged files
-cclint --scores           # show quality scores (0-100)
-cclint --format json      # JSON output for CI
+cclint
 ```
 
-### Git Integration
+3. Lint staged files in a commit workflow:
 
 ```bash
-cclint --staged           # pre-commit: staged files only
-cclint --diff             # all uncommitted changes
+cclint --staged
 ```
 
-### Baseline Mode
-
-Adopt cclint incrementally in legacy projects:
+## First successful run
 
 ```bash
-cclint --baseline-create  # snapshot current issues
-cclint --baseline         # only new issues fail
+cclint --scores
 ```
 
-### Formatting
+If your files are valid, you should see passing checks and quality scores.
+
+## Uninstall / rollback
 
 ```bash
-cclint fmt file.md        # preview formatted output
-cclint fmt -w file.md     # format in place
-cclint fmt --check        # CI: exit 1 if unformatted
+rm "$(go env GOPATH)/bin/cclint"
 ```
 
-## Exit Codes
+## Next docs step
 
-| Code | Meaning |
-|------|---------|
-| 0 | No errors |
-| 1 | Errors found |
-
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Rules Reference](docs/RULES.md) | All 124 lint rules with severity and sources |
-| [Quality Scoring](docs/scoring/README.md) | Scoring methodology and tier grades |
-| [Cross-File Validation](docs/cross-file-validation.md) | Skill reference and dependency checking |
-| [Anthropic Requirements](docs/ANTHROPIC_REQUIREMENTS.md) | Official vs opinionated rules |
-
-### Component-Specific Rules
-
-- [Agent Rules](docs/rules/agents.md)
-- [Command Rules](docs/rules/commands.md)
-- [Skill Rules](docs/rules/skills.md)
-- [Settings Rules](docs/rules/settings.md)
-- [Plugin Rules](docs/rules/plugins.md)
-- [Security Rules](docs/rules/security.md)
-
-## CI/CD
-
-### GitHub Actions
-
-```yaml
-- uses: actions/setup-go@v5
-  with:
-    go-version: '1.23'
-- run: go install github.com/dotcommander/cclint@latest
-- run: cclint --format json --output report.json
-```
-
-### Pre-commit Hook
-
-```bash
-#!/bin/bash
-cclint --staged || exit 1
-```
-
-## Configuration
-
-Create `.cclintrc.json` in project root:
-
-```json
-{
-  "root": ".",
-  "format": "console",
-  "verbose": false,
-  "showScores": false
-}
-```
-
-Environment variables: prefix with `CCLINT_` (e.g., `CCLINT_VERBOSE=true`).
-
-## License
-
-MIT
+Go to `docs/README.md` for setup, integration, and contributor guides.
