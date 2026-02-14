@@ -515,4 +515,4 @@ cclint plugins --verbose
 - [Agent Rules](agents.md)
 - [Command Rules](commands.md)
 - [Skill Rules](skills.md)
-- [Quality Scoring](../scoring.md)
+- [Quality Scoring](../scoring/README.md)

@@ -94,7 +94,7 @@ hooks:
 ```yaml
 ---
 name: code-poet-agent
-description: Deep refactoring specialist for architectural pattern detection
+description: Deep code-improvement specialist for architectural pattern detection
 model: opus
 color: purple
 tools:

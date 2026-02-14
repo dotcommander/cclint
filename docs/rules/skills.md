@@ -591,7 +591,7 @@ SKILL.md → references/REFERENCE.md → references/DEEP.md  ❌
 | Field | Type | Description |
 |-------|------|-------------|
 | `context` | `"fork"` | Run skill in forked sub-agent context |
-| `agent` | string | Agent type for execution (e.g., "refactor-specialist") |
+| `agent` | string | Agent type for execution (e.g., "code-quality-specialist") |
 | `user-invocable` | bool | Show in slash command menu (default: true for /skills/) |
 | `hooks` | object | Lifecycle hooks scoped to skill execution |
 
@@ -613,7 +613,7 @@ name: my-skill
 description: Example skill demonstrating all optional fields. Use when working with PDF documents.
 # Claude Code fields
 context: fork
-agent: refactor-specialist
+agent: code-quality-specialist
 user-invocable: true
 hooks:
   PreToolUse:
@@ -675,5 +675,5 @@ Bad descriptions:
 
 - [Agent Lint Rules](agents.md)
 - [Command Lint Rules](commands.md)
-- [Quality Scoring](../scoring.md)
+- [Quality Scoring](../scoring/README.md)
 - [Cross-File Validation](../cross-file-validation.md)

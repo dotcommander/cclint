@@ -48,9 +48,9 @@ cat ./my-file.md | yq eval '.'
 
 | Component | Required Fields |
 |-----------|-----------------|
-| Agent | `name`, `description`, `model` |
-| Command | `name`, `description` |
-| Skill | `title`, `tooltip` |
+| Agent | `name`, `description` |
+| Command | No required frontmatter fields (`name` is optional) |
+| Skill | `name`, `description` |
 | Plugin | `name`, `version`, `author.name` |
 
 ## Issue: Type Detection Failure

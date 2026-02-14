@@ -206,7 +206,7 @@ Command names must contain only lowercase letters, numbers, and hyphens. Same pa
 `name?: string & =~("^[a-z0-9-]+$")`
 
 **Valid Values:**
-- `refactor`
+- `improve-code`
 - `test-runner`
 - `db-migrate`
 
@@ -364,7 +364,7 @@ agent?: string
 ```
 
 **Valid Values:**
-Any valid agent type name (e.g., "refactor-specialist", "go-specialist").
+Any valid agent type name (e.g., "code-quality-specialist", "go-specialist").
 
 **Source:** Claude Code 2.1.0 changelog - agent field for skills
 

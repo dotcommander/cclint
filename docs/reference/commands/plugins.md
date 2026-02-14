@@ -192,9 +192,7 @@ error: Invalid semver format 'v1.0' (expected major.minor.patch, e.g., 1.0.0)
 
 ## See Also
 
-- [Agents Reference](agents.md)
-- [Commands Reference](commands.md)
-- [Skills Reference](skills.md)
-- [CLI Reference](../cli.md)
-- [Global Flags](../flags.md)
-- [Quality Scoring](../scoring.md)
+- [Plugin Lint Rules](../../rules/plugins.md)
+- [Scoring Reference](../../scoring/README.md)
+- [Common Tasks](../../common-tasks.md)
+- [Configuration Guide](../../guides/configuration.md)

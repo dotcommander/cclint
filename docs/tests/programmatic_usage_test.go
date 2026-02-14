@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// TestProgrammaticUsage_GoImportDocumented verifies the Go import path is documented
-func TestProgrammaticUsage_GoImportDocumented(t *testing.T) {
+// TestProgrammaticUsage_InternalScopeDocumented verifies internal API scope is documented
+func TestProgrammaticUsage_InternalScopeDocumented(t *testing.T) {
 	content, err := os.ReadFile("../../docs/guides/programmatic-usage.md")
 	if err != nil {
 		t.Fatalf("Failed to read programmatic-usage.md: %v", err)
@@ -15,14 +15,9 @@ func TestProgrammaticUsage_GoImportDocumented(t *testing.T) {
 
 	strContent := string(content)
 
-	// Check for import path section header
-	if !strings.Contains(strContent, "## Import Path") {
-		t.Error("Missing '## Import Path' section")
-	}
-
-	// Check for Go import statement with correct module path
-	if !strings.Contains(strContent, `import "github.com/dotcommander/cclint/internal/...`) {
-		t.Error("Missing or incorrect Go import path documentation")
+	// Check for explicit internal-only scope statement
+	if !strings.Contains(strContent, "internal/...") || !strings.Contains(strContent, "not a supported external API surface") {
+		t.Error("Missing internal API scope statement")
 	}
 
 	// Verify it's a code block (wrapped in backticks)
@@ -31,8 +26,8 @@ func TestProgrammaticUsage_GoImportDocumented(t *testing.T) {
 	}
 }
 
-// TestProgrammaticUsage_KeyPublicAPIsListed verifies key public APIs are documented
-func TestProgrammaticUsage_KeyPublicAPIsListed(t *testing.T) {
+// TestProgrammaticUsage_KeyInternalAPIsListed verifies key internal APIs are documented
+func TestProgrammaticUsage_KeyInternalAPIsListed(t *testing.T) {
 	content, err := os.ReadFile("../../docs/guides/programmatic-usage.md")
 	if err != nil {
 		t.Fatalf("Failed to read programmatic-usage.md: %v", err)
@@ -40,9 +35,9 @@ func TestProgrammaticUsage_KeyPublicAPIsListed(t *testing.T) {
 
 	strContent := string(content)
 
-	// Check for Core Public APIs section
-	if !strings.Contains(strContent, "## Core Public APIs") {
-		t.Error("Missing '## Core Public APIs' section")
+	// Check for Core Internal APIs section
+	if !strings.Contains(strContent, "## Core Internal APIs") {
+		t.Error("Missing '## Core Internal APIs' section")
 	}
 
 	// Verify key API packages are documented

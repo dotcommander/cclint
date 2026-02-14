@@ -165,16 +165,14 @@ func TestCommandsReferenceSeeAlsoLinks(t *testing.T) {
 		"Should have See Also section")
 
 	// Then should link to related documentation
-	assert.Contains(t, contentStr, "[Agents Reference](agents.md)",
-		"Should link to agents reference")
-	assert.Contains(t, contentStr, "[CLI Reference](../cli.md)",
-		"Should link to CLI reference")
-	assert.Contains(t, contentStr, "[Global Flags](../flags.md)",
-		"Should link to flags reference")
-	assert.Contains(t, contentStr, "[Command Writing Guide](../../guides/writing-commands.md)",
-		"Should link to writing commands guide")
-	assert.Contains(t, contentStr, "[Command Lint Rules](../../../rules/commands.md)",
+	assert.Contains(t, contentStr, "[Common Tasks](../../common-tasks.md)",
+		"Should link to common tasks")
+	assert.Contains(t, contentStr, "[Command Lint Rules](../../rules/commands.md)",
 		"Should link to command lint rules")
+	assert.Contains(t, contentStr, "[Rules Reference](../../rules/README.md)",
+		"Should link to rules reference")
+	assert.Contains(t, contentStr, "[Configuration Guide](../../guides/configuration.md)",
+		"Should link to configuration guide")
 }
 
 // TestCommandsReferenceExampleOutput verifies example output is included

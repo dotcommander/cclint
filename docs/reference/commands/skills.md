@@ -175,9 +175,7 @@ understand when to use the skill based on user questions or task context.
 
 ## See Also
 
-- [Agents Reference](agents.md)
-- [Commands Reference](commands.md)
-- [CLI Reference](../cli.md)
-- [Global Flags](../flags.md)
-- [Skill Lint Rules](../../../rules/skills.md)
-- [Quality Scoring](../scoring.md)
+- [Skills Lint Rules](../../rules/skills.md)
+- [Scoring Reference](../../scoring/README.md)
+- [Writing Skills Guide](../../guides/writing-skills.md)
+- [Common Tasks](../../common-tasks.md)

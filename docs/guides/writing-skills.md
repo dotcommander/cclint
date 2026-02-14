@@ -427,6 +427,6 @@ Before considering a skill complete, verify:
 
 ## Further Reading
 
-- [Skill Lint Rules](/Users/vampire/go/src/cclint/docs/rules/skills.md) - Complete rule reference
-- [Configuration Guide](/Users/vampire/go/src/cclint/docs/guides/configuration.md) - Setting up cclint
-- [Scoring Documentation](/Users/vampire/go/src/cclint/docs/scoring/README.md) - Quality metrics
+- [Skill Lint Rules](../rules/skills.md) - Complete rule reference
+- [Configuration Guide](./configuration.md) - Setting up cclint
+- [Scoring Documentation](../scoring/README.md) - Quality metrics

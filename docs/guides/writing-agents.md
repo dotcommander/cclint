@@ -34,7 +34,7 @@ cclint enforces the 200-line target with a 10% tolerance:
 | <=180 | Good | Well within limits |
 | <=220 | OK | Within tolerance (200 ± 10%) |
 | >220 | Over limit | Exceeds best practice |
-| >275 | Fat agent | Strongly exceeds, needs refactoring |
+| >275 | Fat agent | Strongly exceeds, needs splitting |
 
 ---
 
@@ -55,7 +55,7 @@ Example:
 ```markdown
 ## Foundation
 
-**Purpose:** Orchestrate refactoring workflows by analyzing code quality, extracting reusable patterns, and applying SOLID/DRY principles.
+**Purpose:** Orchestrate code-improvement workflows by analyzing code quality, extracting reusable patterns, and applying SOLID/DRY principles.
 
 **Capabilities:**
 - Detect architectural violations (coupling, duplication)
@@ -63,7 +63,7 @@ Example:
 - Apply SOLID design patterns with minimal changes
 
 **Constraints:**
-- Don't add features beyond refactoring scope
+- Don't add features beyond improvement scope
 - Preserve existing behavior - no functional changes
 - Use agent delegation for complex multi-file operations
 ```
@@ -124,7 +124,7 @@ tools:
 **Must include** `Use PROACTIVELY when...` pattern for discoverability:
 
 ```yaml
-description: Comprehensive refactoring specialist for SOLID principles and DRY analysis. Use PROACTIVELY when improving code structure, extracting abstractions, or applying design patterns.
+description: Comprehensive code-quality specialist for SOLID principles and DRY analysis. Use PROACTIVELY when improving code structure, extracting abstractions, or applying design patterns.
 ```
 
 **Write in third person** - describe what the agent does, not what "I" do:
@@ -207,7 +207,7 @@ Here is a passing agent that demonstrates all best practices:
 ```markdown
 ---
 name: code-poet-agent
-description: Deep refactoring specialist for architectural pattern detection, tiered analysis, and iterative extraction. Use PROACTIVELY for any code refactoring, DRY analysis, SOLID improvements, or code simplification.
+description: Deep code-quality specialist for architectural pattern detection, tiered analysis, and iterative extraction. Use PROACTIVELY for code improvement, DRY analysis, SOLID improvements, or code simplification.
 model: opus
 tools:
   - Read
@@ -224,7 +224,7 @@ tools:
 
 ## Foundation
 
-**Purpose:** Orchestrate code refactoring using systematic pattern detection and SOLID/DRY analysis.
+**Purpose:** Orchestrate code improvement using systematic pattern detection and SOLID/DRY analysis.
 
 **Capabilities:**
 - Detect architectural violations (tight coupling, duplication)
@@ -235,7 +235,7 @@ tools:
 **Constraints:**
 - Abstract on 3rd occurrence, not before
 - Preserve existing behavior - no functional changes
-- Don't add features beyond refactoring scope
+- Don't add features beyond improvement scope
 - Don't add comments/docstrings to unchanged code
 - Use agent delegation for multi-file operations
 
@@ -271,7 +271,7 @@ tools:
 - Single occurrence: don't extract (YAGNI)
 - Test files: preserve test isolation
 - Generated code: don't modify
-- External dependencies: can't refactor
+- External dependencies: can't be improved safely
 ```
 
 This agent:
@@ -307,6 +307,6 @@ Before considering an agent complete, verify:
 
 ## Further Reading
 
-- [Agent Lint Rules](/Users/vampire/go/src/cclint/docs/rules/agents.md) - Complete rule reference
-- [Configuration Guide](/Users/vampire/go/src/cclint/docs/guides/configuration.md) - Setting up cclint
-- [Scoring Documentation](/Users/vampire/go/src/cclint/docs/scoring/README.md) - Quality metrics
+- [Agent Lint Rules](../rules/agents.md) - Complete rule reference
+- [Configuration Guide](./configuration.md) - Setting up cclint
+- [Scoring Documentation](../scoring/README.md) - Quality metrics

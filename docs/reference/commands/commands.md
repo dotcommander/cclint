@@ -132,8 +132,7 @@ These sections indicate the command should delegate to an agent instead.
 
 ## See Also
 
-- [Agents Reference](agents.md)
-- [CLI Reference](../cli.md)
-- [Global Flags](../flags.md)
-- [Command Writing Guide](../../guides/writing-commands.md)
-- [Command Lint Rules](../../../rules/commands.md)
+- [Common Tasks](../../common-tasks.md)
+- [Command Lint Rules](../../rules/commands.md)
+- [Rules Reference](../../rules/README.md)
+- [Configuration Guide](../../guides/configuration.md)

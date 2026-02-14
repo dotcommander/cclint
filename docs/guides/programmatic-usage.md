@@ -1,14 +1,10 @@
 # Programmatic Usage
 
-Use cclint as a library in your Go applications.
+Use cclint internals from code inside this repository (for contributors and tests).
 
-## Import Path
+`internal/...` packages are not a supported external API surface.
 
-```go
-import "github.com/dotcommander/cclint/internal/..."
-```
-
-## Core Public APIs
+## Core Internal APIs
 
 ### Discovery (`internal/discovery`)
 
@@ -22,10 +18,6 @@ discoverer := discovery.NewFileDiscovery("/path/to/project", false)
 
 // Discover all component files
 files, err := discoverer.DiscoverFiles()
-
-// Filter by type
-ctx := cli.NewLinterContext("/path/to/project", false, false, false)
-agents := ctx.FilterFilesByType(discovery.FileTypeAgent)
 
 // Detect type from path
 fileType, err := discovery.DetectFileType(absPath, rootPath)
@@ -172,13 +164,16 @@ package main
 
 import (
     "fmt"
+    "os"
+
+    "github.com/dotcommander/cclint/internal/cue"
     "github.com/dotcommander/cclint/internal/scoring"
-    "github.com/dotcommander/cclint/internal/frontend"
 )
 
 func main() {
-    content := readFile("agents/my-agent.md")
-    fm, _ := frontend.Parse(agentFile)
+    raw, _ := os.ReadFile("agents/my-agent.md")
+    content := string(raw)
+    fm, _ := cue.ParseFrontmatter(content)
 
     scorer := &scoring.AgentScorer{}
     quality := scorer.Score(content, fm.Data, fm.Body)
@@ -188,3 +183,18 @@ func main() {
     fmt.Printf("Practices: %d/40\n", quality.Practices)
 }
 ```
+
+## Verification
+
+Run these from the repository root after changing code that uses internal packages:
+
+```bash
+go build ./...
+go test ./...
+```
+
+## Related docs
+
+- Contributor workflow: `docs/change-cclint.md`
+- Configuration behavior: `docs/guides/configuration.md`
+- Schema contracts: `docs/reference/schemas.md`

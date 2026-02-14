@@ -8,7 +8,7 @@ This directory contains documentation for all lint rules enforced by cclint.
 |------|-------|-----------|-------------|
 | [agents.md](agents.md) | 001-021 | Agent | Agent frontmatter and structure validation |
 | [commands.md](commands.md) | 022-034 | Command | Command frontmatter and delegation patterns |
-| [skills.md](skills.md) | 035-047 | Skill | Skill structure and best practices |
+| [skills.md](skills.md) | 035-060 | Skill | Skill structure and best practices |
 | [settings.md](settings.md) | 048-074 | Settings | Hook configuration and security |
 | [plugins.md](plugins.md) | 075-092 | Plugin | Plugin manifest validation |
 | [security.md](security.md) | 093-104 | All | Secrets detection and tool validation |
@@ -29,7 +29,5 @@ Each rule includes a `Source:` field for tracking where the rule originated:
 - **SourceCClintObserve** - From cclint best practice observations
 
 ## Quick Reference
-
-See [../RULES.md](../RULES.md) for a single-file reference of all rules.
 
 See [../scoring/README.md](../scoring/README.md) for quality scoring metrics (separate from lint rules).

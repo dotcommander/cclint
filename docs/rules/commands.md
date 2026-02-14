@@ -269,7 +269,7 @@ Detects fat commands (>40 lines without `Task()` delegation) that lack a `## Usa
 
 **Pass Criteria:**
 - Fat commands (>40 lines, no `Task()`) contain `## Usage` or `## Workflow` section
-- OR command is refactored to delegate to an agent (preferred)
+- OR command is rewritten to delegate to an agent (preferred)
 
 **Fail Message:**
 `Fat command without Task delegation lacks '## Usage' section. Consider delegating to a specialist agent.`
@@ -324,4 +324,4 @@ hooks:
 
 - [Agent Rules](agents.md)
 - [Skill Rules](skills.md)
-- [Quality Scoring](../scoring.md)
+- [Quality Scoring](../scoring/README.md)
