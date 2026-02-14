@@ -117,6 +117,10 @@ func lintFileCore(filePath, contents string, linter ComponentLinter, validator *
 		return result
 	}
 
+	// Check for swallowed frontmatter fields (block scalar absorbed siblings)
+	swallowedWarnings := DetectSwallowedFields(contents, filePath, linter.Type())
+	categorizeIssues(&result, swallowedWarnings)
+
 	// Run all validation steps
 	runCUEValidation(&result, filePath, linter, validator, data)
 	runComponentSpecificValidation(&result, linter, data, filePath, contents)
@@ -319,6 +323,137 @@ func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLint
 // =============================================================================
 // Shared Utility Functions
 // =============================================================================
+
+// knownFrontmatterFields maps component types to their known field names.
+// Used by DetectSwallowedFields to identify when a block scalar has absorbed
+// what should be a sibling frontmatter field.
+var knownFrontmatterFields = map[string]map[string]bool{
+	"agent": {
+		"name": true, "description": true, "model": true, "color": true,
+		"tools": true, "disallowedTools": true, "permissionMode": true,
+		"maxTurns": true, "skills": true, "hooks": true, "memory": true,
+		"mcpServers": true,
+	},
+	"command": {
+		"name": true, "description": true, "allowed-tools": true,
+		"argument-hint": true, "model": true, "disable-model-invocation": true,
+	},
+	"skill": {
+		"name": true, "description": true, "argument-hint": true,
+		"disable-model-invocation": true, "user-invocable": true,
+		"allowed-tools": true, "model": true, "context": true, "agent": true,
+		"hooks": true, "license": true, "compatibility": true, "metadata": true,
+		"version": true,
+	},
+}
+
+// blockScalarPattern matches YAML block scalar indicators (| or >) with optional modifiers.
+var blockScalarPattern = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*[|>][-+]?\s*$`)
+
+// DetectSwallowedFields checks for YAML block scalar fields (| or >) that have
+// accidentally absorbed subsequent frontmatter fields as part of their text content.
+//
+// Example of the bug this catches:
+//
+//	---
+//	description: |
+//	  Some text here.
+//	model: haiku        ← YAML treats this as part of description, not a separate field
+//	---
+//
+// This happens when a new field is inserted after a block scalar without proper
+// indentation awareness. The YAML parser silently absorbs the new field as text.
+func DetectSwallowedFields(contents, filePath, componentType string) []cue.ValidationError {
+	lines := strings.Split(contents, "\n")
+
+	// Find frontmatter boundaries
+	fmStart, fmEnd := -1, -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "---" {
+			if fmStart == -1 {
+				fmStart = i
+			} else {
+				fmEnd = i
+				break
+			}
+		}
+	}
+	if fmStart == -1 || fmEnd == -1 {
+		return nil
+	}
+
+	// Build the set of known fields for this component type.
+	// Fall back to the union of all types for unknown component types.
+	fields := knownFrontmatterFields[componentType]
+	if fields == nil {
+		fields = make(map[string]bool)
+		for _, fm := range knownFrontmatterFields {
+			for k := range fm {
+				fields[k] = true
+			}
+		}
+	}
+
+	var errors []cue.ValidationError
+
+	// Scan frontmatter lines for block scalar indicators
+	fmLines := lines[fmStart+1 : fmEnd]
+	for i, line := range fmLines {
+		match := blockScalarPattern.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+		scalarField := match[1]
+
+		// Scan subsequent lines that are part of this block scalar's content.
+		// Block scalar content is indented relative to the field; the first
+		// non-empty line after the indicator sets the indentation level.
+		// A line at column 0 with "key: value" terminates the block — but
+		// YAML only does that if the line is NOT indented. If the line IS
+		// indented (even by one space), it remains part of the scalar.
+		//
+		// We flag any indented line inside the block scalar that looks like
+		// a known frontmatter field (e.g., "  model: haiku").
+		for j := i + 1; j < len(fmLines); j++ {
+			subsequent := fmLines[j]
+
+			// Empty lines are valid block scalar content
+			if strings.TrimSpace(subsequent) == "" {
+				continue
+			}
+
+			// Non-indented line = end of block scalar
+			if len(subsequent) > 0 && subsequent[0] != ' ' && subsequent[0] != '\t' {
+				break
+			}
+
+			// Check if indented line looks like a swallowed field
+			trimmed := strings.TrimSpace(subsequent)
+			colonIdx := strings.Index(trimmed, ":")
+			if colonIdx <= 0 {
+				continue
+			}
+			candidateKey := trimmed[:colonIdx]
+
+			if !fields[candidateKey] {
+				continue
+			}
+
+			// This indented line matches a known frontmatter field name —
+			// it was almost certainly swallowed by the block scalar above.
+			lineNum := fmStart + 1 + j + 1 // 1-based
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Field '%s' appears to be swallowed by block scalar '%s: |' above — it is parsed as text, not a separate field", candidateKey, scalarField),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceCClintObserve,
+				Line:     lineNum,
+			})
+		}
+	}
+
+	return errors
+}
 
 // DetectXMLTags checks for XML-like tags in a string and returns an error if found.
 // This is used by agents, commands, and skills to validate the description field.

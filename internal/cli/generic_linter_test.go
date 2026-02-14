@@ -322,6 +322,93 @@ func TestLintComponent(t *testing.T) {
 	}
 }
 
+func TestDetectSwallowedFields(t *testing.T) {
+	tests := []struct {
+		name      string
+		contents  string
+		compType  string
+		wantCount int
+		wantField string // first swallowed field name (if any)
+	}{
+		{
+			name: "pipe swallows model",
+			contents: "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n---\n# Body",
+			compType: "skill",
+			wantCount: 1,
+			wantField: "model",
+		},
+		{
+			name: "pipe swallows multiple fields",
+			contents: "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n  context: fork\n---\n# Body",
+			compType: "skill",
+			wantCount: 2,
+			wantField: "model",
+		},
+		{
+			name: "folded scalar swallows model",
+			contents: "---\nname: test\ndescription: >\n  Folded text.\n  model: sonnet\n---\n# Body",
+			compType: "skill",
+			wantCount: 1,
+			wantField: "model",
+		},
+		{
+			name: "clean inline description",
+			contents: "---\nname: test\ndescription: A clean description\nmodel: haiku\n---\n# Body",
+			compType: "skill",
+			wantCount: 0,
+		},
+		{
+			name: "pipe with no swallowed fields",
+			contents: "---\nname: test\ndescription: |\n  Just normal text here.\n  Nothing special.\n---\n# Body",
+			compType: "skill",
+			wantCount: 0,
+		},
+		{
+			name: "no frontmatter",
+			contents: "# Just a markdown file\nNo frontmatter here.",
+			compType: "skill",
+			wantCount: 0,
+		},
+		{
+			name: "agent pipe swallows model",
+			contents: "---\nname: test-agent\ndescription: |\n  Agent description.\n  model: opus\n---\n# Body",
+			compType: "agent",
+			wantCount: 1,
+			wantField: "model",
+		},
+		{
+			name: "pipe with strip modifier",
+			contents: "---\nname: test\ndescription: |-\n  Some text.\n  model: haiku\n---\n# Body",
+			compType: "skill",
+			wantCount: 1,
+			wantField: "model",
+		},
+		{
+			name: "non-field indented text ignored",
+			contents: "---\nname: test\ndescription: |\n  model_training is important.\n  context_switching too.\n---\n# Body",
+			compType: "skill",
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := DetectSwallowedFields(tt.contents, "test.md", tt.compType)
+			if len(errs) != tt.wantCount {
+				t.Errorf("DetectSwallowedFields() got %d errors, want %d", len(errs), tt.wantCount)
+				for _, e := range errs {
+					t.Logf("  error: %s", e.Message)
+				}
+			}
+			if tt.wantCount > 0 && len(errs) > 0 && tt.wantField != "" {
+				if !strings.Contains(errs[0].Message, "'"+tt.wantField+"'") {
+					t.Errorf("first error should mention field '%s', got: %s", tt.wantField, errs[0].Message)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateAllowedToolsShared(t *testing.T) {
 	// This is a wrapper function, test it exists
 	data := map[string]any{

@@ -30,7 +30,8 @@ var knownSkillFields = map[string]bool{
 	"compatibility": true, // Optional: environment requirements (max 500 chars)
 	"metadata":      true, // Optional: arbitrary key-value mapping
 	// Legacy/common fields
-	"version": true, // Optional: semver version string
+	"version":      true, // Optional: semver version string
+	"cross_verify": true, // Optional: signal cross-model verification for high-stakes output
 }
 
 // LintSkills runs linting on skill files using the generic linter.
