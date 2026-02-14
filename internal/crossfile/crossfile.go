@@ -23,6 +23,10 @@ var (
 	// flagPattern matches --flag-name patterns in command contents.
 	flagPattern = regexp.MustCompile(`--([a-z][a-z0-9-]*)`)
 
+	// routingFlagPattern matches flags used as dispatch keys in command body.
+	// Matches: `--flag` | (table row), --flag: (label), `--flag` (backtick-wrapped).
+	routingFlagPattern = regexp.MustCompile("(?m)(?:`--([a-z][a-z0-9-]*)`\\s*\\||--([a-z][a-z0-9-]*)\\s*:)")
+
 	// collectSkillRefPattern matches Skill: references in agent contents.
 	collectSkillRefPattern = regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
 
@@ -159,6 +163,16 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 	// Collect skill contents referenced by primary agent
 	skillContents := v.collectAgentSkillContents(primaryAgentContents)
 
+	// Build set of routing flags (used as dispatch keys in command body)
+	routingFlags := make(map[string]bool)
+	for _, match := range routingFlagPattern.FindAllStringSubmatch(contents, -1) {
+		for _, group := range match[1:] {
+			if group != "" {
+				routingFlags[group] = true
+			}
+		}
+	}
+
 	// Find flags documented in command
 	flagMatches := flagPattern.FindAllStringSubmatch(contents, -1)
 	seenFlags := make(map[string]bool)
@@ -172,6 +186,11 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 			continue
 		}
 		seenFlags[flag] = true
+
+		// Skip command-level routing flags (used in dispatch tables)
+		if routingFlags[flag] {
+			continue
+		}
 
 		// Check if flag is found in agent or skills
 		if !v.isFlagInAgentOrSkills(flag, primaryAgentContents, skillContents) {
