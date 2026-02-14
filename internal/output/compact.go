@@ -163,10 +163,10 @@ func (f *CompactFormatter) printStatusLine(p statusLineParams) {
 }
 
 // collectErrorsAndSuggestions aggregates errors and suggestions from a summary.
-func (f *CompactFormatter) collectErrorsAndSuggestions(s *cli.LintSummary, allErrors, allSuggestions []errorEntry) (errors, suggestions []errorEntry) {
+func (f *CompactFormatter) collectErrorsAndSuggestions(s *cli.LintSummary, allErrors, allSuggestions []errorEntry) ([]errorEntry, []errorEntry) {
 	for _, result := range s.Results {
 		for _, err := range result.Errors {
-			errors = append(errors, errorEntry{
+			allErrors = append(allErrors, errorEntry{
 				componentType: s.ComponentType,
 				file:          result.File,
 				err:           err,
@@ -174,7 +174,7 @@ func (f *CompactFormatter) collectErrorsAndSuggestions(s *cli.LintSummary, allEr
 		}
 		if f.verbose {
 			for _, sugg := range result.Suggestions {
-				suggestions = append(suggestions, errorEntry{
+				allSuggestions = append(allSuggestions, errorEntry{
 					componentType: s.ComponentType,
 					file:          result.File,
 					err:           sugg,
@@ -182,7 +182,7 @@ func (f *CompactFormatter) collectErrorsAndSuggestions(s *cli.LintSummary, allEr
 			}
 		}
 	}
-	return errors, suggestions
+	return allErrors, allSuggestions
 }
 
 // printAllErrors prints all errors grouped by file.
