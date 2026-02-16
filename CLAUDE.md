@@ -5,40 +5,40 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## Build & Run
 
 ```bash
-# Build and symlink to ~/go/bin
+#-Build and symlink to ~/go/bin
 go build -o cclint . && ln -sf $(pwd)/cclint ~/go/bin/cclint
 
-# Build with version override
+#-Build with version override
 go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0" -o cclint .
 
-# Version
+#-Version
 cclint --version              # show version (defaults to "dev")
 cclint -V                     # short form
 
-# Run linter (defaults to ~/.claude)
+#-Run linter (defaults to ~/.claude)
 cclint                        # lint all component types
 cclint agents                 # lint only agents
 cclint commands               # lint only commands
 cclint skills                 # lint only skills
 cclint plugins                # lint only plugin manifests
 
-# Single-file mode
+#-Single-file mode
 cclint ./agents/my-agent.md            # lint one file (auto-detect type)
 cclint path/to/file.md                 # lint by path
 cclint a.md b.md c.md                  # lint multiple files
 cclint --type agent ./custom/file.md   # override type detection
 cclint --file agents                   # lint file literally named "agents"
 
-# Git integration (pre-commit hooks)
+#-Git integration (pre-commit hooks)
 cclint --staged                        # lint only staged files
 cclint --diff                          # lint all uncommitted changes
 
-# Baseline mode (gradual adoption)
+#-Baseline mode (gradual adoption)
 cclint --baseline-create                  # create baseline from current issues
 cclint --baseline                         # lint with baseline filtering (only new issues fail)
 cclint --baseline-path custom.json        # use custom baseline file path
 
-# Common flags
+#-Common flags
 cclint --root /path/to/project agents    # specify project root
 cclint --scores agents                    # show quality scores (0-100)
 cclint --improvements agents              # show improvement recommendations
@@ -132,22 +132,22 @@ Baseline allows teams to adopt cclint incrementally by accepting the current sta
 
 **Example**:
 ```bash
-# Legacy project with 100 existing issues
+#-Legacy project with 100 existing issues
 cclint agents
-# 0/70 passed, 100 errors
+#-0/70 passed, 100 errors
 
-# Create baseline to accept current state
+#-Create baseline to accept current state
 cclint --baseline-create
-# Baseline created: .cclintbaseline.json (100 issues)
+#-Baseline created: .cclintbaseline.json (100 issues)
 
-# Now only new issues fail
+#-Now only new issues fail
 cclint --baseline agents
-# ✓ All passed
-# 100 baseline issues ignored (100 errors, 0 suggestions)
+#-✓ All passed
+#-100 baseline issues ignored (100 errors, 0 suggestions)
 
-# New issue added
+#-New issue added
 cclint --baseline agents
-# 69/70 passed, 1 error (new issue not in baseline)
+#-69/70 passed, 1 error (new issue not in baseline)
 ```
 
 ## Config
