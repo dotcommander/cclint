@@ -67,7 +67,7 @@ var DefaultFileTypes = []FileTypeEntry{
 	{Type: FileTypeCommand, Patterns: []string{".claude/commands/**/*.md", "commands/**/*.md"}},
 	{Type: FileTypeSettings, Patterns: []string{".claude/settings.json", "claude/settings.json"}},
 	{Type: FileTypeContext, Patterns: []string{".claude/CLAUDE.md", "CLAUDE.md"}},
-	{Type: FileTypeSkill, Patterns: []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md"}},
+	{Type: FileTypeSkill, Patterns: []string{".claude/skills/*/SKILL.md", "skills/*/SKILL.md"}},
 	{Type: FileTypePlugin, Patterns: []string{"**/.claude-plugin/plugin.json"}},
 	{Type: FileTypeRule, Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md"}},
 	{Type: FileTypeOutputStyle, Patterns: []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"}},

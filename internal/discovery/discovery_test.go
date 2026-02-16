@@ -321,7 +321,7 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 		".claude/agents/nested/agent2.md":       "agent content",
 		".claude/commands/cmd1.md":              "command content",
 		".claude/skills/skill1/SKILL.md":        "skill content",
-		".claude/skills/nested/skill2/SKILL.md": "skill content",
+		".claude/skills/nested/skill2/SKILL.md": "skill content", // Nested: not discovered as top-level skill
 		".claude/settings.json":                 `{"key": "value"}`,
 		".claude/CLAUDE.md":                     "context content",
 		".claude/rules/core.md":                 "rule content",
@@ -348,7 +348,7 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 	expectedCounts := map[FileType]int{
 		FileTypeAgent:    2,
 		FileTypeCommand:  1,
-		FileTypeSkill:    2,
+		FileTypeSkill:    1,
 		FileTypeSettings: 1,
 		FileTypeContext:  1,
 		FileTypeRule:     1,
@@ -1529,7 +1529,7 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 		".claude/agents/sub1/sub2/a3.md":    "agent",
 		".claude/commands/c1.md":            "command",
 		".claude/skills/s1/SKILL.md":        "skill",
-		".claude/skills/s1/nested/SKILL.md": "skill", // Nested SKILL.md
+		".claude/skills/s1/nested/SKILL.md": "skill", // Nested SKILL.md (not discovered as top-level skill)
 		".claude/rules/r1.md":               "rule",
 		".claude/settings.json":             "{}",
 		".claude/CLAUDE.md":                 "context",
@@ -1574,8 +1574,8 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 	if typeCounts[FileTypeCommand] < 2 {
 		t.Errorf("Expected at least 2 commands, got %d", typeCounts[FileTypeCommand])
 	}
-	if typeCounts[FileTypeSkill] < 3 {
-		t.Errorf("Expected at least 3 skills, got %d", typeCounts[FileTypeSkill])
+	if typeCounts[FileTypeSkill] < 2 {
+		t.Errorf("Expected at least 2 skills, got %d", typeCounts[FileTypeSkill])
 	}
 }
 
