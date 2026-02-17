@@ -53,7 +53,9 @@ func CheckClaudeLocalGitignore(rootPath string) []cue.ValidationError {
 	return errors
 }
 
-// isInGitignore checks if a file pattern is covered by .gitignore
+// isInGitignore checks if a filename is covered by any pattern in .gitignore.
+// Evaluates each gitignore line as a glob pattern against the filename using
+// filepath.Match. Handles negation patterns (!) and leading slash stripping.
 func isInGitignore(gitignorePath, filename string) bool {
 	file, err := os.Open(gitignorePath)
 	if err != nil {
@@ -61,6 +63,7 @@ func isInGitignore(gitignorePath, filename string) bool {
 	}
 	defer file.Close()
 
+	matched := false
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -70,34 +73,36 @@ func isInGitignore(gitignorePath, filename string) bool {
 			continue
 		}
 
-		// Check various patterns that would match CLAUDE.local.md
-		patterns := []string{
-			filename,                 // Exact match
-			"*.local.md",             // Wildcard for .local.md files
-			"CLAUDE.local.*",         // Wildcard for CLAUDE.local.*
-			"*.local.*",              // Wildcard for any .local. files
-			"/" + filename,           // Root-only match
-			"**/" + filename,         // Any directory match
-			".claude/" + filename,    // Inside .claude directory
-			"**/*.local.md",          // Any .local.md in any directory
-		}
-
-		for _, pattern := range patterns {
-			if line == pattern {
-				return true
-			}
-		}
-
-		// Check if line is a negation that would un-ignore it
+		// Handle negation patterns — un-ignores a previously matched file
 		if strings.HasPrefix(line, "!") {
-			negated := strings.TrimPrefix(line, "!")
-			if negated == filename {
-				return false
+			pattern := strings.TrimPrefix(line, "!")
+			pattern = strings.TrimPrefix(pattern, "/")
+			if matchGitignorePattern(pattern, filename) {
+				matched = false
 			}
+			continue
+		}
+
+		// Strip leading slash (root-anchored patterns)
+		pattern := strings.TrimPrefix(line, "/")
+
+		if matchGitignorePattern(pattern, filename) {
+			matched = true
 		}
 	}
 
-	return false
+	return matched
+}
+
+// matchGitignorePattern evaluates a gitignore-style pattern against a filename.
+// Supports filepath.Match globs and exact string match as fallback.
+func matchGitignorePattern(pattern, filename string) bool {
+	// Try filepath.Match (handles *, ?, [])
+	if ok, _ := filepath.Match(pattern, filename); ok {
+		return true
+	}
+	// Exact string match (for patterns like "CLAUDE.local.md")
+	return pattern == filename
 }
 
 // CheckCombinedMemorySize checks if total CLAUDE.md + always-loaded rules size exceeds threshold.

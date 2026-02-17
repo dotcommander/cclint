@@ -382,16 +382,12 @@ func DetectSwallowedFields(contents, filePath, componentType string) []cue.Valid
 		return nil
 	}
 
-	// Build the set of known fields for this component type.
-	// Fall back to the union of all types for unknown component types.
+	// Only check component types with known field sets.
+	// Types like settings, context, and plugin don't have block scalar
+	// frontmatter fields, so checking them risks false positives.
 	fields := knownFrontmatterFields[componentType]
 	if fields == nil {
-		fields = make(map[string]bool)
-		for _, fm := range knownFrontmatterFields {
-			for k := range fm {
-				fields[k] = true
-			}
-		}
+		return nil
 	}
 
 	var errors []cue.ValidationError

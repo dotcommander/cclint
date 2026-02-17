@@ -15,36 +15,22 @@ const (
 	descMissing       = "Missing"
 )
 
-// AgentScorer scores agent files on a 0-100 scale
-type AgentScorer struct{}
+// AgentScorer scores agent files on a 0-100 scale.
+// Implements ScorerComponent for use with computeCombinedScore.
+type AgentScorer struct {
+	frontmatter map[string]any // set by Score before delegation
+}
 
 // NewAgentScorer creates a new AgentScorer
 func NewAgentScorer() *AgentScorer {
 	return &AgentScorer{}
 }
 
-// Score evaluates an agent and returns a QualityScore
+// Score evaluates an agent and returns a QualityScore.
+// Delegates to computeCombinedScore via the ScorerComponent interface.
 func (s *AgentScorer) Score(content string, frontmatter map[string]any, bodyContent string) QualityScore {
-	var details []Metric
-	lines := strings.Count(content, "\n") + 1
-
-	// === STRUCTURAL (35 points max) ===
-	structural, structuralDetails := s.scoreStructural(frontmatter, bodyContent)
-	details = append(details, structuralDetails...)
-
-	// === PRACTICES (35 points max) ===
-	practices, practiceDetails := s.scorePractices(frontmatter, bodyContent)
-	details = append(details, practiceDetails...)
-
-	// === COMPOSITION (10 points max) ===
-	composition, compositionMetric := s.scoreComposition(lines)
-	details = append(details, compositionMetric)
-
-	// === DOCUMENTATION (10 points max) ===
-	documentation, docDetails := s.scoreDocumentation(frontmatter, bodyContent)
-	details = append(details, docDetails...)
-
-	return NewQualityScore(structural, practices, composition, documentation, details)
+	s.frontmatter = frontmatter
+	return computeCombinedScore(content, frontmatter, bodyContent, s)
 }
 
 // scoreStructural scores the structural completeness of an agent.
@@ -75,7 +61,8 @@ func (s *AgentScorer) scoreStructural(frontmatter map[string]any, bodyContent st
 }
 
 // scorePractices scores the best practices adherence of an agent.
-func (s *AgentScorer) scorePractices(frontmatter map[string]any, bodyContent string) (int, []Metric) {
+func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
+	frontmatter := s.frontmatter
 	var details []Metric
 	practices := 0
 

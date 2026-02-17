@@ -323,10 +323,15 @@ type errorEntry struct {
 	err           cue.ValidationError
 }
 
-// pluralize adds 's' to component type names.
+// irregularPlurals maps component type names that don't pluralize by appending 's'.
+var irregularPlurals = map[string]string{
+	"": "files",
+}
+
+// pluralize returns the plural form of a component type name.
 func pluralize(s string) string {
-	if s == "" {
-		return "files"
+	if p, ok := irregularPlurals[s]; ok {
+		return p
 	}
 	return s + "s"
 }
