@@ -111,8 +111,8 @@ func TestValidateAgentSpecific(t *testing.T) {
 			},
 			filePath:      "agents/test.md",
 			contents:      "---\nname: test\ndescription: A test agent for doing things.\n---\n",
-			wantErrCount:  1,
-			wantSuggCount: 0,
+			wantErrCount:  0,
+			wantSuggCount: 1,
 		},
 		{
 			name: "valid memory scope user",

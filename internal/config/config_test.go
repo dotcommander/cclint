@@ -353,18 +353,17 @@ func TestValidateConfigInvalidConcurrency(t *testing.T) {
 	assert.Contains(t, err.Error(), "concurrency must be at least 1")
 }
 
-// TestValidateConfigMissingOutput tests output file requirement
-func TestValidateConfigMissingOutput(t *testing.T) {
+// TestValidateConfigJsonWithoutOutput tests that json format without --output is valid (writes to stdout)
+func TestValidateConfigJsonWithoutOutput(t *testing.T) {
 	config := &Config{
-		Format: "json",
-		FailOn: "error",
-		Output: "",
+		Format:      "json",
+		FailOn:      "error",
+		Output:      "",
 		Concurrency: 10,
 	}
 
 	err := validateConfig(config)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "output file is required")
+	assert.NoError(t, err)
 }
 
 // TestValidateConfigValid tests valid configuration
