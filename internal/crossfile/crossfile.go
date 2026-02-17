@@ -239,14 +239,16 @@ func (v *CrossFileValidator) collectAgentSkillContents(agentContents string) []s
 }
 
 // isFlagInAgentOrSkills checks if a flag is found in agent contents or skill contents.
+// Only matches the --flag form to avoid false positives from bare substring matches
+// (e.g., a flag named "file" matching the word "file" in prose).
 func (v *CrossFileValidator) isFlagInAgentOrSkills(flag, agentContents string, skillContents []string) bool {
-	foundInAgent := strings.Contains(agentContents, "--"+flag) || strings.Contains(agentContents, flag)
-	if foundInAgent {
+	prefixed := "--" + flag
+	if strings.Contains(agentContents, prefixed) {
 		return true
 	}
 
 	for _, sc := range skillContents {
-		if strings.Contains(sc, "--"+flag) || strings.Contains(sc, flag) {
+		if strings.Contains(sc, prefixed) {
 			return true
 		}
 	}

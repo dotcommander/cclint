@@ -106,10 +106,8 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("concurrency must be at least 1")
 	}
 
-	// Validate output file if format is not console
-	if config.Format != "console" && config.Output == "" {
-		return fmt.Errorf("output file is required when format is not 'console'")
-	}
+	// Note: --format json/markdown without --output writes to stdout,
+	// which is a valid use case (e.g., piping to jq).
 
 	return nil
 }

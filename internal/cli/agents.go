@@ -137,12 +137,12 @@ func validateRequiredFields(data map[string]any, filePath, contents string) []cu
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
-	} else if !strings.Contains(description, "PROACTIVELY") {
+	} else if !strings.Contains(strings.ToUpper(description), "PROACTIVELY") {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
-			Message:  "Description MUST include 'Use PROACTIVELY when...' pattern for agent discoverability.",
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
+			Message:  "Consider adding 'Use PROACTIVELY when...' pattern in description for agent discoverability",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
 			Line:     FindFrontmatterFieldLine(contents, "description"),
 		})
 	}

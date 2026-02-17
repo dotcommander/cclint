@@ -10,6 +10,41 @@ import (
 	"golang.org/x/text/language"
 )
 
+// Pre-compiled secret detection patterns (used by detectSecrets)
+var secretPatterns = []struct {
+	pattern *regexp.Regexp
+	message string
+}{
+	{regexp.MustCompile(`(?i)(api[_-]?key|apikey)\s*[:=]\s*["'][^"']{10,}["']`),
+		"Possible hardcoded API key detected - use environment variables"},
+	{regexp.MustCompile(`(?i)(password|passwd|pwd)\s*[:=]\s*["'][^"']+["']`),
+		"Possible hardcoded password detected - use secrets management"},
+	{regexp.MustCompile(`(?i)(secret|token)\s*[:=]\s*["'][^"']{10,}["']`),
+		"Possible hardcoded secret/token detected - use environment variables"},
+	{regexp.MustCompile(`sk-[a-zA-Z0-9]{20,}`),
+		"OpenAI API key pattern detected - never commit API keys"},
+	{regexp.MustCompile(`xoxb-[a-zA-Z0-9-]+`),
+		"Slack bot token pattern detected - use environment variables"},
+	{regexp.MustCompile(`ghp_[a-zA-Z0-9]{36}`),
+		"GitHub personal access token pattern detected"},
+	{regexp.MustCompile(`AIza[0-9A-Za-z\-_]{35}`),
+		"Google API key pattern detected - use environment variables"},
+	{regexp.MustCompile(`[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com`),
+		"Google OAuth client ID pattern detected"},
+	{regexp.MustCompile(`-----BEGIN (RSA |DSA )?PRIVATE KEY-----`),
+		"Private key detected - never commit private keys"},
+	{regexp.MustCompile(`aws_access_key_id\s*[:=]\s*["']?[A-Z0-9]{20}["']?`),
+		"AWS access key ID detected - use environment variables"},
+	{regexp.MustCompile(`aws_secret_access_key\s*[:=]\s*["']?[A-Za-z0-9/+=]{40}["']?`),
+		"AWS secret access key detected - use environment variables"},
+}
+
+// Pre-compiled placeholder detection patterns (used by isPlaceholderSecret)
+var (
+	placeholderFakeRe   = regexp.MustCompile(`(?i)(x{4,}|0{6,})`)
+	placeholderBracketRe = regexp.MustCompile(`<[^>]*(?:key|token|secret|password|api)[^>]*>`)
+)
+
 // FindLineNumber finds the line number (1-based) where a pattern first appears
 func FindLineNumber(content, pattern string) int {
 	lines := strings.Split(content, "\n")
@@ -456,12 +491,12 @@ func isPlaceholderSecret(line string) bool {
 
 	// Check for obviously fake patterns like repeated x's or zeros
 	// sk-xxxxxxxx or sk-00000000
-	if regexp.MustCompile(`(?i)(x{4,}|0{6,})`).MatchString(line) {
+	if placeholderFakeRe.MatchString(line) {
 		return true
 	}
 
 	// Check for angle bracket placeholders: <API_KEY>, <token>, etc.
-	if regexp.MustCompile(`<[^>]*(?:key|token|secret|password|api)[^>]*>`).MatchString(lowerLine) {
+	if placeholderBracketRe.MatchString(lowerLine) {
 		return true
 	}
 
@@ -487,34 +522,6 @@ func findSecretLineNumber(pattern *regexp.Regexp, contents string) int {
 // detectSecrets checks for hardcoded secrets in content
 func detectSecrets(contents string, filePath string) []cue.ValidationError {
 	var warnings []cue.ValidationError
-
-	secretPatterns := []struct {
-		pattern *regexp.Regexp
-		message string
-	}{
-		{regexp.MustCompile(`(?i)(api[_-]?key|apikey)\s*[:=]\s*["'][^"']{10,}["']`),
-			"Possible hardcoded API key detected - use environment variables"},
-		{regexp.MustCompile(`(?i)(password|passwd|pwd)\s*[:=]\s*["'][^"']+["']`),
-			"Possible hardcoded password detected - use secrets management"},
-		{regexp.MustCompile(`(?i)(secret|token)\s*[:=]\s*["'][^"']{10,}["']`),
-			"Possible hardcoded secret/token detected - use environment variables"},
-		{regexp.MustCompile(`sk-[a-zA-Z0-9]{20,}`),
-			"OpenAI API key pattern detected - never commit API keys"},
-		{regexp.MustCompile(`xoxb-[a-zA-Z0-9-]+`),
-			"Slack bot token pattern detected - use environment variables"},
-		{regexp.MustCompile(`ghp_[a-zA-Z0-9]{36}`),
-			"GitHub personal access token pattern detected"},
-		{regexp.MustCompile(`AIza[0-9A-Za-z\-_]{35}`),
-			"Google API key pattern detected - use environment variables"},
-		{regexp.MustCompile(`[0-9]+-[0-9A-Za-z_]{32}\.apps\.googleusercontent\.com`),
-			"Google OAuth client ID pattern detected"},
-		{regexp.MustCompile(`-----BEGIN (RSA |DSA )?PRIVATE KEY-----`),
-			"Private key detected - never commit private keys"},
-		{regexp.MustCompile(`aws_access_key_id\s*[:=]\s*["']?[A-Z0-9]{20}["']?`),
-			"AWS access key ID detected - use environment variables"},
-		{regexp.MustCompile(`aws_secret_access_key\s*[:=]\s*["']?[A-Za-z0-9/+=]{40}["']?`),
-			"AWS secret access key detected - use environment variables"},
-	}
 
 	for _, sp := range secretPatterns {
 		if !sp.pattern.MatchString(contents) {

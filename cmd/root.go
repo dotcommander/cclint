@@ -177,17 +177,11 @@ func init() {
 }
 
 func initConfig() {
-	configPaths := []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"}
-	for _, path := range configPaths {
-		if _, err := os.Stat(path); err == nil {
-			viper.SetConfigFile(path)
-			if err := viper.ReadInConfig(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
-				exitFunc(1)
-			}
-			break
-		}
-	}
+	// Config loading is handled by config.LoadConfig — this hook only
+	// registers environment variable support so viper flag bindings work
+	// before LoadConfig is called.
+	viper.SetEnvPrefix("CCLINT")
+	viper.AutomaticEnv()
 }
 
 func runLint() error {
