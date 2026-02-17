@@ -190,14 +190,14 @@ func (o *Orchestrator) printBaselineSummary(b *baseline.Baseline, result *Result
 	if !o.opts.UseBaseline || b == nil || result.BaselineIgnored == 0 || o.cfg.Quiet {
 		return
 	}
-	fmt.Printf("\n%d baseline issues ignored (%d errors, %d suggestions)\n",
+	fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors, %d suggestions)\n",
 		result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
 }
 
 // printValidationReminder prints a reminder to validate suggestions.
 func (o *Orchestrator) printValidationReminder() {
 	if !o.cfg.Quiet {
-		fmt.Println("\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
+		fmt.Fprintln(os.Stderr, "\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
 	}
 }
 
@@ -246,9 +246,10 @@ func (o *Orchestrator) runMemoryChecks() {
 	}
 
 	// Check CLAUDE.local.md gitignore
+	// Output to stderr to avoid corrupting JSON/markdown stdout output
 	gitignoreWarnings := cli.CheckClaudeLocalGitignore(o.cfg.Root)
 	for _, w := range gitignoreWarnings {
-		fmt.Printf("warning: %s: %s\n", w.File, w.Message)
+		fmt.Fprintf(os.Stderr, "warning: %s: %s\n", w.File, w.Message)
 	}
 
 	// Check combined memory size
@@ -256,6 +257,6 @@ func (o *Orchestrator) runMemoryChecks() {
 	allFiles, _ := fd.DiscoverFiles()
 	sizeWarnings := cli.CheckCombinedMemorySize(o.cfg.Root, allFiles)
 	for _, w := range sizeWarnings {
-		fmt.Printf("warning: %s\n", w.Message)
+		fmt.Fprintf(os.Stderr, "warning: %s\n", w.Message)
 	}
 }
