@@ -49,3 +49,6 @@ repomix-output.md
 
 # Analysis output
 analysis-results/
+
+# Work artifacts (scratch, audits, specs — not for commit)
+.work/
