@@ -19,7 +19,7 @@ and displays a summary report with quality distribution, top issues, and lowest-
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runSummary(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			exitFunc(1)
 		}
 	},
 }

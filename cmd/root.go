@@ -108,19 +108,19 @@ EXAMPLES:
 			// Single-file mode
 			if err := runSingleFileLint(filesToLint); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(2) // Exit 2 for invocation errors
+				exitFunc(2) // Exit 2 for invocation errors
 			}
 		} else if diffMode || stagedMode {
 			// Git integration mode
 			if err := runGitLint(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+				exitFunc(1)
 			}
 		} else {
 			// Full scan mode
 			if err := runLint(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
+				exitFunc(1)
 			}
 		}
 	},
@@ -183,7 +183,7 @@ func initConfig() {
 			viper.SetConfigFile(path)
 			if err := viper.ReadInConfig(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading config file: %v\n", err)
-				os.Exit(1)
+				exitFunc(1)
 			}
 			break
 		}
@@ -212,7 +212,7 @@ func runLint() error {
 
 	// Exit with error if any linter found errors
 	if result.HasErrors {
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	return nil
@@ -287,7 +287,7 @@ func runSingleFileLint(files []string) error {
 
 	// Exit with error if any file had errors
 	if summary.TotalErrors > 0 {
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	return nil
@@ -359,7 +359,7 @@ func runGitLint() error {
 
 	// Exit with error if any file had errors
 	if summary.TotalErrors > 0 {
-		os.Exit(1)
+		exitFunc(1)
 	}
 
 	return nil

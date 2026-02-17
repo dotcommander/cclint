@@ -24,7 +24,7 @@ Validation checks:
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runContextLint(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			exitFunc(1)
 		}
 	},
 }

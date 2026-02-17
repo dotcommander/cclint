@@ -23,7 +23,7 @@ Validation checks:
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runSkillsLint(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			exitFunc(1)
 		}
 	},
 }
