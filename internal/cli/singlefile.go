@@ -290,6 +290,8 @@ func lintSingleFileWithCache(filePath, rootPath, typeOverride string, quiet, ver
 		result = lintSinglePlugin(ctx)
 	case discovery.FileTypeOutputStyle:
 		result = lintSingleOutputStyle(ctx)
+	case discovery.FileTypeRule:
+		result = lintSingleRule(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported file type: %s", ctx.File.Type.String())
 	}
@@ -410,6 +412,11 @@ func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
 // lintSingleOutputStyle lints a single output style file using the generic linter.
 func lintSingleOutputStyle(ctx *SingleFileLinterContext) LintResult {
 	return lintComponent(ctx, NewOutputStyleLinter())
+}
+
+// lintSingleRule lints a single rule file using the generic linter.
+func lintSingleRule(ctx *SingleFileLinterContext) LintResult {
+	return lintComponent(ctx, NewRuleLinter())
 }
 
 // LooksLikePath determines if an argument looks like a file path rather than a subcommand.
