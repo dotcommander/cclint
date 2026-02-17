@@ -264,7 +264,7 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 	result := lintFileCore(ctx.File.RelPath, ctx.File.Contents, linter, ctx.Validator, crossValidator)
 
 	// Add info message if cross-file validation was skipped
-	if crossValidator == nil && ctx.Verbose {
+	if crossValidator == nil && !ctx.Quiet {
 		result.Suggestions = append(result.Suggestions, cue.ValidationError{
 			File:     ctx.File.RelPath,
 			Message:  "Cross-file validation skipped (could not discover project files)",

@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dotcommander/cclint/internal/frontend"
+
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 //go:embed schemas/*.cue
@@ -204,27 +205,16 @@ type Frontmatter struct {
 	Body string
 }
 
-// ParseFrontmatter parses YAML frontmatter from markdown content
+// ParseFrontmatter parses YAML frontmatter from markdown content.
+// Delegates to frontend.ParseYAMLFrontmatter to avoid duplicate implementations.
 func ParseFrontmatter(content string) (*Frontmatter, error) {
-	// Split content by ---
-	parts := strings.SplitN(content, "---", 3)
-	if len(parts) < 3 {
-		// No frontmatter found
-		return &Frontmatter{
-			Data: make(map[string]any),
-			Body: content,
-		}, nil
-	}
-
-	// Parse YAML frontmatter
-	var data map[string]any
-	if err := yamlv3.Unmarshal([]byte(parts[1]), &data); err != nil {
+	fm, err := frontend.ParseYAMLFrontmatter(content)
+	if err != nil {
 		return nil, fmt.Errorf("error parsing frontmatter: %w", err)
 	}
-
 	return &Frontmatter{
-		Data: data,
-		Body: parts[2],
+		Data: fm.Data,
+		Body: fm.Body,
 	}, nil
 }
 
