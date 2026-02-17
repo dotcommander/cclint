@@ -44,6 +44,13 @@ package schemas
 	hooks: [...#HookCommand]
 }
 
+// Marketplace source configuration (v2.1.45+)
+#MarketplaceSource: {
+	source: "github" | "git" | "url" | "npm" | "file" | "directory" | "hostPattern"
+	// Type-specific fields (repo, url, path, package, hostPattern, ref, headers)
+	...
+}
+
 // Claude Code settings.json schema
 #Settings: {
 	// Optional hooks configuration
@@ -63,6 +70,28 @@ package schemas
 	// Plans directory (v2.1.9+)
 	// Customize where plan files are stored (default: .claude/plans)
 	plansDirectory?: string
+
+	// Spinner tips customization (v2.1.45+)
+	// Configure tips with an array of custom tip strings.
+	// Set excludeDefault: true to show only custom tips instead of built-in ones.
+	spinnerTipsOverride?: {
+		tips: [...string] & [_, ...]
+		excludeDefault?: *false | bool
+	}
+
+	// Plugin enablement (v2.1.45+)
+	// Map of "plugin-name@marketplace-name" to enabled/disabled
+	enabledPlugins?: {
+		[string]: bool
+	}
+
+	// Additional plugin marketplaces (v2.1.45+)
+	// Map of marketplace name to source configuration
+	extraKnownMarketplaces?: {
+		[string]: {
+			source: #MarketplaceSource
+		}
+	}
 
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
