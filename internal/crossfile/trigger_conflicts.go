@@ -34,6 +34,7 @@ func ParseTriggerMappings(filePath, contents string) []TriggerMapping {
 
 	inTable := false
 	headerFound := false
+	var routingCols []int
 
 	for _, rawLine := range strings.Split(contents, "\n") {
 		line := strings.TrimSpace(rawLine)
@@ -42,6 +43,7 @@ func ParseTriggerMappings(filePath, contents string) []TriggerMapping {
 			if inTable {
 				inTable = false
 				headerFound = false
+				routingCols = nil
 			}
 			continue
 		}
@@ -50,6 +52,7 @@ func ParseTriggerMappings(filePath, contents string) []TriggerMapping {
 			if triggerTableHeaderPattern.MatchString(line) {
 				headerFound = true
 				inTable = true
+				routingCols = identifyRoutingColumns(line)
 			}
 			continue
 		}
@@ -58,15 +61,16 @@ func ParseTriggerMappings(filePath, contents string) []TriggerMapping {
 			continue
 		}
 
-		mappings = append(mappings, extractMappingsFromRow(filePath, line)...)
+		mappings = append(mappings, extractMappingsFromRow(filePath, line, routingCols)...)
 	}
 
 	return mappings
 }
 
 // extractMappingsFromRow extracts TriggerMapping values from a single table data row.
-// cells[1] is the keyword column; cells[2:] are the target columns.
-func extractMappingsFromRow(filePath, row string) []TriggerMapping {
+// cells[1] is the keyword column; routingCols specifies which cell indices to inspect
+// as routing targets. When routingCols is nil, all cells after the keyword column are used.
+func extractMappingsFromRow(filePath, row string, routingCols []int) []TriggerMapping {
 	cells := strings.Split(row, "|")
 	if len(cells) < 3 {
 		return nil
@@ -78,13 +82,24 @@ func extractMappingsFromRow(filePath, row string) []TriggerMapping {
 		return nil
 	}
 
-	// cells[len-1] may be empty (trailing |), ignore it
-	dataCells := cells[2 : len(cells)-1]
+	// Build the list of cells to inspect as routing targets.
+	var targetCells []string
+	if len(routingCols) == 0 {
+		// Backwards compat: all cells except leading empty and trigger keyword.
+		// cells[len-1] may be empty (trailing |), ignore it.
+		targetCells = cells[2 : len(cells)-1]
+	} else {
+		for _, idx := range routingCols {
+			if idx < len(cells) {
+				targetCells = append(targetCells, cells[idx])
+			}
+		}
+	}
 
 	seen := make(map[string]bool)
 	var mappings []TriggerMapping
 
-	for _, cell := range dataCells {
+	for _, cell := range targetCells {
 		cell = strings.TrimSpace(cell)
 		if cell == "" {
 			continue
@@ -110,9 +125,11 @@ func extractMappingsFromRow(filePath, row string) []TriggerMapping {
 			})
 		}
 
-		// Second pass: bare skill names in cells without Task() patterns
+		// Second pass: bare skill names in cells without Task() patterns.
+		// Strip file path references first to avoid matching path components as skill names.
 		if len(taskMatches) == 0 {
-			nameMatches := triggerSkillCellPattern.FindAllStringSubmatch(cell, -1)
+			cleanCell := stripReferencePaths(cell)
+			nameMatches := triggerSkillCellPattern.FindAllStringSubmatch(cleanCell, -1)
 			for _, m := range nameMatches {
 				if len(m) < 2 {
 					continue

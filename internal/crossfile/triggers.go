@@ -21,6 +21,10 @@ var (
 
 	// triggerTaskPattern matches Task(agent-name) patterns in table cells.
 	triggerTaskPattern = regexp.MustCompile(`Task\(\s*` + "`?" + `([a-z0-9][a-z0-9-]*)` + "`?" + `\s*\)`)
+
+	// referencePathPattern matches file path fragments like "references/foo-bar.md" or
+	// "references/foo-bar" that should not be treated as skill names.
+	referencePathPattern = regexp.MustCompile(`references/[^\s)|]+`)
 )
 
 // referenceFileGlobs are the glob patterns used to discover reference files.
@@ -67,20 +71,82 @@ func IsLikelySkillName(s string) bool {
 	return strings.Contains(s, "-")
 }
 
+// identifyRoutingColumns parses a header row and returns the indices (0-based
+// within the cells array from strings.Split(row, "|")) of columns that contain
+// routing targets. The trigger keyword column (cells[1]) is always excluded.
+//
+// A column is a routing column if its header (case-insensitive, trimmed)
+// contains any of: "route", "skill", "agent", "target".
+//
+// If no routing columns are identified, falls back to all columns after the
+// trigger keyword column for backwards compatibility.
+func identifyRoutingColumns(headerRow string) []int {
+	cells := strings.Split(headerRow, "|")
+	if len(cells) < 3 {
+		return nil
+	}
+
+	routingKeywords := []string{"route", "skill", "agent", "target"}
+	var indices []int
+
+	// Skip cells[0] (before first |) and cells[1] (trigger keyword column).
+	// cells[len-1] may be empty (trailing |), so stop before it.
+	for i := 2; i < len(cells)-1; i++ {
+		header := strings.ToLower(strings.TrimSpace(cells[i]))
+		if header == "" {
+			continue
+		}
+		for _, kw := range routingKeywords {
+			if strings.Contains(header, kw) {
+				indices = append(indices, i)
+				break
+			}
+		}
+	}
+
+	// If no routing columns identified, fall back to ALL columns (backwards compat).
+	if len(indices) == 0 {
+		for i := 2; i < len(cells)-1; i++ {
+			indices = append(indices, i)
+		}
+	}
+
+	return indices
+}
+
+// stripReferencePaths removes file path fragments like "references/foo-bar.md" from a
+// cell string so that file paths are not mistakenly parsed as skill names.
+func stripReferencePaths(cell string) string {
+	return referencePathPattern.ReplaceAllString(cell, "")
+}
+
 // ExtractRefsFromRow extracts TriggerRef values from a single non-separator table data row.
 // filePath is the source file for attribution. seen deduplicates refs within the table.
-func ExtractRefsFromRow(filePath, row string, seen map[string]bool) []TriggerRef {
+// routingCols specifies which cell indices (from strings.Split(row, "|")) to inspect.
+// When routingCols is nil, all cells after the trigger keyword column are used.
+func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols []int) []TriggerRef {
 	// Split on | to get individual cells. The trigger column (first data column) is skipped.
 	cells := strings.Split(row, "|")
 	if len(cells) < 3 {
 		return nil
 	}
-	// cells[0] is before the first |, cells[1] is the trigger keyword column — skip both.
-	// cells[len-1] may be empty (trailing |), ignore it.
-	dataCells := cells[2 : len(cells)-1]
+
+	// Build the list of cells to inspect.
+	var targetCells []string
+	if len(routingCols) == 0 {
+		// Backwards compat: all cells except leading empty and trigger keyword.
+		// cells[len-1] may be empty (trailing |), ignore it.
+		targetCells = cells[2 : len(cells)-1]
+	} else {
+		for _, idx := range routingCols {
+			if idx < len(cells) {
+				targetCells = append(targetCells, cells[idx])
+			}
+		}
+	}
 
 	var refs []TriggerRef
-	for _, cell := range dataCells {
+	for _, cell := range targetCells {
 		cell = strings.TrimSpace(cell)
 		if cell == "" {
 			continue
@@ -102,8 +168,10 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool) []TriggerRef
 		}
 
 		// Second pass: extract bare skill names from cells that have no Task() pattern.
+		// Strip file path references first to avoid matching path components as skill names.
 		if len(taskMatches) == 0 {
-			nameMatches := triggerSkillCellPattern.FindAllStringSubmatch(cell, -1)
+			cleanCell := stripReferencePaths(cell)
+			nameMatches := triggerSkillCellPattern.FindAllStringSubmatch(cleanCell, -1)
 			for _, m := range nameMatches {
 				if len(m) < 2 {
 					continue
@@ -132,6 +200,7 @@ func ParseTriggerTable(filePath, contents string) []TriggerRef {
 
 	inTable := false
 	headerFound := false
+	var routingCols []int
 
 	for _, rawLine := range strings.Split(contents, "\n") {
 		line := strings.TrimSpace(rawLine)
@@ -141,6 +210,7 @@ func ParseTriggerTable(filePath, contents string) []TriggerRef {
 			if inTable {
 				inTable = false
 				headerFound = false
+				routingCols = nil
 			}
 			continue
 		}
@@ -151,6 +221,7 @@ func ParseTriggerTable(filePath, contents string) []TriggerRef {
 			if triggerTableHeaderPattern.MatchString(line) {
 				headerFound = true
 				inTable = true
+				routingCols = identifyRoutingColumns(line)
 			}
 			continue
 		}
@@ -160,7 +231,7 @@ func ParseTriggerTable(filePath, contents string) []TriggerRef {
 			continue
 		}
 
-		refs = append(refs, ExtractRefsFromRow(filePath, line, seen)...)
+		refs = append(refs, ExtractRefsFromRow(filePath, line, seen, routingCols)...)
 	}
 
 	return refs

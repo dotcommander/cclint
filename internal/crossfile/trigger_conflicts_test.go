@@ -71,6 +71,24 @@ func TestParseTriggerMappings(t *testing.T) {
 | foo bar | Run the task now |`,
 			want: nil,
 		},
+		{
+			name: "names in Never Do column are not extracted as mappings",
+			contents: `| Trigger | Route To | Never Do |
+|---------|----------|----------|
+| lint | ` + "`Task(poet-agent)`" + ` | ` + "`Bash(\"golangci-lint\")`" + ` direct |`,
+			want: []TriggerMapping{
+				{File: "test.md", Keyword: "lint", Target: "poet-agent", RefType: "agent"},
+			},
+		},
+		{
+			name: "references/ path in routing column not extracted as skill mapping",
+			contents: `| Trigger | Agent |
+|---------|-------|
+| meeseeks | agent-claude-code (Read references/meeseeks-methodology.md) |`,
+			want: []TriggerMapping{
+				{File: "test.md", Keyword: "meeseeks", Target: "agent-claude-code", RefType: "skill"},
+			},
+		},
 	}
 
 	for _, tt := range tests {

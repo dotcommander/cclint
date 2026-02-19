@@ -198,6 +198,33 @@ func TestParseTriggerTable(t *testing.T) {
 | foo  | bar   |`,
 			wantRefs: nil,
 		},
+		{
+			name: "names in Never Do column are not extracted",
+			contents: `| Trigger | Route To | Never Do |
+|---------|----------|----------|
+| "lint me", "golangci-lint" | ` + "`Task(poet-agent)`" + ` | ` + "`Bash(\"golangci-lint\")`" + ` direct |`,
+			wantRefs: []TriggerRef{
+				{File: "test.md", RefType: "agent", RefName: "poet-agent"},
+			},
+		},
+		{
+			name: "routing column with only Skill header works as before",
+			contents: `| Trigger | Skill |
+|---------|-------|
+| test coverage | code-testing-qa |`,
+			wantRefs: []TriggerRef{
+				{File: "test.md", RefType: "skill", RefName: "code-testing-qa"},
+			},
+		},
+		{
+			name: "references/ path in routing column is not extracted as skill",
+			contents: `| Trigger | Agent |
+|---------|-------|
+| "meeseeks" | agent-claude-code (Read references/meeseeks-methodology.md) |`,
+			wantRefs: []TriggerRef{
+				{File: "test.md", RefType: "skill", RefName: "agent-claude-code"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
