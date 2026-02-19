@@ -259,7 +259,7 @@ func (l *SkillLinter) GetImprovements(contents string, data map[string]any) []Im
 	return GetSkillImprovements(contents, data)
 }
 
-// PostProcessBatch implements BatchPostProcessor for orphan detection.
+// PostProcessBatch implements BatchPostProcessor for orphan detection and ghost triggers.
 func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
 	orphanedSkills := ctx.CrossValidator.FindOrphanedSkills()
 	for _, orphan := range orphanedSkills {
@@ -271,6 +271,20 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 				break
 			}
 		}
+	}
+
+	// Ghost trigger detection: validate skill/agent refs in trigger map tables
+	ghostTriggers := ctx.CrossValidator.ValidateTriggerMaps(ctx.RootPath)
+	for _, gt := range ghostTriggers {
+		summary.TotalErrors++
+		summary.FailedFiles++
+		// Reference files are not in normal results, so append a new result entry.
+		summary.Results = append(summary.Results, LintResult{
+			File:    gt.File,
+			Type:    "skill",
+			Success: false,
+			Errors:  []cue.ValidationError{gt},
+		})
 	}
 }
 
