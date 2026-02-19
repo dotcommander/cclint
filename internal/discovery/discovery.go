@@ -24,6 +24,9 @@ var typePatterns = []TypePattern{
 	// Skills - most specific (requires SKILL.md filename)
 	{".claude/skills/**/SKILL.md", FileTypeSkill},
 	{"skills/**/SKILL.md", FileTypeSkill},
+	// Catch misnamed lowercase skill files so PreValidate can report the casing error
+	{".claude/skills/**/skill.md", FileTypeSkill},
+	{"skills/**/skill.md", FileTypeSkill},
 
 	// Settings - exact filename match
 	{".claude/settings.json", FileTypeSettings},
@@ -67,7 +70,7 @@ var DefaultFileTypes = []FileTypeEntry{
 	{Type: FileTypeCommand, Patterns: []string{".claude/commands/**/*.md", "commands/**/*.md"}},
 	{Type: FileTypeSettings, Patterns: []string{".claude/settings.json", "claude/settings.json"}},
 	{Type: FileTypeContext, Patterns: []string{".claude/CLAUDE.md", "CLAUDE.md"}},
-	{Type: FileTypeSkill, Patterns: []string{".claude/skills/*/SKILL.md", "skills/*/SKILL.md"}},
+	{Type: FileTypeSkill, Patterns: []string{".claude/skills/*/SKILL.md", "skills/*/SKILL.md", ".claude/skills/*/skill.md", "skills/*/skill.md"}},
 	{Type: FileTypePlugin, Patterns: []string{"**/.claude-plugin/plugin.json"}},
 	{Type: FileTypeRule, Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md"}},
 	{Type: FileTypeOutputStyle, Patterns: []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"}},
@@ -124,7 +127,7 @@ func DetectFileType(absPath, rootPath string) (FileType, error) {
 	// Fallback: match by basename for files outside standard directories
 	basename := filepath.Base(absPath)
 	switch {
-	case basename == "SKILL.md":
+	case strings.EqualFold(basename, "SKILL.md"):
 		return FileTypeSkill, nil
 	case strings.EqualFold(basename, "CLAUDE.md"):
 		return FileTypeContext, nil

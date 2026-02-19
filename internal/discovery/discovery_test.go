@@ -154,6 +154,9 @@ func TestDetectFileType(t *testing.T) {
 		{".claude/skills/foo/SKILL.md", ".claude/skills/foo/SKILL.md", FileTypeSkill, false, ""},
 		{"skills/bar/SKILL.md", "skills/bar/SKILL.md", FileTypeSkill, false, ""},
 		{"skills/nested/deep/SKILL.md", "skills/nested/deep/SKILL.md", FileTypeSkill, false, ""},
+		// Lowercase skill.md — discovered as FileTypeSkill so PreValidate can flag casing
+		{"lowercase .claude/skills/foo/skill.md", ".claude/skills/foo/skill.md", FileTypeSkill, false, ""},
+		{"lowercase skills/bar/skill.md", "skills/bar/skill.md", FileTypeSkill, false, ""},
 
 		// Settings patterns
 		{".claude/settings.json", ".claude/settings.json", FileTypeSettings, false, ""},
@@ -174,6 +177,7 @@ func TestDetectFileType(t *testing.T) {
 
 		// Basename fallbacks
 		{"random/path/SKILL.md", "random/path/SKILL.md", FileTypeSkill, false, ""},
+		{"lowercase basename skill.md", "random/path/skill.md", FileTypeSkill, false, ""},
 		{"somewhere/CLAUDE.md", "somewhere/CLAUDE.md", FileTypeContext, false, ""},
 		{"config/settings.json", "config/settings.json", FileTypeSettings, false, ""},
 		{"pkg/.claude-plugin/plugin.json", "pkg/.claude-plugin/plugin.json", FileTypePlugin, false, ""},
@@ -383,6 +387,40 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 	}
 	if len(discovered) != expectedTotal {
 		t.Errorf("Found %d total files, want %d", len(discovered), expectedTotal)
+	}
+}
+
+// TestDiscoverFiles_LowercaseSkillMd verifies that lowercase skill.md files are
+// discovered as FileTypeSkill so the linting pipeline can flag the casing error.
+func TestDiscoverFiles_LowercaseSkillMd(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	files := map[string]string{
+		".claude/skills/my-skill/skill.md": "skill content lowercase",
+		"skills/other-skill/skill.md":      "skill content lowercase alt",
+	}
+
+	for path, content := range files {
+		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
+	}
+
+	fd := NewFileDiscovery(tmpDir, false)
+	discovered, err := fd.DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+
+	skillCount := 0
+	for _, f := range discovered {
+		if f.Type == FileTypeSkill {
+			skillCount++
+		}
+	}
+
+	if skillCount != 2 {
+		t.Errorf("DiscoverFiles() found %d skill files, want 2 (lowercase skill.md should be discovered)", skillCount)
 	}
 }
 
