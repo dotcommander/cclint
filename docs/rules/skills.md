@@ -37,6 +37,7 @@ Skills must be named `SKILL.md` and follow Anthropic's documentation standards f
 | 058 | [Reference file too large](#rule-058-reference-file-too-large) | suggestion |
 | 059 | [Absolute path in markdown link](#rule-059-absolute-path-in-markdown-link) | warning |
 | 060 | [Reference chain too deep](#rule-060-reference-chain-too-deep) | suggestion |
+| 061 | [Ghost trigger in trigger map](#rule-061-ghost-trigger-in-trigger-map) | error |
 
 ---
 
@@ -56,6 +57,8 @@ Skill files must be named `SKILL.md` (case-sensitive) according to Anthropic's d
 
 **Fail Message:**
 `Skill file must be named SKILL.md`
+
+**Note:** Lowercase `skill.md` files are now discovered by cclint and will trigger this rule. Previously, lowercase filenames were invisible to the linter and silently skipped by the skill loader. If you have `skill.md` files, rename them to `SKILL.md`.
 
 **Source:** [Anthropic Docs - Skills](https://code.claude.com/docs/en/skills) - SKILL.md naming convention
 
@@ -581,6 +584,36 @@ SKILL.md → references/REFERENCE.md → references/DEEP.md  ❌
 ```
 
 **Source:** [agentskills.io specification](https://agentskills.io/specification) - Progressive disclosure architecture
+
+---
+
+### Rule 061: Ghost trigger in trigger map
+
+**Severity:** error
+**Component:** skill
+**Category:** cross-file
+
+**Description:**
+Trigger mapping tables in reference files (e.g., `skills/*/references/*.md`) reference skills or agents that don't exist. These "ghost triggers" route to nothing and will silently misdirect any agent or user that follows the table. Update the routing target to an existing component or remove the row.
+
+**Pass Criteria:**
+- All skill names in trigger table routing columns exist as `skills/<name>/SKILL.md`
+- All agent names in trigger table routing columns exist as `agents/<name>.md`
+
+**Fail Messages:**
+- `Trigger map references non-existent skill 'X'. Create skills/X/SKILL.md`
+- `Trigger map references non-existent agent 'X'. Create agents/X.md`
+
+**Example violation:**
+
+```markdown
+| Trigger | Skill |
+|---------|-------|
+| "analyze code" | code-analysis     |  ← skill exists, OK
+| "write specs"  | old-spec-writer   |  ← ghost: skill deleted, ERROR
+```
+
+**Source:** cclint-observation - Active misconfigurations in trigger routing tables
 
 ---
 

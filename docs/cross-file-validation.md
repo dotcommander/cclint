@@ -12,6 +12,7 @@ cclint performs cross-file validation to ensure components reference each other 
 2. **Circular Dependency Detection** - Cycles in agent → skill → agent delegation chains
 3. **Orphan Detection** - Skills not referenced by any agent/command
 4. **Tool Validation** - Commands using tools they haven't declared
+5. **Ghost Trigger Detection** - Trigger mapping tables routing to skills or agents that don't exist
 
 ## Skill Reference Detection
 
@@ -129,6 +130,58 @@ Orphan detection produces `info`-level suggestions (not errors). Skills may legi
 - New and not yet integrated
 - Used for reference/documentation only
 - Invoked dynamically by name
+
+## Ghost Trigger Detection
+
+### What It Checks
+
+Trigger mapping tables in `skills/*/references/*.md` files route user input to specific skills or agents. Ghost triggers are entries in those tables that reference a skill or agent that doesn't exist — they route to nothing.
+
+cclint validates two table formats:
+
+**Skill routing tables** (e.g., in `triggers.md` or `routing.md`):
+
+```markdown
+| Trigger | Skill |
+|---------|-------|
+| "analyze code" | code-analysis |
+| "write tests"  | code-testing-qa |
+```
+
+**Agent routing tables** (e.g., in agent delegation references):
+
+```markdown
+| Trigger Pattern | Route To |
+|-----------------|----------|
+| "deploy"        | deploy-agent |
+| "review PR"     | review-agent |
+```
+
+### Heuristic
+
+Only files that contain a `| Trigger` column header are scanned. This prevents false positives in files that happen to use similar table structures for other purposes.
+
+For bare skill names (no path separator), a hyphen guard is applied: single-word tokens without a hyphen are skipped, since they are more likely to be prose labels than skill identifiers.
+
+### Output
+
+Ghost triggers are reported as errors on the reference file that contains them:
+
+```bash
+$ cclint skills --verbose
+
+✗ skills/agent-claude-code/references/triggers.md
+    ✘ Trigger map references non-existent skill 'old-skill'. Create skills/old-skill/SKILL.md
+    ✘ Trigger map references non-existent agent 'retired-agent'. Create agents/retired-agent.md
+```
+
+### Severity
+
+Ghost trigger detection produces `error`-level findings (unlike orphans which are `info`). A ghost trigger is an active misconfiguration: any agent or user that follows the routing table will be silently misdirected.
+
+### Built-in Exclusions
+
+Built-in agent types and model names are excluded from ghost trigger validation. The same exclusion list used for agent reference validation applies here (e.g., `haiku`, `sonnet`, `opus`, `Explore`, `Plan`).
 
 ## Cross-Reference Tracking
 
