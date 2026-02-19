@@ -8,6 +8,7 @@ package crossfile
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -75,14 +76,19 @@ type CrossFileValidator struct {
 	agents   map[string]discovery.File
 	skills   map[string]discovery.File
 	commands map[string]discovery.File
+	rootPath string
 }
 
-// NewCrossFileValidator creates a validator with indexed files
-func NewCrossFileValidator(files []discovery.File) *CrossFileValidator {
+// NewCrossFileValidator creates a validator with indexed files.
+// rootPath is optional; if provided it enables trigger map scanning in orphan detection.
+func NewCrossFileValidator(files []discovery.File, rootPath ...string) *CrossFileValidator {
 	v := &CrossFileValidator{
 		agents:   make(map[string]discovery.File),
 		skills:   make(map[string]discovery.File),
 		commands: make(map[string]discovery.File),
+	}
+	if len(rootPath) > 0 {
+		v.rootPath = rootPath[0]
 	}
 
 	for _, f := range files {
@@ -157,6 +163,12 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 	// Find the primary agent this command delegates to
 	primaryAgent, primaryAgentContents := v.findPrimaryAgent(taskMatches)
 	if primaryAgent == "" {
+		return errors
+	}
+
+	// Skip flag validation when command uses $ARGUMENTS passthrough —
+	// flags are forwarded to the agent, not handled by the command itself.
+	if strings.Contains(contents, "$ARGUMENTS") {
 		return errors
 	}
 
@@ -550,6 +562,9 @@ func (v *CrossFileValidator) getAllReferencedSkills() map[string]bool {
 	// Collect from skills
 	v.collectSkillToSkillReferencesMap(referencedSkills)
 
+	// Collect from trigger maps in reference files
+	v.collectTriggerMapReferences(referencedSkills)
+
 	return referencedSkills
 }
 
@@ -590,6 +605,32 @@ func (v *CrossFileValidator) collectSkillToSkillReferencesMap(referencedSkills m
 		for skillName := range v.skills {
 			if skillName != currentSkillName && strings.Contains(skill.Contents, skillName) {
 				referencedSkills[skillName] = true
+			}
+		}
+	}
+}
+
+// collectTriggerMapReferences collects skill references from trigger map tables
+// found in reference files (e.g., skills/*/references/*.md).
+func (v *CrossFileValidator) collectTriggerMapReferences(referencedSkills map[string]bool) {
+	if v.rootPath == "" {
+		return
+	}
+	relPaths := discoverReferenceFiles(v.rootPath)
+	for _, relPath := range relPaths {
+		fullPath := v.rootPath + "/" + relPath
+		data, err := os.ReadFile(fullPath) //nolint:gosec // G304: path comes from controlled glob inside rootPath
+		if err != nil {
+			continue
+		}
+		contents := string(data)
+		if !IsTriggerMap(contents) {
+			continue
+		}
+		refs := ParseTriggerTable(relPath, contents)
+		for _, ref := range refs {
+			if ref.RefType == "skill" {
+				referencedSkills[ref.RefName] = true
 			}
 		}
 	}

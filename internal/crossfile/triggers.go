@@ -287,6 +287,9 @@ func (v *CrossFileValidator) validateTriggerRef(ref TriggerRef) []cue.Validation
 // those tables resolves to a known file. Ghost trigger errors are returned as
 // cue.ValidationError with SeverityError.
 func (v *CrossFileValidator) ValidateTriggerMaps(rootPath string) []cue.ValidationError {
+	// Store rootPath so orphan detection can also scan trigger maps.
+	v.rootPath = rootPath
+
 	relPaths := discoverReferenceFiles(rootPath)
 
 	var errors []cue.ValidationError
