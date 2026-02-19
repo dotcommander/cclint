@@ -57,7 +57,7 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool) (*Lint
 	}
 
 	// Initialize cross-file validator
-	crossValidator := crossfile.NewCrossFileValidator(files)
+	crossValidator := crossfile.NewCrossFileValidator(files, rootPath)
 
 	return &LinterContext{
 		RootPath:       rootPath,

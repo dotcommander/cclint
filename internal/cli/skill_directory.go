@@ -166,10 +166,31 @@ func isLocalReferenceLink(linkPath string) bool {
 	return !(strings.HasPrefix(linkPath, "http") || strings.HasPrefix(linkPath, "#"))
 }
 
+// isSubdirIndexFile returns true if linkPath points to a file inside a subdirectory
+// of references/ (e.g. references/work-tasks/work-tasks.md). Such files are
+// subdirectory index files whose own links are co-located siblings, not chains.
+func isSubdirIndexFile(linkPath string) bool {
+	// Normalize to forward slashes for consistent splitting
+	normalized := filepath.ToSlash(linkPath)
+	// Strip leading references/ prefix
+	after, found := strings.CutPrefix(normalized, "references/")
+	if !found {
+		return false
+	}
+	// If there is still a "/" in the remainder, the file lives in a subdir
+	return strings.Contains(after, "/")
+}
+
 // checkNestedReferences checks if a referenced file contains links to other references/.
 // Returns validation errors for each nested reference chain found.
 func checkNestedReferences(linkPath, skillDir, skillPath string, linkPattern *regexp.Regexp) []cue.ValidationError {
 	var issues []cue.ValidationError
+
+	// Files inside references/<subdir>/ are subdirectory index files. Their own
+	// links are co-located siblings and should not be flagged as reference chains.
+	if isSubdirIndexFile(linkPath) {
+		return issues
+	}
 
 	// Resolve the full path
 	fullPath := filepath.Join(skillDir, linkPath)
@@ -211,8 +232,10 @@ func checkNestedReferences(linkPath, skillDir, skillPath string, linkPattern *re
 }
 
 // hasNestedReferenceLink checks if a link path indicates a nested reference.
+// Only flags actual cross-directory reference chains (links into references/ subdirs),
+// not co-located .md files in the same directory.
 func hasNestedReferenceLink(nestedPath string) bool {
-	return strings.Contains(nestedPath, "references/") || strings.HasSuffix(nestedPath, ".md")
+	return strings.Contains(nestedPath, "references/")
 }
 
 // findSubstringLine finds the line number of a substring in content.

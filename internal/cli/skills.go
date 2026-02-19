@@ -285,9 +285,13 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		})
 	}
 
-	hasTrigger := strings.Contains(strings.ToLower(description), "use when") ||
-		strings.Contains(strings.ToLower(description), "use for") ||
-		strings.Contains(strings.ToLower(description), "use proactively")
+	lower := strings.ToLower(description)
+	hasTrigger := strings.Contains(lower, "use when") ||
+		strings.Contains(lower, "use for") ||
+		strings.Contains(lower, "use proactively") ||
+		strings.Contains(lower, "not for") ||
+		strings.Contains(lower, "covers") ||
+		strings.Contains(lower, "handles")
 	if !hasTrigger && len(description) > 0 {
 		out = append(out, cue.ValidationError{
 			File:     filePath,
