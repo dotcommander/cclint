@@ -74,6 +74,11 @@ internal/
 │   ├── skill_scorer.go
 │   └── plugin_scorer.go
 ├── cli/                # Lint orchestration per component type
+│   ├── crossfile/         # Cross-file validation
+│   │   ├── crossfile.go   # Reference validation, orphan detection
+│   │   ├── triggers.go    # Ghost trigger detection in reference files
+│   │   ├── refs.go        # Reference extraction helpers
+│   │   └── graph.go       # Cycle detection
 │   └── baseline_filter.go  # Baseline filtering logic
 ├── output/             # Formatters (console, json, markdown)
 ├── outputters/         # Output coordination
@@ -90,7 +95,7 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 
 **Quality Scoring**: Four categories (structural 0-40, practices 0-40, composition 0-10, documentation 0-10) summed to 0-100. Tier grades: A≥85, B≥70, C≥50, D≥30, F<30.
 
-**Discovery Patterns**: Searches `.claude/{agents,commands,skills}/**/*.md`, `{agents,commands,skills}/**/*.md`, and `**/.claude-plugin/plugin.json` paths.
+**Discovery Patterns**: Searches `.claude/{agents,commands,skills}/**/*.md`, `{agents,commands,skills}/**/*.md`, and `**/.claude-plugin/plugin.json` paths. Lowercase `skill.md` files are also discovered and flagged as naming errors.
 
 ## Lint Rules Enforced
 
@@ -115,6 +120,8 @@ Detects skill references using `findSkillReferences()`:
 **Go Regex Quirk**: Character classes like `[^*]` match newlines by default in Go. Use `[^*\n]` to exclude newlines and prevent greedy cross-line matching.
 
 **Orphan Detection**: `FindOrphanedSkills()` builds a reference graph and reports skills with zero incoming edges as info-level suggestions.
+
+**Ghost Trigger Detection**: `ValidateTriggerMaps()` scans `skills/*/references/*.md` for trigger routing tables and validates that referenced skills/agents exist.
 
 See: `docs/cross-file-validation.md`
 

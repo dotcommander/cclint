@@ -52,3 +52,6 @@ analysis-results/
 
 # Work artifacts (scratch, audits, specs — not for commit)
 .work/
+
+# No test files in docs/
+docs/**/*_test.go
