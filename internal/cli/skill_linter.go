@@ -286,6 +286,63 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 			Errors:  []cue.ValidationError{gt},
 		})
 	}
+
+	// Trigger conflict detection: same keyword routing to different targets across files
+	triggerConflicts := ctx.CrossValidator.DetectTriggerConflicts(ctx.RootPath)
+	for _, tc := range triggerConflicts {
+		summary.TotalSuggestions++
+		summary.Results = append(summary.Results, LintResult{
+			File:        tc.File,
+			Type:        "skill",
+			Success:     true, // warnings do not fail the build
+			Suggestions: []cue.ValidationError{tc},
+		})
+	}
+
+	// Skill reference file validation: phantom refs (error) and orphaned refs (info).
+	skillRefIssues := ctx.CrossValidator.ValidateSkillReferences(ctx.RootPath)
+	for _, issue := range skillRefIssues {
+		if issue.Severity == cue.SeverityError {
+			summary.TotalErrors++
+			// Attach phantom ref errors to the skill file result entry.
+			attached := false
+			for i, result := range summary.Results {
+				if result.File == issue.File {
+					summary.Results[i].Errors = append(summary.Results[i].Errors, issue)
+					summary.Results[i].Success = false
+					attached = true
+					break
+				}
+			}
+			if !attached {
+				summary.FailedFiles++
+				summary.Results = append(summary.Results, LintResult{
+					File:    issue.File,
+					Type:    "skill",
+					Success: false,
+					Errors:  []cue.ValidationError{issue},
+				})
+			}
+		} else {
+			summary.TotalSuggestions++
+			attached := false
+			for i, result := range summary.Results {
+				if result.File == issue.File {
+					summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, issue)
+					attached = true
+					break
+				}
+			}
+			if !attached {
+				summary.Results = append(summary.Results, LintResult{
+					File:        issue.File,
+					Type:        "skill",
+					Success:     true,
+					Suggestions: []cue.ValidationError{issue},
+				})
+			}
+		}
+	}
 }
 
 // validateSkillName checks reserved words, hyphen placement, consecutive hyphens, and directory match.
