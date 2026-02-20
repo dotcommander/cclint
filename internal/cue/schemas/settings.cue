@@ -93,6 +93,10 @@ package schemas
 		}
 	}
 
+	// Disable all hooks (v2.1.49+)
+	// Non-managed settings cannot disable managed hooks set by enterprise policy
+	disableAllHooks?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

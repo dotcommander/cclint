@@ -320,6 +320,28 @@ func validateAgentHooks(data map[string]any, filePath string) []cue.ValidationEr
 	return ValidateComponentHooks(hooks, filePath)
 }
 
+// hasSkillTool checks if the tools field includes the Skill tool or is "*".
+func hasSkillTool(tools any) bool {
+	switch v := tools.(type) {
+	case string:
+		if v == "*" {
+			return true
+		}
+		for _, part := range strings.Split(v, ",") {
+			if strings.TrimSpace(part) == "Skill" {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range v {
+			if s, ok := item.(string); ok && s == "Skill" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // hasEditingTools checks if the tools field includes editing capabilities
 func hasEditingTools(tools any) bool {
 	editingTools := []string{"Edit", "Write", "MultiEdit"}
@@ -452,8 +474,9 @@ func checkAgentMissingFields(data map[string]any, contents, filePath string) []c
 	}
 
 	// Check for Skill loading pattern (thin agent -> fat skill pattern)
+	// Only emit this suggestion if the agent has the Skill tool available.
 	hasSkillRef := strings.Contains(contents, "Skill(") || strings.Contains(contents, "Skill:") || strings.Contains(contents, "Skills:")
-	if !hasSkillRef && (strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow")) {
+	if !hasSkillRef && hasSkillTool(data["tools"]) && (strings.Contains(contents, "## Foundation") || strings.Contains(contents, "## Workflow")) {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "No skill reference found. If methodology is reusable, consider extracting to a skill.",

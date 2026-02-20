@@ -339,6 +339,7 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 		"WebFetch": true, "WebSearch": true,
 		// Interactive
 		"AskUserQuestion": true, "TodoWrite": true,
+		"TaskCreate": true, "TaskUpdate": true, "TaskList": true, "TaskGet": true, "TaskStop": true,
 		// Special
 		"Skill": true, "LSP": true, "NotebookEdit": true,
 		"EnterPlanMode": true, "ExitPlanMode": true,

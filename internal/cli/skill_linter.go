@@ -388,8 +388,8 @@ func validateSkillName(name, filePath, contents string) []cue.ValidationError {
 	if !isSpecialDir && name != parentDir {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
-			Message:  fmt.Sprintf("Skill name '%s' should match parent directory name '%s'", name, parentDir),
-			Severity: "warning",
+			Message:  fmt.Sprintf("Skill name '%s' must match parent directory name '%s' (agentskills.io spec: name field)", name, parentDir),
+			Severity: "error",
 			Source:   cue.SourceAgentSkillsIO,
 			Line:     FindFrontmatterFieldLine(contents, "name"),
 		})

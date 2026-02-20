@@ -283,6 +283,23 @@ func TestValidateHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
+			name: "valid ConfigChange hook",
+			hooks: map[string]any{
+				"ConfigChange": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
+								"type":    "command",
+								"command": "echo config changed",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "valid agent hook",
 			hooks: map[string]any{
 				"PreToolUse": []any{

@@ -275,8 +275,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 				"name": "claude",
 			},
 			contents:     "---\nname: claude\n---\n",
-			wantErrCount: 1,
-			wantWarnings: 1, // name-directory mismatch
+			wantErrCount: 2, // reserved word + name-directory mismatch
 		},
 		{
 			name: "reserved word anthropic",
@@ -284,8 +283,7 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 				"name": "anthropic",
 			},
 			contents:     "---\nname: anthropic\n---\n",
-			wantErrCount: 1,
-			wantWarnings: 1, // name-directory mismatch
+			wantErrCount: 2, // reserved word + name-directory mismatch
 		},
 		{
 			name:            "no frontmatter suggestion",
@@ -405,6 +403,14 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			wantWarnings: 0,
 		},
 		{
+			name: "name matches parent directory - no error",
+			data: map[string]any{
+				"name": "test",
+			},
+			contents:     "---\nname: test\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
 			name: "argument-hint non-string type",
 			data: map[string]any{
 				"name":          "test",
@@ -473,6 +479,66 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 
 			if suggCount < tt.wantSuggestions {
 				t.Errorf("ValidateSpecific() suggestions = %d, want at least %d", suggCount, tt.wantSuggestions)
+			}
+		})
+	}
+}
+
+func TestValidateSkillNameDirectoryMatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		skillName    string
+		filePath     string
+		wantErrCount int
+		wantMsg      string
+	}{
+		{
+			name:         "name matches parent directory",
+			skillName:    "my-skill",
+			filePath:     "skills/my-skill/SKILL.md",
+			wantErrCount: 0,
+		},
+		{
+			name:         "name does not match parent directory",
+			skillName:    "other-name",
+			filePath:     "skills/my-skill/SKILL.md",
+			wantErrCount: 1,
+			wantMsg:      "agentskills.io spec",
+		},
+		{
+			name:         "parent is skills directory - skip check",
+			skillName:    "anything",
+			filePath:     "skills/SKILL.md",
+			wantErrCount: 0,
+		},
+		{
+			name:         "parent is .claude directory - skip check",
+			skillName:    "anything",
+			filePath:     ".claude/SKILL.md",
+			wantErrCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			contents := "---\nname: " + tt.skillName + "\n---\n"
+			errs := validateSkillName(tt.skillName, tt.filePath, contents)
+
+			errCount := 0
+			for _, e := range errs {
+				if e.Severity == "error" {
+					errCount++
+					if tt.wantMsg != "" && !strings.Contains(e.Message, tt.wantMsg) {
+						t.Errorf("error message %q does not contain %q", e.Message, tt.wantMsg)
+					}
+				}
+			}
+
+			if errCount != tt.wantErrCount {
+				t.Errorf("validateSkillName() errors = %d, want %d", errCount, tt.wantErrCount)
+				for _, e := range errs {
+					t.Logf("  %s: %s", e.Severity, e.Message)
+				}
 			}
 		})
 	}
