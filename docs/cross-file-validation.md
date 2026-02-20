@@ -280,18 +280,7 @@ $ cclint commands
     ✘ References non-existent skill 'missing-skill'. Create skills/missing-skill/SKILL.md
 ```
 
-## Common Issues
-
-### False Positives (Fixed in v1.1.0)
-
-**Issue:** Only detecting one skill per file when multiple are declared.
-
-**Cause:** The regex `[^*]*` matched newlines in Go, causing greedy matching across lines.
-
-**Fix:** Changed to `[^*\n]*` to prevent matching across newlines.
-
-**Before:** 100 "orphaned" skills (mostly false positives)
-**After:** 19 genuinely unwired skills
+## Notes
 
 ### Skills in Comments
 

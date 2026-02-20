@@ -6,7 +6,7 @@ Set up cclint and run your first reliable lint loop.
 
 ## Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - A Claude Code project with component files (`agents/`, `commands/`, `skills/`, `.claude-plugin/plugin.json`)
 
 ## Main workflow

@@ -24,6 +24,16 @@ cclint agents
 cclint commands
 cclint skills
 cclint plugins
+cclint contexts
+cclint rules
+```
+
+Run a single file:
+
+```bash
+cclint path/to/agent.md
+cclint a.md b.md c.md
+cclint --type agent ./custom/file.md
 ```
 
 Run on changed files:
