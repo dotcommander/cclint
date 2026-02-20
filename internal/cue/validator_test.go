@@ -276,6 +276,61 @@ func TestValidateAgent(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "valid isolation worktree",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with worktree isolation",
+				"isolation":   "worktree",
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid isolation sandbox",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with invalid isolation",
+				"isolation":   "sandbox",
+			},
+			wantError: true,
+		},
+		{
+			name: "valid background true",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent running as background task",
+				"background":  true,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid background false",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent not running as background task",
+				"background":  false,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid agent without isolation or background",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Minimal agent without new optional fields",
+				"model":       "sonnet",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid agent with both isolation and background",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with both isolation and background",
+				"isolation":   "worktree",
+				"background":  true,
+			},
+			wantError: false,
+		},
 	}
 
 	v := NewValidator()

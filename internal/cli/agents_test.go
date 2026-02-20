@@ -366,6 +366,67 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
+		{
+			name: "valid isolation worktree",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"isolation":   "worktree",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nisolation: worktree\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid background true",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"background":  true,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nbackground: true\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid background false",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"background":  false,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nbackground: false\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid agent without isolation or background",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"model":       "sonnet",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nmodel: sonnet\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "valid agent with both isolation and background",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"isolation":   "worktree",
+				"background":  true,
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\nisolation: worktree\nbackground: true\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -498,7 +559,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory", "mcpServers"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory", "mcpServers", "isolation", "background"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)

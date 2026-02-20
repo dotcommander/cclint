@@ -68,6 +68,8 @@ var knownAgentFields = map[string]bool{
 	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
 	"memory":          true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
 	"mcpServers":      true, // Optional: MCP server names available to agent
+	"isolation":       true, // Optional: subagent isolation mode (worktree) (v2.1.49+)
+	"background":      true, // Optional: always run as background task (v2.1.49+)
 }
 
 // validateAgentSpecific implements agent-specific validation rules.

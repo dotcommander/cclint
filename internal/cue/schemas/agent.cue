@@ -78,6 +78,8 @@ import (
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)
 	memory?: #MemoryScope                                     // persistent memory scope (v2.1.33+)
 	mcpServers?: [...string]                                   // MCP server names available to agent
+	isolation?: "worktree"                                    // subagent isolation mode (v2.1.49+)
+	background?: bool                                         // always run as background task (v2.1.49+)
 
 	// Allow additional fields
 	...
