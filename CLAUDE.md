@@ -167,3 +167,7 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 - First-hop docs are flat and plain-language (`setup`, `common-tasks`, `connect-assistant`, `change-cclint`) while deep reference material remains under `docs/guides/`, `docs/reference/`, and `docs/rules/`.
 - Rules documentation is canonicalized under `docs/rules/*.md`; do not recreate `docs/RULES.md`.
 - `docs/` is instruction-only: historical snapshots and docs test specs were removed (`docs/ANTHROPIC_REQUIREMENTS.md`, `docs/tests/*.md`) and should stay outside `docs/`.
+
+| Key | Value |
+|-----|-------|
+| claude_code_last_updated | v2.1.49 |
