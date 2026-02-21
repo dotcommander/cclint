@@ -170,4 +170,4 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.49 |
+| claude_code_last_updated | v2.1.50 |
