@@ -31,6 +31,8 @@ var validHookEvents = map[string]bool{
 	"TeammateIdle":       true, // multi-agent workflow event (v2.1.33+)
 	"TaskCompleted":      true, // multi-agent workflow event (v2.1.33+)
 	"ConfigChange":       true, // config file change event (v2.1.49+)
+	"WorktreeCreate":     true, // worktree lifecycle event (v2.1.50+)
+	"WorktreeRemove":     true, // worktree lifecycle event (v2.1.50+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

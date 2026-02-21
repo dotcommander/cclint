@@ -300,6 +300,40 @@ func TestValidateHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
+			name: "valid WorktreeCreate hook",
+			hooks: map[string]any{
+				"WorktreeCreate": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
+								"type":    "command",
+								"command": "echo worktree created",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid WorktreeRemove hook",
+			hooks: map[string]any{
+				"WorktreeRemove": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
+								"type":    "command",
+								"command": "echo worktree removed",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "valid agent hook",
 			hooks: map[string]any{
 				"PreToolUse": []any{
