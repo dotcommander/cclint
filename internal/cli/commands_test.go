@@ -57,6 +57,56 @@ func TestValidateCommandSpecific(t *testing.T) {
 			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
+		{
+			name: "valid dispatcher tools Task Skill AskUserQuestion",
+			data: map[string]any{
+				"allowed-tools": "Task, Skill, AskUserQuestion",
+			},
+			filePath:      "commands/test.md",
+			contents:      "---\nallowed-tools: Task, Skill, AskUserQuestion\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
+			name: "Bash forbidden in allowed-tools",
+			data: map[string]any{
+				"allowed-tools": "Task, Bash",
+			},
+			filePath:      "commands/test.md",
+			contents:      "---\nallowed-tools: Task, Bash\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "multiple forbidden tools Write Read Edit",
+			data: map[string]any{
+				"allowed-tools": "Write, Read, Edit",
+			},
+			filePath:      "commands/test.md",
+			contents:      "---\nallowed-tools: Write, Read, Edit\n---\n",
+			wantErrCount:  3,
+			wantSuggCount: 0,
+		},
+		{
+			name: "wildcard forbidden in allowed-tools",
+			data: map[string]any{
+				"allowed-tools": "*",
+			},
+			filePath:      "commands/test.md",
+			contents:      "---\nallowed-tools: \"*\"\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
+		{
+			name: "Task scoped with parens is ok",
+			data: map[string]any{
+				"allowed-tools": "Task(coder-agent)",
+			},
+			filePath:      "commands/test.md",
+			contents:      "---\nallowed-tools: Task(coder-agent)\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -139,6 +189,20 @@ func TestValidateCommandBestPractices(t *testing.T) {
 			contents:     "---\nname: test\n---\n## Success\nAll tests pass",
 			data:         map[string]any{"name": "test"},
 			wantContains: []string{"checkbox format"},
+		},
+		{
+			name:         "Skill without Task delegation",
+			filePath:     "commands/test.md",
+			contents:     "---\nname: test\nallowed-tools: Skill\n---\nSkill(some-skill)",
+			data:         map[string]any{"name": "test", "allowed-tools": "Skill"},
+			wantContains: []string{"Skill() without Task() delegation"},
+		},
+		{
+			name:         "Skill with Task in body is valid",
+			filePath:     "commands/test.md",
+			contents:     "---\nname: test\nallowed-tools: Task, Skill\n---\nTask(agent): run\nSkill(some-skill)",
+			data:         map[string]any{"name": "test", "allowed-tools": "Task, Skill"},
+			wantContains: []string{},
 		},
 	}
 

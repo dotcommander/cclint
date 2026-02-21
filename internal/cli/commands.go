@@ -73,7 +73,94 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 	// Validate tool field naming (commands use 'allowed-tools:', not 'tools:')
 	errors = append(errors, ValidateToolFieldName(data, filePath, contents, "command")...)
 
+	// Validate allowed-tools only contains permitted tools
+	errors = append(errors, checkCommandToolAllowlist(data, filePath, contents)...)
+
 	return errors
+}
+
+// commandAllowedTools is the set of tools commands are permitted to declare.
+var commandAllowedTools = map[string]bool{
+	"Task":            true,
+	"Skill":           true,
+	"AskUserQuestion": true,
+}
+
+// checkCommandToolAllowlist validates that allowed-tools only contains permitted tools.
+func checkCommandToolAllowlist(data map[string]any, filePath string, contents string) []cue.ValidationError {
+	tools, ok := data["allowed-tools"].(string)
+	if !ok || tools == "" {
+		return nil
+	}
+
+	line := FindFrontmatterFieldLine(contents, "allowed-tools")
+
+	// Wildcard is not permitted
+	if strings.TrimSpace(tools) == "*" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  `command declares wildcard "*" in allowed-tools — commands should only use Task, Skill, AskUserQuestion`,
+			Severity: "error",
+			Source:   cue.SourceCClintObserve,
+			Line:     line,
+		}}
+	}
+
+	var errors []cue.ValidationError
+	for tool := range strings.SplitSeq(tools, ",") {
+		tool = strings.TrimSpace(tool)
+		if tool == "" {
+			continue
+		}
+		base := extractBaseToolName(tool)
+		if !commandAllowedTools[base] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("command declares tool %q in allowed-tools — commands should only use Task, Skill, AskUserQuestion", tool),
+				Severity: "error",
+				Source:   cue.SourceCClintObserve,
+				Line:     line,
+			})
+		}
+	}
+	return errors
+}
+
+// checkSkillWithoutTaskDelegation warns when a command calls Skill() directly
+// without going through Task() delegation.
+func checkSkillWithoutTaskDelegation(filePath string, contents string, data map[string]any) []cue.ValidationError {
+	body := extractBody(contents)
+
+	if !strings.Contains(body, "Skill(") {
+		return nil
+	}
+	if strings.Contains(body, "Task(") {
+		return nil
+	}
+
+	// Also skip if allowed-tools declares both Skill and Task
+	if tools, ok := data["allowed-tools"].(string); ok {
+		hasSkill, hasTask := false, false
+		for tool := range strings.SplitSeq(tools, ",") {
+			base := extractBaseToolName(strings.TrimSpace(tool))
+			if base == "Skill" {
+				hasSkill = true
+			}
+			if base == "Task" {
+				hasTask = true
+			}
+		}
+		if hasSkill && hasTask {
+			return nil
+		}
+	}
+
+	return []cue.ValidationError{{
+		File:     filePath,
+		Message:  "command dispatches to Skill() without Task() delegation — commands must delegate through agents",
+		Severity: "error",
+		Source:   cue.SourceCClintObserve,
+	}}
 }
 
 // validateCommandBestPractices checks opinionated best practices
@@ -95,6 +182,7 @@ func validateCommandBestPractices(filePath string, contents string, data map[str
 
 	suggestions = append(suggestions, validateCommandPreprocessing(filePath, contents)...)
 	suggestions = append(suggestions, validateCommandSubstitution(filePath, contents, data)...)
+	suggestions = append(suggestions, checkSkillWithoutTaskDelegation(filePath, contents, data)...)
 
 	return suggestions
 }
