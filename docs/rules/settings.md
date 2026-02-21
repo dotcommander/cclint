@@ -32,15 +32,15 @@ File contains well-formed JSON with proper syntax (valid braces, quotes, commas,
 **Category:** structural
 
 **Description:**
-Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd.
+Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove.
 
 **Pass Criteria:**
 Every key in the `hooks` object matches a valid hook event name from Anthropic documentation.
 
 **Fail Message:**
-`Unknown hook event '[eventName]'. Valid events: PreToolUse, PostToolUse, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd`
+`Unknown hook event '[eventName]'. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove`
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 10 hook events that execute at different lifecycle points: PreToolUse, PermissionRequest, PostToolUse, UserPromptSubmit, Notification, Stop, SubagentStop, PreCompact, SessionStart, SessionEnd"
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 18 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove"
 
 ---
 

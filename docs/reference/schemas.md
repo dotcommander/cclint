@@ -79,7 +79,7 @@ hooks:
           command: /cleanup.sh
 ```
 
-**Hook Events**: `PreToolUse`, `PostToolUse`, `Stop`, `Start`
+**Hook Events**: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Hook Fields**:
 - `matcher` (optional): Tool name pattern to match
@@ -272,7 +272,7 @@ Hook types include `command`, `prompt`, and `agent` (v2.1.0+):
 }
 ```
 
-**Hook Events**: `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`, etc.
+**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `Setup`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
 
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
