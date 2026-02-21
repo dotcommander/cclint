@@ -101,9 +101,9 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 
 | Component | Size Limit | Key Checks |
 |-----------|------------|------------|
-| Agent | 200 lines | name format, model, triggers, Foundation/Workflow sections, Skill() loading |
-| Command | 50 lines | delegation pattern, semantic routing table |
-| Skill | 500 lines | SKILL.md filename, Quick Reference table |
+| Agent | 200 lines | name format, model, triggers, Foundation/Workflow sections, Skill() loading, body-tool mismatch (suppressed for 8+ tools) |
+| Command | 50 lines | delegation pattern, semantic routing table, tool allowlist (Task/Skill/AskUserQuestion only), Skill-without-Task detection |
+| Skill | 500 lines | SKILL.md filename, Quick Reference table, examples detection (recognizes references/ pointers) |
 | Plugin | 5KB | name format, semver version, author.name, required fields |
 
 ## Cross-File Validation
@@ -171,3 +171,9 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 | Key | Value |
 |-----|-------|
 | claude_code_last_updated | v2.1.50 |
+| valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
+| command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
+| body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
+| knowntools_location | `internal/cli/lineutil.go` exported `KnownTools` var (shared by tool validation and body scanning) |
+| stale_binary_trap | Always `go build -o cclint .` before running `./cclint` — stale binary causes phantom results |
+| golangci_lint_version | v2 config format required (`version: "2"` in `.golangci.yml`) |
