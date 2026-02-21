@@ -1,50 +1,47 @@
 # cclint
 
-cclint validates Claude Code components before they break in runtime.
-It lints agents, commands, skills, plugins, and settings.
+A linter for Claude Code components. Catches schema errors, enforces structure, and flags cross-file problems before they surface as confusing runtime behavior.
 
-## Why install
+Handles agents, commands, skills, plugins, and settings.
 
-- Catch frontmatter and schema errors before commit
-- Enforce naming, structure, and security rules consistently
-- Track quality with component scoring (0-100)
-- Support gradual rollout with baseline mode
-- Generate machine-readable reports for CI
-
-## Quick start
-
-1. Install:
+## Install
 
 ```bash
 go install github.com/dotcommander/cclint@latest
 ```
 
-2. Lint your project:
+## Usage
 
 ```bash
-cclint
+cclint                    # lint everything under ~/.claude
+cclint agents             # one component type
+cclint --staged           # only staged files (pre-commit)
+cclint --scores           # include quality scores (0-100)
+cclint --improvements     # show what would move the needle
 ```
 
-3. Lint staged files in a commit workflow:
+## What it catches
+
+- Frontmatter schema errors (via embedded CUE schemas)
+- Naming, size, and structure violations per component type
+- Cross-file issues: broken skill references, orphaned skills, ghost triggers
+- Model field mutations and delegation anti-patterns
+
+## Baseline mode
+
+For projects with existing violations, adopt incrementally:
 
 ```bash
-cclint --staged
+cclint --baseline-create   # snapshot current state
+cclint --baseline          # only fail on new issues
 ```
 
-## First successful run
+Commit `.cclintbaseline.json` and tighten over time.
 
-```bash
-cclint --scores
-```
+## Quality scoring
 
-If your files are valid, you should see passing checks and quality scores.
+Every component gets a 0-100 score across structural completeness, practices, composition, and documentation. Tier grades A-F. Useful for prioritizing what to fix first.
 
-## Uninstall / rollback
+## More
 
-```bash
-rm "$(go env GOPATH)/bin/cclint"
-```
-
-## Next docs step
-
-Go to `docs/README.md` for setup, integration, and contributor guides.
+See `docs/README.md` for setup, CI integration, and contributor guides.
