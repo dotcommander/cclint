@@ -652,3 +652,4 @@ func (v *CrossFileValidator) findSkillOrphans(referencedSkills map[string]bool) 
 
 	return orphans
 }
+

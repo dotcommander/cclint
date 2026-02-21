@@ -82,7 +82,7 @@ func (l *OutputStyleLinter) PreValidate(filePath, contents string) []cue.Validat
 func (l *OutputStyleLinter) ParseContent(contents string) (map[string]any, string, error) {
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 	if err != nil {
-		return nil, "", fmt.Errorf("Error parsing frontmatter: %v", err)
+		return nil, "", fmt.Errorf("error parsing frontmatter: %v", err)
 	}
 	return fm.Data, fm.Body, nil
 }

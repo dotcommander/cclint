@@ -222,7 +222,7 @@ func ValidateFilePath(path string) (absPath string, err error) {
 	if err != nil {
 		return "", fmt.Errorf("cannot read file: %s: %w", absPath, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Read first 512 bytes for binary detection
 	buf := make([]byte, 512)

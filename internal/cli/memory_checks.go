@@ -61,7 +61,7 @@ func isInGitignore(gitignorePath, filename string) bool {
 	if err != nil {
 		return false
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	matched := false
 	scanner := bufio.NewScanner(file)

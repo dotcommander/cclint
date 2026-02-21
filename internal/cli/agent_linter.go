@@ -79,22 +79,20 @@ func (l *AgentLinter) GetImprovements(contents string, data map[string]any) []Im
 
 // PostProcessBatch implements BatchPostProcessor for cycle detection.
 func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
-	if ctx.NoCycleCheck {
-		return
-	}
+	if !ctx.NoCycleCheck {
+		cycles := ctx.CrossValidator.DetectCycles()
+		cyclesReported := make(map[string]bool)
 
-	cycles := ctx.CrossValidator.DetectCycles()
-	cyclesReported := make(map[string]bool)
+		for _, cycle := range cycles {
+			cycleDesc := crossfile.FormatCycle(cycle)
+			if cyclesReported[cycleDesc] {
+				continue
+			}
+			cyclesReported[cycleDesc] = true
 
-	for _, cycle := range cycles {
-		cycleDesc := crossfile.FormatCycle(cycle)
-		if cyclesReported[cycleDesc] {
-			continue
+			// Report cycle errors to all agents in the cycle
+			l.reportCycleError(summary, cycle, cycleDesc)
 		}
-		cyclesReported[cycleDesc] = true
-
-		// Report cycle errors to all agents in the cycle
-		l.reportCycleError(summary, cycle, cycleDesc)
 	}
 }
 

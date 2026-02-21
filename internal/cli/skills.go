@@ -163,7 +163,12 @@ func checkSkillExamplesSection(filePath, contents string) []cue.ValidationError 
 		strings.Contains(contents, "## Examples") ||
 		strings.Contains(contents, "## Expected Output") ||
 		strings.Contains(contents, "## Usage") ||
-		strings.Contains(contents, "### Example")
+		strings.Contains(contents, "### Example") ||
+		strings.Contains(contents, "references/examples") ||
+		strings.Contains(contents, "references/practices") ||
+		strings.Contains(contents, "See `references/") ||
+		strings.Contains(contents, "## Before/After") ||
+		strings.Contains(contents, "## Common Workflows")
 
 	if !hasExamples {
 		return []cue.ValidationError{{

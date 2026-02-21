@@ -525,7 +525,7 @@ func ValidateSemver(version, filePath string, line int) *cue.ValidationError {
 func parseFrontmatter(contents string) (map[string]any, string, error) {
 	fm, err := frontend.ParseYAMLFrontmatter(contents)
 	if err != nil {
-		return nil, "", fmt.Errorf("Error parsing frontmatter: %v", err)
+		return nil, "", fmt.Errorf("error parsing frontmatter: %v", err)
 	}
 	return fm.Data, fm.Body, nil
 }
@@ -535,7 +535,7 @@ func parseFrontmatter(contents string) (map[string]any, string, error) {
 func parseJSONContent(contents string) (map[string]any, string, error) {
 	var data map[string]any
 	if err := json.Unmarshal([]byte(contents), &data); err != nil {
-		return nil, "", fmt.Errorf("Invalid JSON: %v", err)
+		return nil, "", fmt.Errorf("invalid JSON: %v", err)
 	}
 	return data, "", nil
 }
