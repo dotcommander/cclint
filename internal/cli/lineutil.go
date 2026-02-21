@@ -324,29 +324,30 @@ func GetSkillImprovements(content string, data map[string]any) []ImprovementReco
 	return recs
 }
 
+// KnownTools is the set of valid Claude Code tool names.
+// Source: Claude Code documentation.
+var KnownTools = map[string]bool{
+	// File operations
+	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
+	"Glob": true, "Grep": true, "LS": true,
+	// Execution
+	"Bash": true, "Task": true,
+	// Web
+	"WebFetch": true, "WebSearch": true,
+	// Interactive
+	"AskUserQuestion": true, "TodoWrite": true,
+	"TaskCreate": true, "TaskUpdate": true, "TaskList": true, "TaskGet": true, "TaskStop": true,
+	// Special
+	"Skill": true, "LSP": true, "NotebookEdit": true,
+	"EnterPlanMode": true, "ExitPlanMode": true,
+	"KillShell": true, "TaskOutput": true,
+	// Wildcards
+	"*": true,
+}
+
 // ValidateAllowedTools validates that allowed-tools and tools fields contain known tool names
 func ValidateAllowedTools(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var warnings []cue.ValidationError
-
-	// Known tools from Claude Code documentation
-	knownTools := map[string]bool{
-		// File operations
-		"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
-		"Glob": true, "Grep": true, "LS": true,
-		// Execution
-		"Bash": true, "Task": true,
-		// Web
-		"WebFetch": true, "WebSearch": true,
-		// Interactive
-		"AskUserQuestion": true, "TodoWrite": true,
-		"TaskCreate": true, "TaskUpdate": true, "TaskList": true, "TaskGet": true, "TaskStop": true,
-		// Special
-		"Skill": true, "LSP": true, "NotebookEdit": true,
-		"EnterPlanMode": true, "ExitPlanMode": true,
-		"KillShell": true, "TaskOutput": true,
-		// Wildcards
-		"*": true,
-	}
 
 	// Check both "tools" and "allowed-tools" fields
 	toolsFields := []string{"tools", "allowed-tools"}
@@ -363,7 +364,7 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 				continue
 			}
 			baseTool := extractBaseToolName(tool)
-			if !knownTools[baseTool] {
+			if !KnownTools[baseTool] {
 				warnings = append(warnings, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),

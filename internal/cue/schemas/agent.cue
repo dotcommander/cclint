@@ -9,8 +9,8 @@ import (
 // Agent Schema
 // ============================================================================
 
-// Valid Claude Code colors - limited to 8 standard colors
-#Color: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan"
+// Valid Claude Code colors - limited to 11 standard colors
+#Color: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan" | "gray" | "magenta" | "white"
 
 // Valid memory scopes for persistent agent memory (v2.1.33+)
 #MemoryScope: "user" | "project" | "local"
@@ -98,7 +98,7 @@ validate: {
 // Check if a color value is valid
 #isValidColor: {
 	color: string
-	valid: strings.Contains("red,blue,green,yellow,purple,orange,pink,cyan", color)
+	valid: strings.Contains("red,blue,green,yellow,purple,orange,pink,cyan,gray,magenta,white", color)
 }
 
 // Check if model value is valid
