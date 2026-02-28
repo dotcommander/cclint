@@ -94,16 +94,18 @@ func parseMarkdownSections(content string) []any {
 			currentSection = map[string]any{
 				"heading": strings.TrimPrefix(line, "## "),
 				"content": "",
+				"level":   2,
 			}
 			inSection = true
 		case strings.HasPrefix(line, "# "):
-			// New h1 section found
+			// New h1 section found (document title)
 			if inSection {
 				sections = append(sections, currentSection)
 			}
 			currentSection = map[string]any{
 				"heading": strings.TrimPrefix(line, "# "),
 				"content": "",
+				"level":   1,
 			}
 			inSection = true
 		case inSection && line != "":
@@ -176,12 +178,16 @@ func validateContextSections(sections []any, filePath string) []cue.ValidationEr
 				Severity: cue.SeverityWarning,
 			})
 		}
-		if content, exists := sectionMap["content"]; !exists || content == "" {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Section %d: missing content", i),
-				Severity: cue.SeverityWarning,
-			})
+		// h1 sections are document titles — don't require body content
+		level, _ := sectionMap["level"].(int)
+		if level != 1 {
+			if content, exists := sectionMap["content"]; !exists || content == "" {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Section %d: missing content", i),
+					Severity: cue.SeverityWarning,
+				})
+			}
 		}
 	}
 	return errors

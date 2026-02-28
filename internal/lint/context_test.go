@@ -1,7 +1,11 @@
 package lint
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/dotcommander/cclint/internal/cue"
 )
 
 func TestLintContext(t *testing.T) {
@@ -78,6 +82,21 @@ even multiple lines`,
 Content here`,
 			wantSections: 1,
 		},
+		{
+			name: "yaml frontmatter stripped",
+			content: `---
+title: My Project
+---
+
+## Build
+
+Instructions here.
+
+## Testing
+
+Test stuff.`,
+			wantSections: 2,
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,9 +159,10 @@ Subsection body text`
 
 func TestValidateContextSections(t *testing.T) {
 	tests := []struct {
-		name           string
-		sections       []any
-		wantErrorCount int
+		name             string
+		sections         []any
+		wantErrorCount   int
+		wantSeverities   []string
 	}{
 		{
 			name: "all sections valid",
@@ -163,6 +183,7 @@ func TestValidateContextSections(t *testing.T) {
 				map[string]any{"heading": "Empty Section", "content": ""},
 			},
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
 		},
 		{
 			name: "section missing heading",
@@ -170,6 +191,32 @@ func TestValidateContextSections(t *testing.T) {
 				map[string]any{"heading": "", "content": "Some content"},
 			},
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
+		},
+		{
+			name: "both heading and content missing",
+			sections: []any{
+				map[string]any{"heading": "", "content": ""},
+			},
+			wantErrorCount: 2,
+			wantSeverities: []string{cue.SeverityWarning, cue.SeverityWarning},
+		},
+		{
+			name: "h1 title without content is ok",
+			sections: []any{
+				map[string]any{"heading": "My Project", "content": "", "level": 1},
+				map[string]any{"heading": "Build", "content": "go build", "level": 2},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "h2 without content still warns",
+			sections: []any{
+				map[string]any{"heading": "My Project", "content": "", "level": 1},
+				map[string]any{"heading": "Empty Section", "content": "", "level": 2},
+			},
+			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
 		},
 	}
 
@@ -182,15 +229,24 @@ func TestValidateContextSections(t *testing.T) {
 					t.Logf("  - [%s] %s", e.Severity, e.Message)
 				}
 			}
+			for i, wantSev := range tt.wantSeverities {
+				if i >= len(errs) {
+					break
+				}
+				if errs[i].Severity != wantSev {
+					t.Errorf("errs[%d].Severity = %q, want %q", i, errs[i].Severity, wantSev)
+				}
+			}
 		})
 	}
 }
 
 func TestCheckBinaryIncludes(t *testing.T) {
 	tests := []struct {
-		name           string
-		contents       string
-		wantErrorCount int
+		name             string
+		contents         string
+		wantErrorCount   int
+		wantSeverities   []string
 	}{
 		{
 			name:           "no includes",
@@ -201,11 +257,13 @@ func TestCheckBinaryIncludes(t *testing.T) {
 			name:           "png include",
 			contents:       "@include ./assets/logo.png",
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
 		},
 		{
 			name:           "jpg img tag style",
 			contents:       "@include ./images/banner.jpg",
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
 		},
 		{
 			name:           "text file ok",
@@ -221,11 +279,13 @@ func TestCheckBinaryIncludes(t *testing.T) {
 			name:           "multiple binary includes",
 			contents:       "@include ./docs/manual.pdf\n@include ./assets/icon.jpg",
 			wantErrorCount: 2,
+			wantSeverities: []string{cue.SeverityWarning, cue.SeverityWarning},
 		},
 		{
 			name:           "pdf include",
 			contents:       "@include ./docs/spec.pdf",
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
 		},
 	}
 
@@ -238,16 +298,25 @@ func TestCheckBinaryIncludes(t *testing.T) {
 					t.Logf("  - [%s] %s", e.Severity, e.Message)
 				}
 			}
+			for i, wantSev := range tt.wantSeverities {
+				if i >= len(errs) {
+					break
+				}
+				if errs[i].Severity != wantSev {
+					t.Errorf("errs[%d].Severity = %q, want %q", i, errs[i].Severity, wantSev)
+				}
+			}
 		})
 	}
 }
 
 func TestValidateContextSpecific(t *testing.T) {
 	tests := []struct {
-		name           string
-		data           map[string]any
-		contents       string
-		wantErrorCount int
+		name             string
+		data             map[string]any
+		contents         string
+		wantErrorCount   int
+		wantSeverities   []string
 	}{
 		{
 			name: "clean - valid sections no binary",
@@ -269,6 +338,23 @@ func TestValidateContextSpecific(t *testing.T) {
 			},
 			contents:       "@include ./assets/logo.png",
 			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeverityWarning},
+		},
+		{
+			name:           "nil sections produces suggestion",
+			data:           map[string]any{},
+			contents:       "",
+			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeveritySuggestion},
+		},
+		{
+			name: "empty sections slice produces suggestion",
+			data: map[string]any{
+				"sections": []any{},
+			},
+			contents:       "",
+			wantErrorCount: 1,
+			wantSeverities: []string{cue.SeveritySuggestion},
 		},
 	}
 
@@ -281,6 +367,93 @@ func TestValidateContextSpecific(t *testing.T) {
 					t.Logf("  - [%s] %s", e.Severity, e.Message)
 				}
 			}
+			for i, wantSev := range tt.wantSeverities {
+				if i >= len(errs) {
+					break
+				}
+				if errs[i].Severity != wantSev {
+					t.Errorf("errs[%d].Severity = %q, want %q", i, errs[i].Severity, wantSev)
+				}
+			}
 		})
+	}
+}
+
+func TestLintContextWithFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// CLAUDE.md with valid sections and a binary @include
+	content := "# My Project\n\nProject overview here.\n\n## Build\n\n`go build ./...`\n\n## Testing\n\n`go test ./...`\n\n@include ./assets/logo.png\n"
+	claudeMdPath := filepath.Join(claudeDir, "CLAUDE.md")
+	if err := os.WriteFile(claudeMdPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := LintContext(tmpDir, false, false, true)
+	if err != nil {
+		t.Fatalf("LintContext() error = %v", err)
+	}
+	if summary == nil {
+		t.Fatal("LintContext() returned nil summary")
+	}
+
+	if summary.TotalFiles != 1 {
+		t.Errorf("LintContext() TotalFiles = %d, want 1", summary.TotalFiles)
+	}
+
+	// The binary @include should produce at least one warning
+	if summary.TotalWarnings < 1 {
+		t.Errorf("LintContext() TotalWarnings = %d, want >= 1 (binary include warning)", summary.TotalWarnings)
+	}
+
+	// Verify the binary-include warning appears in results
+	found := false
+	for _, result := range summary.Results {
+		for _, w := range result.Warnings {
+			if w.Source == "binary-include" {
+				found = true
+				break
+			}
+		}
+		if found {
+			break
+		}
+	}
+	if !found {
+		t.Error("LintContext() expected binary-include warning in results")
+	}
+}
+
+// Regression: h1 title followed by h2 subsections should not warn about missing content.
+// See: cclint ~/.config/opencode/CLAUDE.md produced false positive "Section 0: missing content".
+func TestLintContextH1TitleNoFalsePositive(t *testing.T) {
+	tmpDir := t.TempDir()
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// h1 title with no body content, followed immediately by h2 sections
+	content := "# OpenCode Configuration\n\n## Custom Commands\n\nCommands are .md files.\n\n## Plugins\n\nPlugin setup.\n"
+	if err := os.WriteFile(filepath.Join(claudeDir, "CLAUDE.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := LintContext(tmpDir, false, false, true)
+	if err != nil {
+		t.Fatalf("LintContext() error = %v", err)
+	}
+
+	if summary.TotalWarnings != 0 {
+		t.Errorf("LintContext() TotalWarnings = %d, want 0 (h1 title should not warn)", summary.TotalWarnings)
+		for _, result := range summary.Results {
+			for _, w := range result.Warnings {
+				t.Logf("  warning: %s", w.Message)
+			}
+		}
 	}
 }
