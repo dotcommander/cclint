@@ -170,11 +170,11 @@ For consistency and discoverability, the agent name should match the filename (w
 If the optional `color` field is specified, it must use a valid color name.
 
 **Pass Criteria:**
-- `color` field is one of: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`
+- `color` field is one of: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`, `gray`, `magenta`, `white`
 - Or `color` field is not specified (optional field)
 
 **Fail Message:**
-`Invalid color '[color]'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan`
+`Invalid color '[color]'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white`
 
 **Source:** cclint observation - color options beyond official documented list (purple, cyan, green, orange, blue, red)
 

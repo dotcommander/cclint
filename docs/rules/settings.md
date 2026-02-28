@@ -32,15 +32,15 @@ File contains well-formed JSON with proper syntax (valid braces, quotes, commas,
 **Category:** structural
 
 **Description:**
-Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove.
+Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove.
 
 **Pass Criteria:**
 Every key in the `hooks` object matches a valid hook event name from Anthropic documentation.
 
 **Fail Message:**
-`Unknown hook event '[eventName]'. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove`
+`Unknown hook event '[eventName]'. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove`
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 18 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, Setup, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove"
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 17 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove"
 
 ---
 
@@ -205,15 +205,15 @@ The `type` field contains a JSON string value.
 **Category:** structural
 
 **Description:**
-Hook type must be one of the valid types. As of Claude Code 2.1.0, plugins can use "prompt" and "agent" types in addition to "command".
+Hook type must be one of the valid types. As of Claude Code 2.1.0, plugins can use "prompt" and "agent" types in addition to "command". As of Claude Code 2.1.63, "http" is also a valid type.
 
 **Pass Criteria:**
-The `type` field value is exactly "command", "prompt", or "agent".
+The `type` field value is exactly "command", "prompt", "agent", or "http".
 
 **Fail Message:**
-`Event '[eventName]' hook [index] inner hook [innerIndex]: invalid type '[hookType]'. Valid types: command, prompt, agent`
+`Event '[eventName]' hook [index] inner hook [innerIndex]: invalid type '[hookType]'. Valid types: command, prompt, agent, http`
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - Hook type values (command, prompt, agent)
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - Hook type values (command, prompt, agent, http)
 
 ---
 
@@ -545,6 +545,7 @@ Claude Code 2.1.0 introduced new settings.json fields:
 | `command` | Execute a shell command (original) |
 | `prompt` | Modify Claude's prompt (plugins, v2.1.0+) |
 | `agent` | Invoke an agent (plugins, v2.1.0+) |
+| `http` | Make an HTTP request (v2.1.63+) |
 
 ### Example settings.json
 

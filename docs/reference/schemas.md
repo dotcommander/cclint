@@ -47,7 +47,7 @@ internal/cue/schemas/
 | Field | Type | Values | Description |
 |-------|------|--------|-------------|
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit` | Model preference |
-| `color` | string | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan` | Terminal color |
+| `color` | string | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`, `gray`, `magenta`, `white` | Terminal color |
 | `tools` | `*`, string, array | `*` for all, or tool names | Tool access allowlist (agents use `tools:` not `allowed-tools:`) |
 | `disallowedTools` | `*`, string, array | Tool names | Tool access denylist |
 | `permissionMode` | string | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` | Permission handling |
@@ -249,7 +249,7 @@ hooks:
 
 ### Hooks Format
 
-Hook types include `command`, `prompt`, and `agent` (v2.1.0+):
+Hook types include `command`, `prompt`, `agent` (v2.1.0+), and `http` (v2.1.63+):
 
 ```json
 {
@@ -272,15 +272,19 @@ Hook types include `command`, `prompt`, and `agent` (v2.1.0+):
 }
 ```
 
-**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `Setup`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
+**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
 
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
 - `hooks`: Array of hook commands
-  - `type`: `command`, `prompt`, or `agent` (v2.1.0+)
+  - `type`: `command`, `prompt`, `agent` (v2.1.0+), or `http` (v2.1.63+)
   - `command`: Shell command (for type=command)
   - `timeout`: Timeout in seconds, default 30
   - `once`: Run only once per session (v2.1.0+)
+  - `statusMessage`: Custom spinner message displayed while the hook runs (v2.1.63+)
+  - `url`: URL for HTTP hooks (required when type is "http") (v2.1.63+)
+  - `headers`: Additional HTTP headers, `{[string]: string}` (http only, v2.1.63+)
+  - `allowedEnvVars`: Env vars allowed in header interpolation, `[...string]` (http only, v2.1.63+)
 
 ## Validation Rules Summary
 
@@ -313,5 +317,5 @@ Full model names are also accepted (e.g., `claude-sonnet-4-20250514`).
 
 ### Color Values (Agents Only)
 
-Only 8 standard colors supported:
-`red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`
+Only 11 standard colors supported:
+`red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`, `gray`, `magenta`, `white`

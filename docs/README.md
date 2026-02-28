@@ -1,7 +1,8 @@
 # Documentation
 
-Pick your role and run the next action.
+Pick your path.
 
-- Run cclint in a project (operator): `docs/setup.md`
-- Integrate cclint into CI/hooks (integrator): `docs/connect-assistant.md`
-- Change cclint source code (contributor): `docs/change-cclint.md`
+- Set up and run cclint: `docs/setup.md`
+- Common workflows and commands: `docs/common-tasks.md`
+- Integrate into CI/hooks: `docs/connect-assistant.md`
+- Change cclint source code: `docs/change-cclint.md`

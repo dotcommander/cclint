@@ -20,7 +20,14 @@ cclint                        # lint all component types
 cclint agents                 # lint only agents
 cclint commands               # lint only commands
 cclint skills                 # lint only skills
+cclint settings               # lint only settings.json files
+cclint rules                  # lint only rule files
+cclint context                # lint only CLAUDE.md files
 cclint plugins                # lint only plugin manifests
+cclint output-styles          # lint only output style files
+cclint summary                # show quality summary
+cclint fmt                    # format component files
+cclint fmt --write            # format and write in place
 
 #-Single-file mode
 cclint ./agents/my-agent.md            # lint one file (auto-detect type)
@@ -60,7 +67,8 @@ go test ./internal/scoring/...            # test specific package
 cmd/                    # Cobra commands (root, agents, commands, skills, etc.)
 internal/
 ├── discovery/          # File discovery using doublestar glob patterns
-├── frontend/           # YAML frontmatter parsing
+├── types/              # Shared types: ValidationError, constants
+├── textutil/           # Shared text utilities: KnownTools, frontmatter parser
 ├── cue/
 │   ├── validator.go    # CUE-based schema validation
 │   └── schemas/        # Embedded CUE schemas (agent, command, settings, claude_md)
@@ -73,7 +81,7 @@ internal/
 │   ├── command_scorer.go
 │   ├── skill_scorer.go
 │   └── plugin_scorer.go
-├── cli/                # Lint orchestration per component type
+├── lint/               # Lint orchestration per component type
 │   ├── crossfile/         # Cross-file validation
 │   │   ├── crossfile.go   # Reference validation, orphan detection
 │   │   ├── triggers.go    # Ghost trigger detection in reference files
@@ -108,7 +116,7 @@ schemas/                # Root-level CUE schemas (duplicated in internal/cue/sch
 
 ## Cross-File Validation
 
-**Location**: `internal/cli/crossfile.go`
+**Location**: `internal/lint/crossfile/crossfile.go`
 
 Detects skill references using `findSkillReferences()`:
 
@@ -161,6 +169,58 @@ cclint --baseline agents
 
 Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. Environment variables with `CCLINT_` prefix also supported.
 
+## Validation Surface
+
+What cclint validates, for the `/updater` workflow. Source files in parentheses.
+
+### Hook Events — 17 total (`internal/lint/settings.go`)
+
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
+
+Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
+
+### KnownTools (`internal/textutil/lineutil.go`)
+
+`Read`, `Write`, `Edit`, `MultiEdit`, `Bash`, `Grep`, `Glob`, `LS`, `Task`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `AskUserQuestion`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `TaskStop`, `Skill`, `LSP`, `KillShell`, `TaskOutput`, `EnterPlanMode`, `ExitPlanMode`, `*`
+
+### CUE Schema Fields
+
+**Agent** (`internal/cue/schemas/agent.cue`): name (required), description (required), model, color, tools, disallowedTools, permissionMode, maxTurns, skills, hooks, memory, mcpServers, isolation, background. Open struct (`...`).
+
+**Command** (`internal/cue/schemas/command.cue`): name, description, allowed-tools, argument-hint, model, disable-model-invocation, hooks. Open struct.
+
+**Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, context, agent, hooks, license, compatibility, metadata. Open struct.
+
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks. Open struct.
+
+### CUE #KnownTool Union (shared across agent/command/skill schemas)
+
+`Read`, `Write`, `Edit`, `MultiEdit`, `Bash`, `Grep`, `Glob`, `LS`, `Task`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `BashOutput`, `KillBash`, `ExitPlanMode`, `AskUserQuestion`, `LSP`, `Skill`, `DBClient`
+
+Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may diverge.
+
+### Hook Handler Fields per Schema
+
+**Settings** `#HookCommand`: type (`command`|`prompt`|`agent`|`http`), command, prompt, async, timeout, once, statusMessage, url, headers, allowedEnvVars. Closed struct.
+
+**Agent** `#AgentHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+
+**Skill** `#SkillHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+
+**Command** `#CommandHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+
+### Valid Enum Values
+
+**Colors**: red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white
+
+**Models**: sonnet, opus, haiku, sonnet[1m], opusplan, inherit (skill.cue also allows `claude-*` pattern)
+
+**Permission modes**: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
+
+**Memory scopes**: user, project, local
+
+**Marketplace sources**: github, git, url, npm, file, directory, hostPattern
+
 ## Operational Context
 
 - Documentation now has a role-based first-hop route: `README.md` -> `docs/README.md` -> `docs/setup.md` / `docs/connect-assistant.md` / `docs/change-cclint.md`.
@@ -170,10 +230,11 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.50 |
+| claude_code_last_updated | v2.1.63 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
-| knowntools_location | `internal/cli/lineutil.go` exported `KnownTools` var (shared by tool validation and body scanning) |
+| knowntools_location | `internal/textutil/lineutil.go` exported `KnownTools` var (shared by tool validation and body scanning) |
 | stale_binary_trap | Always `go build -o cclint .` before running `./cclint` — stale binary causes phantom results |
 | golangci_lint_version | v2 config format required (`version: "2"` in `.golangci.yml`) |
+| aic_cli | `aic claude` (Homebrew) fetches Claude Code changelog — primary method for `/updater`, fallback to `gh api` |

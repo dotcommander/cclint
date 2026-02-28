@@ -23,9 +23,13 @@ Run one component type:
 cclint agents
 cclint commands
 cclint skills
-cclint plugins
-cclint contexts
+cclint settings
 cclint rules
+cclint context
+cclint plugins
+cclint output-styles
+cclint summary
+cclint fmt
 ```
 
 Run a single file:

@@ -15,17 +15,19 @@ go install github.com/dotcommander/cclint@latest
 ```bash
 cclint                    # lint everything under ~/.claude
 cclint agents             # one component type
+cclint ./path/to/file.md  # lint specific files
 cclint --staged           # only staged files (pre-commit)
-cclint --scores           # include quality scores (0-100)
-cclint --improvements     # show what would move the needle
+cclint --scores           # quality scores (0-100)
+cclint fmt --write        # auto-format component files
 ```
 
 ## What it catches
 
-- Frontmatter schema errors (via embedded CUE schemas)
-- Naming, size, and structure violations per component type
-- Cross-file issues: broken skill references, orphaned skills, ghost triggers
-- Model field mutations and delegation anti-patterns
+- Frontmatter schema errors (embedded CUE schemas)
+- Size, structure, and naming violations per component type
+- Cross-file issues: broken references, orphaned skills, ghost triggers
+- Settings validation: hooks, permissions, MCP servers, security
+- Delegation anti-patterns in commands and agents
 
 ## Baseline mode
 

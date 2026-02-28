@@ -125,10 +125,10 @@ The model field must be one of the predefined Claude Code model identifiers. Cus
 **Category:** schema
 
 **Description:**
-Agent color must be one of the 8 standard Claude Code colors for visual identification.
+Agent color must be one of the 11 standard Claude Code colors for visual identification.
 
 **Constraint:**
-`color?: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan"`
+`color?: "red" | "blue" | "green" | "yellow" | "purple" | "orange" | "pink" | "cyan" | "gray" | "magenta" | "white"`
 
 **Valid Values:**
 - `red`
@@ -139,6 +139,9 @@ Agent color must be one of the 8 standard Claude Code colors for visual identifi
 - `orange`
 - `pink`
 - `cyan`
+- `gray`
+- `magenta`
+- `white`
 
 **Source:** cclint observation - Visual identification palette for agents
 
