@@ -368,7 +368,17 @@ func TestRunComponentLint_VerboseOutput(t *testing.T) {
 		verbose = oldVerbose
 	}()
 
-	// Create linter
+	// Mock exitFunc to capture exit calls without terminating the test process
+	originalExitFunc := exitFunc
+	exitCalled := false
+	exitCode := 0
+	exitFunc = func(code int) {
+		exitCalled = true
+		exitCode = code
+	}
+	defer func() { exitFunc = originalExitFunc }()
+
+	// Create linter with errors — should trigger exit(1) due to fail-on logic
 	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
@@ -381,6 +391,8 @@ func TestRunComponentLint_VerboseOutput(t *testing.T) {
 	// Run with verbose
 	err := runComponentLint("agents", linter)
 	assert.NoError(t, err)
+	assert.True(t, exitCalled, "expected exitFunc to be called due to errors")
+	assert.Equal(t, 1, exitCode, "expected exit code 1 for lint errors")
 }
 
 func TestLinterFuncSignature(t *testing.T) {

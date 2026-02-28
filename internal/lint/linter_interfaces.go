@@ -249,6 +249,8 @@ func categorizeIssues(result *LintResult, issues []cue.ValidationError) {
 		switch issue.Severity {
 		case cue.SeveritySuggestion:
 			result.Suggestions = append(result.Suggestions, issue)
+		case cue.SeverityInfo:
+			result.Suggestions = append(result.Suggestions, issue)
 		case cue.SeverityWarning:
 			result.Warnings = append(result.Warnings, issue)
 		default:

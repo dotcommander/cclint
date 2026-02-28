@@ -82,6 +82,11 @@ func runComponentLint(linterName string, linter LinterFunc) error {
 	// Print baseline filtering summary
 	printBaselineSummary(totalIgnored, errorsIgnored, suggestionsIgnored, cfg.Quiet)
 
+	// Exit with error based on --fail-on level
+	if shouldFail(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions) {
+		exitFunc(1)
+	}
+
 	return nil
 }
 

@@ -299,7 +299,7 @@ func runLint() error {
 	}
 
 	// Exit with error based on --fail-on level
-	if shouldFail(cfg, result.TotalErrors, 0, result.TotalSuggestions) {
+	if shouldFail(cfg, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions) {
 		exitFunc(1)
 	}
 

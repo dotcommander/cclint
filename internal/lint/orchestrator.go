@@ -70,6 +70,7 @@ type Result struct {
 	StartTime          time.Time
 	TotalFiles         int
 	TotalErrors        int
+	TotalWarnings      int
 	TotalSuggestions   int
 	HasErrors          bool
 	BaselineIgnored    int
@@ -154,6 +155,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		// Accumulate totals
 		result.TotalFiles += summary.TotalFiles
 		result.TotalErrors += summary.TotalErrors
+		result.TotalWarnings += summary.TotalWarnings
 		result.TotalSuggestions += summary.TotalSuggestions
 		if summary.TotalErrors > 0 {
 			result.HasErrors = true
