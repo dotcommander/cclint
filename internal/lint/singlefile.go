@@ -23,6 +23,7 @@ package lint
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -311,6 +312,76 @@ func lintSingleFileWithCache(filePath, rootPath, typeOverride string, quiet, ver
 	return summary, nil
 }
 
+// fileWithHint pairs a file path with an optional type hint inferred during
+// directory expansion (e.g., directory named "command" → "command").
+type fileWithHint struct {
+	Path     string
+	TypeHint string // empty = auto-detect, non-empty = use as typeOverride
+}
+
+// expandDirectories expands any directory paths in the input list to their
+// contained .md and .json files. Non-directory paths are kept as-is.
+// Hidden child directories (.git, etc.) are skipped during traversal.
+//
+// When typeOverride is empty, files are filtered through DetectFileType so
+// that non-component files (references/, prompts/, usage-data/, etc.) are
+// silently excluded. If DetectFileType fails, the walked directory's base
+// name is checked via ParseFileType as a fallback — this allows singular
+// directory names (e.g., "command/", "agent/") to work alongside the
+// standard plural forms. When typeOverride is set, all .md/.json files are
+// included since the user is explicitly declaring the component type.
+func expandDirectories(paths []string, typeOverride string) []fileWithHint {
+	result := make([]fileWithHint, 0, len(paths))
+	for _, p := range paths {
+		info, err := os.Stat(p)
+		if err != nil || !info.IsDir() {
+			result = append(result, fileWithHint{Path: p, TypeHint: typeOverride})
+			continue
+		}
+		absDir, _ := filepath.Abs(p)
+		rootPath := filepath.Dir(absDir)
+
+		// Pre-check: can the directory name itself hint at a component type?
+		dirHint := ""
+		if typeOverride == "" {
+			if ft, parseErr := discovery.ParseFileType(filepath.Base(absDir)); parseErr == nil {
+				dirHint = ft.String()
+			}
+		}
+
+		_ = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if d.IsDir() {
+				if path != p && strings.HasPrefix(d.Name(), ".") {
+					return fs.SkipDir
+				}
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(path))
+			if ext != ".md" && ext != ".json" {
+				return nil
+			}
+			if typeOverride != "" {
+				result = append(result, fileWithHint{Path: path, TypeHint: typeOverride})
+				return nil
+			}
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				return nil
+			}
+			if _, err := discovery.DetectFileType(absPath, rootPath); err == nil {
+				result = append(result, fileWithHint{Path: path})
+			} else if dirHint != "" {
+				result = append(result, fileWithHint{Path: path, TypeHint: dirHint})
+			}
+			return nil
+		})
+	}
+	return result
+}
+
 // LintFiles lints multiple files and returns a combined summary.
 //
 // Each file is validated independently; failures for one file do not
@@ -327,6 +398,11 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		return nil, fmt.Errorf("no files specified")
 	}
 
+	expanded := expandDirectories(filePaths, typeOverride)
+	if len(expanded) == 0 {
+		return nil, fmt.Errorf("no lintable files found")
+	}
+
 	summary := &LintSummary{
 		StartTime: time.Now(),
 	}
@@ -338,16 +414,21 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 
 	var firstRoot string
 
-	for _, fp := range filePaths {
-		result, err := lintSingleFileWithCache(fp, rootPath, typeOverride, quiet, verbose, cache)
+	for _, fh := range expanded {
+		// Use per-file type hint if available, otherwise the global typeOverride
+		effectiveType := typeOverride
+		if fh.TypeHint != "" {
+			effectiveType = fh.TypeHint
+		}
+		result, err := lintSingleFileWithCache(fh.Path, rootPath, effectiveType, quiet, verbose, cache)
 		if err != nil {
 			// Record as failed result with error message
 			summary.Results = append(summary.Results, LintResult{
-				File:    fp,
+				File:    fh.Path,
 				Type:    "unknown",
 				Success: false,
 				Errors: []cue.ValidationError{{
-					File:     fp,
+					File:     fh.Path,
 					Message:  err.Error(),
 					Severity: "error",
 				}},
@@ -419,67 +500,3 @@ func lintSingleRule(ctx *SingleFileLinterContext) LintResult {
 	return lintComponent(ctx, NewRuleLinter())
 }
 
-// LooksLikePath determines if an argument looks like a file path rather than a subcommand.
-//
-// This is used to distinguish between:
-//   - cclint agents     (subcommand)
-//   - cclint ./agents   (file path)
-//
-// The detection is conservative to avoid false positives:
-//   - Absolute paths: /path, C:\path
-//   - Relative paths: ./path, ../path
-//   - Contains separator: path/to/file
-//   - Has known extension: .md, .json
-//
-// Known subcommands (agents, commands, etc.) are NOT treated as paths
-// even if they match these patterns, unless --file flag is used.
-func LooksLikePath(arg string) bool {
-	// Absolute Unix path
-	if strings.HasPrefix(arg, "/") {
-		return true
-	}
-
-	// Absolute Windows path (C:\, D:\, etc.)
-	if len(arg) > 2 && arg[1] == ':' && (arg[2] == '\\' || arg[2] == '/') {
-		return true
-	}
-
-	// Explicit relative paths
-	if strings.HasPrefix(arg, "./") || strings.HasPrefix(arg, "../") {
-		return true
-	}
-	if strings.HasPrefix(arg, ".\\") || strings.HasPrefix(arg, "..\\") {
-		return true
-	}
-
-	// Contains path separator (not just a bare word)
-	if strings.Contains(arg, "/") || strings.Contains(arg, "\\") {
-		return true
-	}
-
-	// Has known file extension
-	lower := strings.ToLower(arg)
-	if strings.HasSuffix(lower, ".md") || strings.HasSuffix(lower, ".json") {
-		return true
-	}
-
-	return false
-}
-
-// IsKnownSubcommand returns true if the argument is a known subcommand name.
-// These are protected from being interpreted as file paths.
-func IsKnownSubcommand(arg string) bool {
-	subcommands := map[string]bool{
-		"agents":        true,
-		"commands":      true,
-		"skills":        true,
-		"settings":      true,
-		"context":       true,
-		"plugins":       true,
-		"rules":         true,
-		"output-styles": true,
-		"help":          true,
-		"version":       true,
-	}
-	return subcommands[strings.ToLower(arg)]
-}

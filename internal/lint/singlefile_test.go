@@ -8,90 +8,6 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 )
 
-// TestLooksLikePath tests the path detection algorithm.
-func TestLooksLikePath(t *testing.T) {
-	tests := []struct {
-		name     string
-		arg      string
-		expected bool
-	}{
-		// Absolute paths
-		{"unix absolute", "/path/to/file.md", true},
-		{"unix root", "/file.md", true},
-		{"windows absolute", "C:\\path\\file.md", true},
-		{"windows drive", "D:/file.md", true},
-
-		// Relative paths with prefix
-		{"current dir prefix", "./file.md", true},
-		{"parent dir prefix", "../file.md", true},
-		{"nested relative", "./path/to/file.md", true},
-		{"windows relative", ".\\file.md", true},
-
-		// Contains path separator
-		{"path with slash", "path/to/file.md", true},
-		{"deep path", "a/b/c/d.md", true},
-		{"backslash path", "path\\file.md", true},
-
-		// File extensions
-		{"md extension", "file.md", true},
-		{"json extension", "settings.json", true},
-		{"MD uppercase", "FILE.MD", true},
-		{"JSON uppercase", "CONFIG.JSON", true},
-
-		// NOT paths (subcommand-like)
-		{"bare word", "agents", false},
-		{"bare word 2", "commands", false},
-		{"no extension", "myfile", false},
-		{"txt extension", "file.txt", false}, // Not .md or .json
-		{"go extension", "main.go", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := LooksLikePath(tt.arg)
-			if result != tt.expected {
-				t.Errorf("LooksLikePath(%q) = %v, want %v", tt.arg, result, tt.expected)
-			}
-		})
-	}
-}
-
-// TestIsKnownSubcommand tests subcommand detection.
-func TestIsKnownSubcommand(t *testing.T) {
-	tests := []struct {
-		name     string
-		arg      string
-		expected bool
-	}{
-		{"agents", "agents", true},
-		{"commands", "commands", true},
-		{"skills", "skills", true},
-		{"settings", "settings", true},
-		{"context", "context", true},
-		{"plugins", "plugins", true},
-		{"help", "help", true},
-		{"version", "version", true},
-
-		// Case insensitive
-		{"AGENTS uppercase", "AGENTS", true},
-		{"Commands mixed", "Commands", true},
-
-		// Not subcommands
-		{"random word", "foo", false},
-		{"agent singular typo", "agent", false}, // singular, not plural
-		{"file path", "./agents", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := IsKnownSubcommand(tt.arg)
-			if result != tt.expected {
-				t.Errorf("IsKnownSubcommand(%q) = %v, want %v", tt.arg, result, tt.expected)
-			}
-		})
-	}
-}
-
 // TestDetectFileType tests type detection from paths.
 func TestDetectFileType(t *testing.T) {
 	// Create a temp directory structure
@@ -458,6 +374,71 @@ Test skill content.
 
 	if len(summary.Results) != 1 {
 		t.Errorf("Expected 1 result, got %d", len(summary.Results))
+	}
+}
+
+func TestExpandDirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Plural directory (standard)
+	pluralDir := filepath.Join(tmpDir, "agents")
+	os.MkdirAll(pluralDir, 0755)
+	os.WriteFile(filepath.Join(pluralDir, "test.md"), []byte("# Agent"), 0644)
+
+	// Singular directory
+	singularDir := filepath.Join(tmpDir, "command")
+	os.MkdirAll(singularDir, 0755)
+	os.WriteFile(filepath.Join(singularDir, "do-thing.md"), []byte("# Command"), 0644)
+
+	// Unrecognized directory
+	unknownDir := filepath.Join(tmpDir, "prompts")
+	os.MkdirAll(unknownDir, 0755)
+	os.WriteFile(filepath.Join(unknownDir, "prompt.md"), []byte("# Prompt"), 0644)
+
+	tests := []struct {
+		name      string
+		paths     []string
+		typeOver  string
+		wantCount int
+	}{
+		{
+			name:      "plural dir included",
+			paths:     []string{pluralDir},
+			wantCount: 1,
+		},
+		{
+			name:      "singular dir included via fallback",
+			paths:     []string{singularDir},
+			wantCount: 1,
+		},
+		{
+			name:      "unrecognized dir excluded",
+			paths:     []string{unknownDir},
+			wantCount: 0,
+		},
+		{
+			name:      "unrecognized dir included with typeOverride",
+			paths:     []string{unknownDir},
+			typeOver:  "agent",
+			wantCount: 1,
+		},
+		{
+			name:      "non-directory path kept as-is",
+			paths:     []string{filepath.Join(pluralDir, "test.md")},
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandDirectories(tt.paths, tt.typeOver)
+			if len(result) != tt.wantCount {
+				t.Errorf("expandDirectories() = %d files, want %d", len(result), tt.wantCount)
+				for _, fh := range result {
+					t.Logf("  file: %s (hint: %q)", fh.Path, fh.TypeHint)
+				}
+			}
+		})
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/config"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/git"
 	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/outputters"
@@ -28,8 +29,7 @@ var (
 	outputFormat     string
 	outputFile       string
 	failOn           string
-	fileFlag         []string // Explicit file paths (--file flag)
-	typeFlag         string   // Force component type (--type flag)
+	typeFlag         string // Force component type (--type flag)
 	diffMode         bool     // Lint only changed files (--diff)
 	stagedMode       bool     // Lint only staged files (--staged)
 	noCycleCheck     bool     // Disable circular dependency detection
@@ -43,7 +43,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:     "cclint [files...]",
+	Use:     "cclint [files|dirs...]",
 	Short:   "Claude Code Lint - A comprehensive linting tool for Claude Code projects",
 	Version: Version,
 	Long: `CCLint is a linting tool for Claude Code projects that validates agent files,
@@ -54,12 +54,14 @@ USAGE MODES:
   Full scan (default):
     cclint                    Lint all component types
     cclint agents             Lint only agents
-    cclint commands           Lint only commands
+    cclint agents commands    Lint multiple types
 
-  Single-file mode:
+  File and directory mode:
     cclint ./agents/foo.md    Lint a specific file
     cclint path/to/file.md    Lint by path
     cclint a.md b.md c.md     Lint multiple files
+    cclint ./commands/        Lint all files in a directory
+    cclint ./command/         Singular dir names auto-detected
 
   Git integration mode:
     cclint --staged           Lint only staged files (pre-commit)
@@ -69,8 +71,7 @@ USAGE MODES:
     cclint --baseline-create  Create baseline from current issues
     cclint --baseline         Lint with baseline filtering
 
-  Explicit file mode (for edge cases):
-    cclint --file agents      Lint a file literally named "agents"
+  Type override:
     cclint --type agent x.md  Override type detection
 
 EXAMPLES:
@@ -80,6 +81,9 @@ EXAMPLES:
 
   # Lint multiple files
   cclint ./agents/a.md ./commands/b.md
+
+  # Lint an entire directory
+  cclint ./commands/
 
   # Lint only staged files (pre-commit hook)
   cclint --staged
@@ -102,22 +106,38 @@ EXAMPLES:
    • Style suggestions should be verified against official documentation`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Determine mode: single-file vs full scan
-		filesToLint := collectFilesToLint(args)
-
-		if len(filesToLint) > 0 {
-			// Single-file mode
-			if err := runSingleFileLint(filesToLint); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				exitFunc(2) // Exit 2 for invocation errors
-			}
-		} else if diffMode || stagedMode {
+		if diffMode || stagedMode {
 			// Git integration mode
 			if err := runGitLint(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				exitFunc(1)
 			}
-		} else {
+			return
+		}
+
+		classified, err := classifyArgs(args)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			exitFunc(2)
+			return
+		}
+
+		switch {
+		case len(classified.filePaths) > 0:
+			// File/directory mode
+			if err := runSingleFileLint(classified.filePaths); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				exitFunc(2)
+			}
+		case len(classified.typeFilters) > 0:
+			// Type filter mode
+			for _, ft := range classified.typeFilters {
+				if err := runTypeLint(ft); err != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+					exitFunc(1)
+				}
+			}
+		default:
 			// Full scan mode
 			if err := runLint(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -150,7 +170,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&failOn, "fail-on", "", "error", "Fail build on specified level (error|warning|suggestion)")
 
 	// Single-file mode flags
-	rootCmd.Flags().StringArrayVar(&fileFlag, "file", nil, "Explicit file path(s) to lint (use for files with subcommand names)")
 	rootCmd.Flags().StringVarP(&typeFlag, "type", "t", "", "Force component type (agent|command|skill|settings|context|plugin|rule|output-style)")
 
 	// Git integration flags
@@ -287,37 +306,37 @@ func runLint() error {
 	return nil
 }
 
-// collectFilesToLint determines which files to lint based on args and flags.
-//
-// Priority:
-//  1. --file flag (explicit files, bypasses subcommand detection)
-//  2. Args that look like file paths
-//  3. Empty (full scan mode)
-//
-// Known subcommands (agents, commands, etc.) are NOT treated as file paths
-// unless --file flag is used.
-func collectFilesToLint(args []string) []string {
-	var files []string
+// classifiedArgs holds the result of classifying command-line arguments.
+type classifiedArgs struct {
+	typeFilters []discovery.FileType
+	filePaths   []string
+}
 
-	// 1. --file flag takes precedence (explicit file mode)
-	if len(fileFlag) > 0 {
-		return fileFlag
-	}
-
-	// 2. Check args for file paths
+// classifyArgs classifies each argument as either a type filter or a file/directory path.
+//
+// An arg is a type filter if discovery.ParseFileType succeeds AND os.Stat fails
+// (i.e., it's a known type name that doesn't exist as a file/directory on disk).
+// Everything else is treated as a file/directory path.
+//
+// Mixing type filters with file paths is an error.
+func classifyArgs(args []string) (*classifiedArgs, error) {
+	result := &classifiedArgs{}
 	for _, arg := range args {
-		// Skip known subcommands (they'll be handled by Cobra)
-		if lint.IsKnownSubcommand(arg) {
-			continue
-		}
-
-		// Check if it looks like a file path
-		if lint.LooksLikePath(arg) {
-			files = append(files, arg)
+		ft, parseErr := discovery.ParseFileType(arg)
+		_, statErr := os.Stat(arg)
+		if parseErr == nil && statErr != nil {
+			// Known type name, doesn't exist on disk → type filter
+			result.typeFilters = append(result.typeFilters, ft)
+		} else {
+			// Everything else → file/directory path
+			result.filePaths = append(result.filePaths, arg)
 		}
 	}
-
-	return files
+	if len(result.typeFilters) > 0 && len(result.filePaths) > 0 {
+		return nil, fmt.Errorf("cannot mix type filters (%v) and file paths; use one or the other",
+			result.typeFilters)
+	}
+	return result, nil
 }
 
 // runSingleFileLint lints specific files and outputs results.

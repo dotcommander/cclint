@@ -19,6 +19,7 @@ cclint -V                     # short form
 cclint                        # lint all component types
 cclint agents                 # lint only agents
 cclint commands               # lint only commands
+cclint agents commands        # lint multiple types
 cclint skills                 # lint only skills
 cclint settings               # lint only settings.json files
 cclint rules                  # lint only rule files
@@ -29,12 +30,13 @@ cclint summary                # show quality summary
 cclint fmt                    # format component files
 cclint fmt --write            # format and write in place
 
-#-Single-file mode
+#-File and directory mode
 cclint ./agents/my-agent.md            # lint one file (auto-detect type)
 cclint path/to/file.md                 # lint by path
 cclint a.md b.md c.md                  # lint multiple files
+cclint ./commands/                     # lint all files in a directory
+cclint ./command/                      # singular dir names auto-detected
 cclint --type agent ./custom/file.md   # override type detection
-cclint --file agents                   # lint file literally named "agents"
 
 #-Git integration (pre-commit hooks)
 cclint --staged                        # lint only staged files

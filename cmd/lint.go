@@ -7,15 +7,40 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/outputters"
 )
 
 // LinterFunc is the function signature for component linters.
 // It takes root path, quiet mode, verbose mode, noCycleCheck and returns a summary.
 type LinterFunc func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error)
+
+// typeLinters maps file types to their linter name and function.
+var typeLinters = map[discovery.FileType]struct {
+	Name   string
+	Linter LinterFunc
+}{
+	discovery.FileTypeAgent:       {"agents", lint.LintAgents},
+	discovery.FileTypeCommand:     {"commands", lint.LintCommands},
+	discovery.FileTypeSkill:       {"skills", lint.LintSkills},
+	discovery.FileTypeSettings:    {"settings", lint.LintSettings},
+	discovery.FileTypeContext:     {"context", lint.LintContext},
+	discovery.FileTypePlugin:      {"plugins", lint.LintPlugins},
+	discovery.FileTypeRule:        {"rules", lint.LintRules},
+	discovery.FileTypeOutputStyle: {"output-styles", lint.LintOutputStyles},
+}
+
+// runTypeLint runs the linter for a specific file type.
+func runTypeLint(ft discovery.FileType) error {
+	entry, ok := typeLinters[ft]
+	if !ok {
+		return fmt.Errorf("no linter for type %s", ft)
+	}
+	return runComponentLint(entry.Name, entry.Linter)
+}
 
 // runComponentLint is the generic function that handles config loading,
 // linter execution, and output formatting for any component type.

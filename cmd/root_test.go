@@ -6,116 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestCollectFilesToLint(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		fileFlag []string
-		want     []string
-	}{
-		{
-			name:     "empty args and flags",
-			args:     nil, // []string{}
-			fileFlag: nil, // []string{}
-			want:     nil, // []string{}
-		},
-		{
-			name:     "file flag takes precedence",
-			args:     []string{"agents", "commands"},
-			fileFlag: []string{"agents", "commands"},
-			want:     []string{"agents", "commands"},
-		},
-		{
-			name:     "skip known subcommands in args",
-			args:     []string{"agents", "commands", "skills"},
-			fileFlag: nil, // []string{}
-			want:     nil, // []string{}
-		},
-		{
-			name:     "collect file paths from args",
-			args:     []string{"./agents/test.md", "./commands/cmd.md"},
-			fileFlag: []string{},
-			want:     []string{"./agents/test.md", "./commands/cmd.md"},
-		},
-		{
-			name:     "mix of subcommands and paths",
-			args:     []string{"agents", "./custom.md", "commands"},
-			fileFlag: []string{},
-			want:     []string{"./custom.md"},
-		},
-		{
-			name:     "absolute paths",
-			args:     []string{"/Users/test/agents/agent.md", "/tmp/file.md"},
-			fileFlag: []string{},
-			want:     []string{"/Users/test/agents/agent.md", "/tmp/file.md"},
-		},
-		{
-			name:     "relative paths with extensions",
-			args:     []string{"file.md", "dir/file.json"},
-			fileFlag: []string{},
-			want:     []string{"file.md", "dir/file.json"},
-		},
-		{
-			name:     "paths with dots and slashes",
-			args:     []string{"./file.md", "../parent/file.md", "dir/./file.md"},
-			fileFlag: []string{},
-			want:     []string{"./file.md", "../parent/file.md", "dir/./file.md"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set up test state
-			fileFlag = tt.fileFlag
-
-			// Run test
-			got := collectFilesToLint(tt.args)
-
-			// Verify
-			assert.Equal(t, tt.want, got)
-
-			// Clean up
-			fileFlag = nil
-		})
-	}
-}
-
-func TestCollectFilesToLint_LooksLikePath(t *testing.T) {
-	// Test integration with lint.LooksLikePath
-	tests := []struct {
-		name string
-		args []string
-		want int // number of files collected
-	}{
-		{
-			name: "windows-style paths not mistaken for subcommands",
-			args: []string{"C:\\Users\\test\\file.md"},
-			want: 1,
-		},
-		{
-			name: "paths with extensions",
-			args: []string{"agents.md", "commands.json"},
-			want: 2,
-		},
-		{
-			name: "subcommand without extension",
-			args: []string{"agents"},
-			want: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := collectFilesToLint(tt.args)
-			assert.Len(t, got, tt.want)
-		})
-	}
-}
 
 func TestRunSingleFileLint(t *testing.T) {
 	// Create temporary test directory
@@ -473,7 +366,6 @@ func TestRootCmdFlags(t *testing.T) {
 
 	// Check local flags
 	localFlags := rootCmd.Flags()
-	assert.NotNil(t, localFlags.Lookup("file"))
 	assert.NotNil(t, localFlags.Lookup("type"))
 	assert.NotNil(t, localFlags.Lookup("diff"))
 	assert.NotNil(t, localFlags.Lookup("staged"))
@@ -488,10 +380,6 @@ func TestRootCmdSubcommands(t *testing.T) {
 	}
 
 	expectedCommands := []string{
-		"agents",
-		"commands",
-		"skills",
-		"plugins",
 		"fmt",
 		"summary",
 	}
@@ -512,32 +400,9 @@ func TestRootCmdRun(t *testing.T) {
 	assert.NotNil(t, rootCmd.Run)
 
 	// Verify root command has correct configuration
-	assert.Equal(t, "cclint [files...]", rootCmd.Use)
+	assert.Equal(t, "cclint [files|dirs...]", rootCmd.Use)
 	assert.Contains(t, rootCmd.Long, "USAGE MODES")
 	assert.Contains(t, rootCmd.Long, "EXAMPLES")
-}
-
-func TestCollectFilesToLint_IsKnownSubcommand(t *testing.T) {
-	// Test that lint.IsKnownSubcommand is properly used
-	tests := []struct {
-		arg      string
-		isSubcmd bool
-	}{
-		{"agents", true},
-		{"commands", true},
-		{"skills", true},
-		{"settings", true},
-		{"./agents", false},
-		{"agents.md", false},
-		{"/path/to/agents", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.arg, func(t *testing.T) {
-			result := lint.IsKnownSubcommand(tt.arg)
-			assert.Equal(t, tt.isSubcmd, result)
-		})
-	}
 }
 
 func TestRunGitLint_NoFiles(t *testing.T) {
@@ -866,7 +731,7 @@ Test agent.
 }
 
 func TestRootCmdLongDescription(t *testing.T) {
-	assert.Contains(t, rootCmd.Long, "Single-file mode")
+	assert.Contains(t, rootCmd.Long, "File and directory mode")
 	assert.Contains(t, rootCmd.Long, "Git integration mode")
 	assert.Contains(t, rootCmd.Long, "Baseline mode")
 }
@@ -1313,15 +1178,75 @@ Test agent.
 	assert.NoError(t, err)
 }
 
-func TestCollectFilesToLint_WithFileFlagOnly(t *testing.T) {
-	// Test that file flag takes precedence even with args
-	oldFileFlag := fileFlag
-	fileFlag = []string{"explicit-file.md"}
-	defer func() { fileFlag = oldFileFlag }()
+func TestClassifyArgs(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantTypes int
+		wantPaths int
+		wantErr   bool
+	}{
+		{
+			name:      "empty args",
+			args:      nil,
+			wantTypes: 0,
+			wantPaths: 0,
+		},
+		{
+			name:      "single type filter",
+			args:      []string{"agents"},
+			wantTypes: 1,
+			wantPaths: 0,
+		},
+		{
+			name:      "multiple type filters",
+			args:      []string{"agents", "commands", "skills"},
+			wantTypes: 3,
+			wantPaths: 0,
+		},
+		{
+			name:      "singular type accepted",
+			args:      []string{"agent"},
+			wantTypes: 1,
+			wantPaths: 0,
+		},
+		{
+			name:      "file paths",
+			args:      []string{"./agents/test.md", "./commands/cmd.md"},
+			wantTypes: 0,
+			wantPaths: 2,
+		},
+		{
+			name:      "absolute paths",
+			args:      []string{"/Users/test/agents/agent.md"},
+			wantTypes: 0,
+			wantPaths: 1,
+		},
+		{
+			name:    "mixed type and path errors",
+			args:    []string{"agents", "./custom.md"},
+			wantErr: true,
+		},
+		{
+			name:      "unknown word treated as path",
+			args:      []string{"foo.md"},
+			wantTypes: 0,
+			wantPaths: 1,
+		},
+	}
 
-	// Args should be ignored when fileFlag is set
-	result := collectFilesToLint([]string{"ignored.md", "also-ignored.md"})
-	assert.Equal(t, []string{"explicit-file.md"}, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := classifyArgs(tt.args)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Len(t, result.typeFilters, tt.wantTypes)
+			assert.Len(t, result.filePaths, tt.wantPaths)
+		})
+	}
 }
 
 func TestRootCmdVersionFlag(t *testing.T) {
