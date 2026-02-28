@@ -1,0 +1,455 @@
+package lint
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/textutil"
+)
+
+// LintPlugins runs linting on plugin manifest files using the generic linter.
+func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+	if err != nil {
+		return nil, err
+	}
+	return lintBatch(ctx, NewPluginLinter(ctx.RootPath)), nil
+}
+
+// knownPluginFields lists valid plugin.json fields per Anthropic docs
+var knownPluginFields = map[string]bool{
+	"name":         true, // Required: plugin name
+	"description":  true, // Required: plugin description
+	"version":      true, // Recommended: semver version
+	"author":       true, // Required: author object with name
+	"homepage":     true, // Optional: project URL
+	"repository":   true, // Optional: source code URL
+	"license":      true, // Optional: SPDX license identifier
+	"keywords":     true, // Optional: discoverability tags
+	"readme":       true, // Optional: path to README
+	"commands":     true, // Optional: command definitions
+	"agents":       true, // Optional: agent definitions
+	"skills":       true, // Optional: skill definitions
+	"hooks":        true, // Optional: hook configurations
+	"mcpServers":   true, // Optional: MCP server configurations
+	"outputStyles": true, // Optional: output style configurations
+	"lspServers":   true, // Optional: LSP server configurations
+}
+
+// pluginPathFields lists plugin fields that contain file paths
+var pluginPathFields = []string{
+	"commands", "agents", "skills", "hooks", "mcpServers", "outputStyles", "lspServers",
+}
+
+// validatePluginSpecific implements plugin-specific validation rules
+func validatePluginSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	errors = append(errors, validateUnknownPluginFields(data, filePath, contents)...)
+	errors = append(errors, validatePluginName(data, filePath, contents)...)
+	errors = append(errors, validatePluginDescription(data, filePath, contents)...)
+	errors = append(errors, validatePluginVersion(data, filePath, contents)...)
+	errors = append(errors, validatePluginAuthor(data, filePath, contents)...)
+	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
+	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
+
+	return errors
+}
+
+func validateUnknownPluginFields(data map[string]any, filePath, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+	for key := range data {
+		if !knownPluginFields[key] {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Unknown plugin field '%s'", key),
+				Severity: "suggestion",
+				Source:   cue.SourceCClintObserve,
+				Line:     FindJSONFieldLine(contents, key),
+			})
+		}
+	}
+	return errors
+}
+
+func validatePluginName(data map[string]any, filePath, contents string) []cue.ValidationError {
+	name, ok := data["name"].(string)
+	if !ok || name == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Required field 'name' is missing or empty",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		}}
+	}
+
+	var errors []cue.ValidationError
+	reservedWords := map[string]bool{"anthropic": true, "claude": true}
+	if reservedWords[strings.ToLower(name)] {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		})
+	}
+
+	if len(name) > 64 {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Name exceeds 64 character limit (%d chars)", len(name)),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		})
+	}
+
+	return errors
+}
+
+func validatePluginDescription(data map[string]any, filePath, contents string) []cue.ValidationError {
+	desc, ok := data["description"].(string)
+	if !ok || desc == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Required field 'description' is missing or empty",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "description"),
+		}}
+	}
+
+	if len(desc) > 1024 {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Description exceeds 1024 character limit (%d chars)", len(desc)),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "description"),
+		}}
+	}
+
+	return nil
+}
+
+func validatePluginVersion(data map[string]any, filePath, contents string) []cue.ValidationError {
+	version, ok := data["version"].(string)
+	if !ok || version == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Consider adding 'version' field in semver format (e.g., 1.0.0)",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+			Line:     FindJSONFieldLine(contents, "version"),
+		}}
+	}
+
+	if err := ValidateSemver(version, filePath, FindJSONFieldLine(contents, "version")); err != nil {
+		return []cue.ValidationError{*err}
+	}
+
+	return nil
+}
+
+func validatePluginAuthor(data map[string]any, filePath, contents string) []cue.ValidationError {
+	author, ok := data["author"].(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Required field 'author' is missing",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "author"),
+		}}
+	}
+
+	if authorName, ok := author["name"].(string); !ok || authorName == "" {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "Required field 'author.name' is missing or empty",
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "name"),
+		}}
+	}
+
+	return nil
+}
+
+// validatePluginPaths checks that path-bearing fields use relative paths
+func validatePluginPaths(data map[string]any, filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	for _, field := range pluginPathFields {
+		value, ok := data[field]
+		if !ok {
+			continue
+		}
+		paths := extractPaths(value)
+		for _, p := range paths {
+			errors = append(errors, checkPath(p, field, filePath, contents)...)
+		}
+	}
+
+	return errors
+}
+
+// extractPaths collects path strings from various JSON structures:
+// string, []string, []object (extracts string values), or map (extracts string values).
+func extractPaths(value any) []string {
+	var paths []string
+	switch v := value.(type) {
+	case string:
+		paths = append(paths, v)
+	case []any:
+		for _, item := range v {
+			switch elem := item.(type) {
+			case string:
+				paths = append(paths, elem)
+			case map[string]any:
+				for _, mv := range elem {
+					if s, ok := mv.(string); ok {
+						paths = append(paths, s)
+					}
+				}
+			}
+		}
+	case map[string]any:
+		for _, mv := range v {
+			if s, ok := mv.(string); ok {
+				paths = append(paths, s)
+			}
+		}
+	}
+	return paths
+}
+
+// checkPath validates a single path string for relative path requirements.
+func checkPath(path string, field string, filePath string, contents string) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	if strings.HasPrefix(path, "/") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Plugin paths must be relative (start with \"./\"): found \"%s\"", path),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, field),
+		})
+	}
+
+	if strings.Contains(path, "..") {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Path '%s' in '%s' contains '..', which risks traversal outside the plugin root", path, field),
+			Severity: "warning",
+			Source:   cue.SourceCClintObserve,
+			Line:     FindJSONFieldLine(contents, field),
+		})
+	}
+
+	return errors
+}
+
+// allPluginPathFields includes all fields that contain filesystem paths,
+// adding "readme" to the component path fields since it references a file too.
+var allPluginPathFields = append([]string{"readme"}, pluginPathFields...)
+
+// isGlobPattern returns true if the path contains glob metacharacters.
+// Paths with globs are skipped for existence checks since they represent
+// patterns, not literal filesystem paths.
+func isGlobPattern(path string) bool {
+	return strings.ContainsAny(path, "*?[{")
+}
+
+// validatePluginPathsExist checks that literal paths referenced in plugin
+// manifests exist on disk relative to the plugin's directory.
+//
+// Reports missing paths as warnings (not errors) since referenced files may
+// be generated at build time or installed later.
+//
+// Skips validation when rootPath is empty (e.g., in unit tests without a
+// filesystem layout). Skips glob patterns, absolute paths, and traversal
+// paths (the latter two are already reported by checkPath).
+func validatePluginPathsExist(data map[string]any, rootPath, filePath, contents string) []cue.ValidationError {
+	if rootPath == "" {
+		return nil
+	}
+
+	// Resolve the plugin directory: filePath is relative to rootPath.
+	// e.g., filePath="my-plugin/.claude-plugin/plugin.json"
+	//   -> pluginDir = <rootPath>/my-plugin/.claude-plugin
+	pluginDir := filepath.Join(rootPath, filepath.Dir(filePath))
+
+	var warnings []cue.ValidationError
+
+	for _, field := range allPluginPathFields {
+		value, ok := data[field]
+		if !ok {
+			continue
+		}
+		paths := extractPaths(value)
+		for _, p := range paths {
+			if isGlobPattern(p) {
+				continue
+			}
+			// Skip absolute paths and traversal (already reported by checkPath)
+			if strings.HasPrefix(p, "/") || strings.Contains(p, "..") {
+				continue
+			}
+			// Skip empty paths and URLs
+			if p == "" || strings.HasPrefix(p, "http://") || strings.HasPrefix(p, "https://") {
+				continue
+			}
+
+			resolved := filepath.Join(pluginDir, p)
+			if _, err := os.Stat(resolved); os.IsNotExist(err) {
+				warnings = append(warnings, cue.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Path '%s' in '%s' does not exist relative to plugin directory", p, field),
+					Severity: "warning",
+					Source:   cue.SourceCClintObserve,
+					Line:     FindJSONFieldLine(contents, field),
+				})
+			}
+		}
+	}
+
+	return warnings
+}
+
+// validatePluginBestPractices checks opinionated best practices for plugins
+func validatePluginBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
+	var suggestions []cue.ValidationError
+
+	// Check for homepage
+	if _, ok := data["homepage"].(string); !ok {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  "Consider adding 'homepage' field with project URL",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Check for repository
+	if _, ok := data["repository"].(string); !ok {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  "Consider adding 'repository' field with source code URL",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Check for license
+	if _, ok := data["license"].(string); !ok {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  "Consider adding 'license' field (e.g., MIT, Apache-2.0)",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Check for keywords
+	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  "Consider adding 'keywords' array for discoverability",
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+		})
+	}
+
+	// Check description length
+	if desc, ok := data["description"].(string); ok && len(desc) < 50 {
+		suggestions = append(suggestions, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Description is only %d chars - consider expanding for clarity", len(desc)),
+			Severity: "suggestion",
+			Source:   cue.SourceCClintObserve,
+			Line:     FindJSONFieldLine(contents, "description"),
+		})
+	}
+
+	return suggestions
+}
+
+// FindJSONFieldLine finds the line number of a JSON field
+func FindJSONFieldLine(content string, fieldName string) int {
+	lines := strings.Split(content, "\n")
+	pattern := fmt.Sprintf(`"%s"\s*:`, fieldName)
+	re := regexp.MustCompile(pattern)
+	for i, line := range lines {
+		if re.MatchString(line) {
+			return i + 1
+		}
+	}
+	return 0
+}
+
+// GetPluginImprovements returns specific improvement recommendations for plugins
+func GetPluginImprovements(content string, data map[string]any) []textutil.ImprovementRecommendation {
+	var recs []textutil.ImprovementRecommendation
+
+	// Check for missing optional but recommended fields
+	if _, ok := data["homepage"]; !ok {
+		recs = append(recs, textutil.ImprovementRecommendation{
+			Description: "Add 'homepage' field with project URL",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if _, ok := data["repository"]; !ok {
+		recs = append(recs, textutil.ImprovementRecommendation{
+			Description: "Add 'repository' field with source code URL",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if _, ok := data["license"]; !ok {
+		recs = append(recs, textutil.ImprovementRecommendation{
+			Description: "Add 'license' field (e.g., MIT, Apache-2.0)",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
+		recs = append(recs, textutil.ImprovementRecommendation{
+			Description: "Add 'keywords' array for discoverability",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if _, ok := data["readme"]; !ok {
+		recs = append(recs, textutil.ImprovementRecommendation{
+			Description: "Add 'readme' field pointing to README file",
+			PointValue:  3,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	// Check description quality
+	if desc, ok := data["description"].(string); ok {
+		if len(desc) < 50 {
+			recs = append(recs, textutil.ImprovementRecommendation{
+				Description: "Expand description to at least 50 characters",
+				PointValue:  5,
+				Severity:    textutil.SeverityMedium,
+			})
+		}
+	}
+
+	return recs
+}

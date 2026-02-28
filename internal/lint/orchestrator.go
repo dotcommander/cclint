@@ -8,33 +8,24 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/output"
 )
 
 // LinterFunc is the function signature for component linters.
-type LinterFunc func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error)
-
-// ComponentLinter pairs a component name with its linter function.
-type ComponentLinter struct {
-	Name   string
-	Linter LinterFunc
-}
+type LinterFunc func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error)
 
 // DefaultLinters returns the standard set of component linters.
-func DefaultLinters() []ComponentLinter {
-	return []ComponentLinter{
-		{Name: "agents", Linter: cli.LintAgents},
-		{Name: "commands", Linter: cli.LintCommands},
-		{Name: "skills", Linter: cli.LintSkills},
-		{Name: "settings", Linter: cli.LintSettings},
-		{Name: "context", Linter: cli.LintContext},
-		{Name: "rules", Linter: cli.LintRules},
-		{Name: "output-styles", Linter: cli.LintOutputStyles},
-		// {Name: "plugins", Linter: cli.LintPlugins}, // TODO: re-enable when output is less overwhelming
+func DefaultLinters() []LinterEntry {
+	return []LinterEntry{
+		{Name: "agents", Linter: LintAgents},
+		{Name: "commands", Linter: LintCommands},
+		{Name: "skills", Linter: LintSkills},
+		{Name: "settings", Linter: LintSettings},
+		{Name: "rules", Linter: LintRules},
+		{Name: "output-styles", Linter: LintOutputStyles},
+		// {Name: "plugins", Linter: LintPlugins}, // TODO: re-enable when output is less overwhelming
 	}
 }
 
@@ -50,7 +41,13 @@ type OrchestratorConfig struct {
 type Orchestrator struct {
 	cfg     *config.Config
 	opts    OrchestratorConfig
-	linters []ComponentLinter
+	linters []LinterEntry
+}
+
+// LinterEntry pairs a component name with its linter function.
+type LinterEntry struct {
+	Name   string
+	Linter LinterFunc
 }
 
 // NewOrchestrator creates a new lint orchestrator.
@@ -63,24 +60,28 @@ func NewOrchestrator(cfg *config.Config, opts OrchestratorConfig) *Orchestrator 
 }
 
 // WithLinters allows customizing which linters to run.
-func (o *Orchestrator) WithLinters(linters []ComponentLinter) *Orchestrator {
+func (o *Orchestrator) WithLinters(linters []LinterEntry) *Orchestrator {
 	o.linters = linters
 	return o
 }
 
 // Result holds the outcome of a lint run.
 type Result struct {
-	TotalFiles        int
-	TotalErrors       int
-	TotalSuggestions  int
-	HasErrors         bool
-	BaselineIgnored   int
-	ErrorsIgnored     int
+	StartTime          time.Time
+	TotalFiles         int
+	TotalErrors        int
+	TotalSuggestions   int
+	HasErrors          bool
+	BaselineIgnored    int
+	ErrorsIgnored      int
 	SuggestionsIgnored int
+	Summaries          []*LintSummary
 }
 
 // Run executes the full lint workflow.
 func (o *Orchestrator) Run() (*Result, error) {
+	startTime := time.Now()
+
 	// Resolve baseline path relative to project root
 	baselineFile := o.resolveBaselinePath()
 
@@ -91,19 +92,12 @@ func (o *Orchestrator) Run() (*Result, error) {
 	}
 
 	// Track totals across all linters
-	result := &Result{}
-	var allIssues []cue.ValidationError
-	var allSummaries []*cli.LintSummary
+	result := &Result{StartTime: startTime}
 
 	// Run all linters and collect summaries
-	allIssues, allSummaries, errs := o.runAllLinters(b, result)
+	allIssues, _, errs := o.runAllLinters(b, result)
 	if errs != nil {
 		return nil, errs
-	}
-
-	// Output all results using compact formatter (for console)
-	if outputErr := o.formatOutput(allSummaries); outputErr != nil {
-		return nil, outputErr
 	}
 
 	// Run project-wide memory checks
@@ -119,19 +113,16 @@ func (o *Orchestrator) Run() (*Result, error) {
 		return result, nil
 	}
 
-	// Print baseline filtering summary
-	o.printBaselineSummary(b, result)
-
-	// Print validation reminder
-	o.printValidationReminder()
+	// Note: Output formatting and summary printing is handled by cmd layer
+	// to avoid import cycles with the output package
 
 	return result, nil
 }
 
 // runAllLinters runs all configured linters and collects results.
-func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, []*cli.LintSummary, error) {
+func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, []*LintSummary, error) {
 	var allIssues []cue.ValidationError
-	var allSummaries []*cli.LintSummary
+	var allSummaries []*LintSummary
 
 	for _, l := range o.linters {
 		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck)
@@ -146,12 +137,12 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 
 		// Collect issues for baseline creation
 		if o.opts.CreateBaseline {
-			allIssues = append(allIssues, cli.CollectAllIssues(summary)...)
+			allIssues = append(allIssues, CollectAllIssues(summary)...)
 		}
 
 		// Filter with baseline if active
 		if o.opts.UseBaseline && b != nil {
-			ignored, errIgnored, suggIgnored := cli.FilterResults(summary, b)
+			ignored, errIgnored, suggIgnored := FilterResults(summary, b)
 			result.BaselineIgnored += ignored
 			result.ErrorsIgnored += errIgnored
 			result.SuggestionsIgnored += suggIgnored
@@ -167,38 +158,19 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		if summary.TotalErrors > 0 {
 			result.HasErrors = true
 		}
+		result.Summaries = allSummaries
+
+		// Progressive output in verbose mode
+		if o.cfg.Verbose && !o.cfg.Quiet {
+			status := "✓"
+			if summary.TotalErrors > 0 {
+				status = "✗"
+			}
+			fmt.Fprintf(os.Stderr, "  %s %s: %d files\n", status, l.Name, summary.TotalFiles)
+		}
 	}
 
 	return allIssues, allSummaries, nil
-}
-
-// formatOutput formats and outputs all lint results.
-func (o *Orchestrator) formatOutput(allSummaries []*cli.LintSummary) error {
-	if o.cfg.Format != "console" || o.cfg.Quiet {
-		return nil
-	}
-
-	formatter := output.NewCompactFormatter(o.cfg.Quiet, o.cfg.Verbose, o.cfg.ShowScores, o.cfg.ShowImprovements)
-	if err := formatter.FormatAll(allSummaries); err != nil {
-		return fmt.Errorf("error formatting output: %w", err)
-	}
-	return nil
-}
-
-// printBaselineSummary prints a summary of baseline filtering if active.
-func (o *Orchestrator) printBaselineSummary(b *baseline.Baseline, result *Result) {
-	if !o.opts.UseBaseline || b == nil || result.BaselineIgnored == 0 || o.cfg.Quiet {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-		result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
-}
-
-// printValidationReminder prints a reminder to validate suggestions.
-func (o *Orchestrator) printValidationReminder() {
-	if !o.cfg.Quiet {
-		fmt.Fprintln(os.Stderr, "\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
-	}
 }
 
 // resolveBaselinePath returns the absolute path to the baseline file.
@@ -247,7 +219,7 @@ func (o *Orchestrator) runMemoryChecks() {
 
 	// Check CLAUDE.local.md gitignore
 	// Output to stderr to avoid corrupting JSON/markdown stdout output
-	gitignoreWarnings := cli.CheckClaudeLocalGitignore(o.cfg.Root)
+	gitignoreWarnings := CheckClaudeLocalGitignore(o.cfg.Root)
 	for _, w := range gitignoreWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %s: %s\n", w.File, w.Message)
 	}
@@ -255,7 +227,7 @@ func (o *Orchestrator) runMemoryChecks() {
 	// Check combined memory size
 	fd := discovery.NewFileDiscovery(o.cfg.Root, false)
 	allFiles, _ := fd.DiscoverFiles()
-	sizeWarnings := cli.CheckCombinedMemorySize(o.cfg.Root, allFiles)
+	sizeWarnings := CheckCombinedMemorySize(o.cfg.Root, allFiles)
 	for _, w := range sizeWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w.Message)
 	}

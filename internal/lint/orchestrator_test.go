@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
 )
@@ -62,11 +61,11 @@ func TestWithLinters(t *testing.T) {
 	orch := NewOrchestrator(cfg, opts)
 
 	// Create custom linters
-	customLinters := []ComponentLinter{
+	customLinters := []LinterEntry{
 		{
 			Name: "test-linter",
-			Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-				return &cli.LintSummary{}, nil
+			Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+				return &LintSummary{}, nil
 			},
 		},
 	}
@@ -100,7 +99,7 @@ func TestDefaultLinters(t *testing.T) {
 	}
 
 	// Check that expected linters are present
-	expectedNames := []string{"agents", "commands", "skills", "settings", "context", "rules"}
+	expectedNames := []string{"agents", "commands", "skills", "settings", "rules", "output-styles"}
 	linterMap := make(map[string]bool)
 
 	for _, l := range linters {
@@ -349,10 +348,10 @@ func TestRun_Success(t *testing.T) {
 	// Create orchestrator with mock linter that returns successful results
 	orch := NewOrchestrator(cfg, opts)
 
-	successLinter := ComponentLinter{
+	successLinter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				ProjectRoot:      rootPath,
 				ComponentType:    "test",
 				StartTime:        time.Now(),
@@ -361,7 +360,7 @@ func TestRun_Success(t *testing.T) {
 				FailedFiles:      0,
 				TotalErrors:      0,
 				TotalSuggestions: 0,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{File: "test1.md", Success: true, Errors: nil},
 					{File: "test2.md", Success: true, Errors: nil},
 				},
@@ -369,7 +368,7 @@ func TestRun_Success(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{successLinter})
+	orch.WithLinters([]LinterEntry{successLinter})
 
 	result, err := orch.Run()
 
@@ -417,10 +416,10 @@ func TestRun_WithErrors(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	errorLinter := ComponentLinter{
+	errorLinter := LinterEntry{
 		Name: "error-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				ProjectRoot:      rootPath,
 				ComponentType:    "test",
 				StartTime:        time.Now(),
@@ -429,7 +428,7 @@ func TestRun_WithErrors(t *testing.T) {
 				FailedFiles:      1,
 				TotalErrors:      2,
 				TotalSuggestions: 1,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{
 						File:    "test.md",
 						Success: false,
@@ -446,7 +445,7 @@ func TestRun_WithErrors(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{errorLinter})
+	orch.WithLinters([]LinterEntry{errorLinter})
 
 	result, err := orch.Run()
 
@@ -487,17 +486,17 @@ func TestRun_SkipEmptyResults(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	emptyLinter := ComponentLinter{
+	emptyLinter := LinterEntry{
 		Name: "empty-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles: 0, // No files found
-				Results:    []cli.LintResult{},
+				Results:    []LintResult{},
 			}, nil
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{emptyLinter})
+	orch.WithLinters([]LinterEntry{emptyLinter})
 
 	result, err := orch.Run()
 
@@ -534,13 +533,13 @@ func TestRun_CreateBaseline(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	linter := ComponentLinter{
+	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 1,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{
 						File:    "test.md",
 						Success: false,
@@ -553,7 +552,7 @@ func TestRun_CreateBaseline(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{linter})
+	orch.WithLinters([]LinterEntry{linter})
 
 	result, err := orch.Run()
 
@@ -615,13 +614,13 @@ func TestRun_WithBaselineFiltering(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	linter := ComponentLinter{
+	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 2,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{
 						File:    "test.md",
 						Success: false,
@@ -635,7 +634,7 @@ func TestRun_WithBaselineFiltering(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{linter})
+	orch.WithLinters([]LinterEntry{linter})
 
 	result, err := orch.Run()
 
@@ -674,14 +673,14 @@ func TestRun_MultipleLinters(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	linter1 := ComponentLinter{
+	linter1 := LinterEntry{
 		Name: "linter-1",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles:       2,
 				TotalErrors:      1,
 				TotalSuggestions: 0,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{File: "file1.md", Success: true},
 					{File: "file2.md", Success: false, Errors: []cue.ValidationError{
 						{File: "file2.md", Message: "Error", Severity: "error"},
@@ -691,14 +690,14 @@ func TestRun_MultipleLinters(t *testing.T) {
 		},
 	}
 
-	linter2 := ComponentLinter{
+	linter2 := LinterEntry{
 		Name: "linter-2",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles:       1,
 				TotalErrors:      0,
 				TotalSuggestions: 2,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{File: "file3.md", Success: true, Suggestions: []cue.ValidationError{
 						{File: "file3.md", Message: "Suggestion 1", Severity: "suggestion"},
 						{File: "file3.md", Message: "Suggestion 2", Severity: "suggestion"},
@@ -708,7 +707,7 @@ func TestRun_MultipleLinters(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{linter1, linter2})
+	orch.WithLinters([]LinterEntry{linter1, linter2})
 
 	result, err := orch.Run()
 
@@ -754,14 +753,14 @@ func TestRun_LinterError(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	failingLinter := ComponentLinter{
+	failingLinter := LinterEntry{
 		Name: "failing-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
 			return nil, os.ErrNotExist // Return an error
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{failingLinter})
+	orch.WithLinters([]LinterEntry{failingLinter})
 
 	_, err := orch.Run()
 
@@ -804,7 +803,7 @@ func TestRun_BaselineLoadError_NotQuiet(t *testing.T) {
 	orch := NewOrchestrator(cfg, opts)
 
 	// Empty linter - just want to test baseline loading
-	orch.WithLinters([]ComponentLinter{})
+	orch.WithLinters([]LinterEntry{})
 
 	// Should not error even with invalid baseline
 	result, err := orch.Run()
@@ -853,13 +852,13 @@ func TestRun_BaselineFilteringSummary_NotQuiet(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	linter := ComponentLinter{
+	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 1,
-				Results: []cli.LintResult{
+				Results: []LintResult{
 					{
 						File:    "test.md",
 						Success: false,
@@ -872,7 +871,7 @@ func TestRun_BaselineFilteringSummary_NotQuiet(t *testing.T) {
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{linter})
+	orch.WithLinters([]LinterEntry{linter})
 
 	result, err := orch.Run()
 
@@ -907,17 +906,17 @@ func TestRun_ValidationReminder_NotQuiet(t *testing.T) {
 
 	orch := NewOrchestrator(cfg, opts)
 
-	successLinter := ComponentLinter{
+	successLinter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*cli.LintSummary, error) {
-			return &cli.LintSummary{
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			return &LintSummary{
 				TotalFiles: 1,
-				Results:    []cli.LintResult{{File: "test.md", Success: true}},
+				Results:    []LintResult{{File: "test.md", Success: true}},
 			}, nil
 		},
 	}
 
-	orch.WithLinters([]ComponentLinter{successLinter})
+	orch.WithLinters([]LinterEntry{successLinter})
 
 	result, err := orch.Run()
 
@@ -1022,19 +1021,3 @@ func TestRunMemoryChecks_QuietMode(t *testing.T) {
 	orch.runMemoryChecks()
 }
 
-// =============================================================================
-// Helper functions
-// =============================================================================
-
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || containsSubstring(s, substr))
-}
-
-func containsSubstring(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}
