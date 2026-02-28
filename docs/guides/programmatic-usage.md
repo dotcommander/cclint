@@ -54,15 +54,15 @@ errors, err := validator.ValidateFile(path, content, "agent")
 - `ValidationError`: File, Message, Severity, Source, Line, Column
 - `Frontmatter`: Data, Body
 
-### Lint Context (`internal/cli`)
+### Lint Context (`internal/lint`)
 
 Orchestrate linting operations.
 
 ```go
-import "github.com/dotcommander/cclint/internal/cli"
+import "github.com/dotcommander/cclint/internal/lint"
 
 // Create context (auto-detects project root)
-ctx, err := cli.NewLinterContext("", false, false, false)
+ctx, err := lint.NewLinterContext("", false, false, false)
 
 // Access components
 validator := ctx.Validator
@@ -138,12 +138,12 @@ func main() {
 package main
 
 import (
-    "github.com/dotcommander/cclint/internal/cli"
+    "github.com/dotcommander/cclint/internal/lint"
     "github.com/dotcommander/cclint/internal/discovery"
 )
 
 func main() {
-    ctx, _ := cli.NewLinterContext("/project", false, false, false)
+    ctx, _ := lint.NewLinterContext("/project", false, false, false)
 
     agents := ctx.FilterFilesByType(discovery.FileTypeAgent)
     for _, agent := range agents {
