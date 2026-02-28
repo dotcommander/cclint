@@ -6,7 +6,7 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/spf13/cobra"
 )
@@ -37,7 +37,7 @@ type ComponentSummary struct {
 	TierCounts      map[string]int
 	TopIssues       map[string]int
 	LowestScoring   []ScoredComponent
-	AllResults      []cli.LintResult
+	AllResults      []lint.LintResult
 }
 
 // ScoredComponent represents a component with its score for sorting
@@ -60,21 +60,21 @@ func runSummary() error {
 	}
 
 	// Run all linters
-	agentSummary, err := cli.LintAgents(cfg.Root, true, false, cfg.NoCycleCheck)
+	agentSummary, err := lint.LintAgents(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting agents: %w", err)
 	}
 	summary.AgentCount = agentSummary.TotalFiles
 	aggregateResults(summary, agentSummary.Results)
 
-	commandSummary, err := cli.LintCommands(cfg.Root, true, false, cfg.NoCycleCheck)
+	commandSummary, err := lint.LintCommands(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting commands: %w", err)
 	}
 	summary.CommandCount = commandSummary.TotalFiles
 	aggregateResults(summary, commandSummary.Results)
 
-	skillSummary, err := cli.LintSkills(cfg.Root, true, false, cfg.NoCycleCheck)
+	skillSummary, err := lint.LintSkills(cfg.Root, true, false, cfg.NoCycleCheck)
 	if err != nil {
 		return fmt.Errorf("error linting skills: %w", err)
 	}
@@ -94,7 +94,7 @@ func runSummary() error {
 	return nil
 }
 
-func aggregateResults(summary *ComponentSummary, results []cli.LintResult) {
+func aggregateResults(summary *ComponentSummary, results []lint.LintResult) {
 	for _, result := range results {
 		summary.AllResults = append(summary.AllResults, result)
 

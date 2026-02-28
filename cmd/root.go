@@ -3,14 +3,15 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/git"
 	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/outputters"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 )
 
 // Version is set at build time via ldflags:
@@ -176,12 +177,66 @@ func init() {
 	_ = viper.BindPFlag("no-cycle-check", rootCmd.PersistentFlags().Lookup("no-cycle-check"))
 }
 
+// shouldFail checks if the lint run should exit with failure based on the --fail-on level.
+func shouldFail(cfg *config.Config, errors, warnings, suggestions int) bool {
+	switch cfg.FailOn {
+	case "suggestion":
+		if suggestions > 0 {
+			return true
+		}
+		fallthrough
+	case "warning":
+		if warnings > 0 {
+			return true
+		}
+		fallthrough
+	default: // "error"
+		return errors > 0
+	}
+}
+
 func initConfig() {
 	// Config loading is handled by config.LoadConfig — this hook only
 	// registers environment variable support so viper flag bindings work
 	// before LoadConfig is called.
 	viper.SetEnvPrefix("CCLINT")
 	viper.AutomaticEnv()
+}
+
+// startSpinner starts a braille spinner on stderr showing elapsed time.
+// It returns a stop func that clears the line when called.
+// If verbose, quiet, or stderr is not a TTY, returns a no-op stop func.
+func startSpinner(cfg *config.Config) func() {
+	if cfg.Verbose || cfg.Quiet || !term.IsTerminal(int(os.Stderr.Fd())) {
+		return func() {}
+	}
+
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	done := make(chan struct{})
+
+	go func() {
+		start := time.Now()
+		tick := time.NewTicker(100 * time.Millisecond)
+		defer tick.Stop()
+
+		frame := 0
+		for {
+			select {
+			case <-done:
+				return
+			case <-tick.C:
+				elapsed := int(time.Since(start).Seconds())
+				fmt.Fprintf(os.Stderr, "\r%s cclint %ds", frames[frame%len(frames)], elapsed)
+				frame++
+			}
+		}
+	}()
+
+	return func() {
+		close(done)
+		// Clear the spinner line completely
+		fmt.Fprintf(os.Stderr, "\r%-20s\r", "")
+	}
 }
 
 func runLint() error {
@@ -199,13 +254,33 @@ func runLint() error {
 		BaselinePath:   baselinePath,
 	})
 
+	stop := startSpinner(cfg)
 	result, err := orchestrator.Run()
+	stop()
+
 	if err != nil {
 		return err
 	}
 
-	// Exit with error if any linter found errors
-	if result.HasErrors {
+	// Output all results using the outputter
+	outputter := outputters.NewOutputter(cfg)
+	if err := outputter.FormatAll(result.Summaries, result.StartTime); err != nil {
+		return fmt.Errorf("error formatting output: %w", err)
+	}
+
+	// Print baseline filtering summary
+	if result.BaselineIgnored > 0 && !cfg.Quiet {
+		fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors, %d suggestions)\n",
+			result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
+	}
+
+	// Print validation reminder (verbose only)
+	if !cfg.Quiet && cfg.Verbose {
+		fmt.Fprintln(os.Stderr, "\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
+	}
+
+	// Exit with error based on --fail-on level
+	if shouldFail(cfg, result.TotalErrors, 0, result.TotalSuggestions) {
 		exitFunc(1)
 	}
 
@@ -232,12 +307,12 @@ func collectFilesToLint(args []string) []string {
 	// 2. Check args for file paths
 	for _, arg := range args {
 		// Skip known subcommands (they'll be handled by Cobra)
-		if cli.IsKnownSubcommand(arg) {
+		if lint.IsKnownSubcommand(arg) {
 			continue
 		}
 
 		// Check if it looks like a file path
-		if cli.LooksLikePath(arg) {
+		if lint.LooksLikePath(arg) {
 			files = append(files, arg)
 		}
 	}
@@ -263,7 +338,7 @@ func runSingleFileLint(files []string) error {
 	cfg.Verbose = verbose
 
 	// Lint files
-	summary, err := cli.LintFiles(files, rootPath, typeFlag, cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(files, rootPath, typeFlag, cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
@@ -274,13 +349,13 @@ func runSingleFileLint(files []string) error {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
 
-	// Print validation reminder (unless quiet mode)
-	if !cfg.Quiet {
+	// Print validation reminder (verbose only)
+	if !cfg.Quiet && cfg.Verbose {
 		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
 	}
 
-	// Exit with error if any file had errors
-	if summary.TotalErrors > 0 {
+	// Exit with error based on --fail-on level
+	if shouldFail(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions) {
 		exitFunc(1)
 	}
 
@@ -335,7 +410,7 @@ func runGitLint() error {
 	}
 
 	// Lint files (pass gitRoot as the root path for correct detection)
-	summary, err := cli.LintFiles(files, gitRoot, "", cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(files, gitRoot, "", cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
@@ -346,13 +421,13 @@ func runGitLint() error {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
 
-	// Print validation reminder (unless quiet mode)
-	if !cfg.Quiet {
+	// Print validation reminder (verbose only)
+	if !cfg.Quiet && cfg.Verbose {
 		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
 	}
 
-	// Exit with error if any file had errors
-	if summary.TotalErrors > 0 {
+	// Exit with error based on --fail-on level
+	if shouldFail(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions) {
 		exitFunc(1)
 	}
 

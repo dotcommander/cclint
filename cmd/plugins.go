@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/spf13/cobra"
 )
 
@@ -33,5 +33,5 @@ func init() {
 }
 
 func runPluginsLint() error {
-	return runComponentLint("plugins", cli.LintPlugins)
+	return runComponentLint("plugins", lint.LintPlugins)
 }

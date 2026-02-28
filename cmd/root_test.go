@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -86,7 +86,7 @@ func TestCollectFilesToLint(t *testing.T) {
 }
 
 func TestCollectFilesToLint_LooksLikePath(t *testing.T) {
-	// Test integration with cli.LooksLikePath
+	// Test integration with lint.LooksLikePath
 	tests := []struct {
 		name string
 		args []string
@@ -518,7 +518,7 @@ func TestRootCmdRun(t *testing.T) {
 }
 
 func TestCollectFilesToLint_IsKnownSubcommand(t *testing.T) {
-	// Test that cli.IsKnownSubcommand is properly used
+	// Test that lint.IsKnownSubcommand is properly used
 	tests := []struct {
 		arg      string
 		isSubcmd bool
@@ -534,7 +534,7 @@ func TestCollectFilesToLint_IsKnownSubcommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.arg, func(t *testing.T) {
-			result := cli.IsKnownSubcommand(tt.arg)
+			result := lint.IsKnownSubcommand(tt.arg)
 			assert.Equal(t, tt.isSubcmd, result)
 		})
 	}

@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
@@ -27,7 +27,7 @@ func NewJSONFormatter(quiet bool, indent bool, outputFile string) *JSONFormatter
 }
 
 // Format formats the lint summary as JSON
-func (f *JSONFormatter) Format(summary *cli.LintSummary) error {
+func (f *JSONFormatter) Format(summary *lint.LintSummary) error {
 	report := JSONReport{
 		Header: JSONHeader{
 			Tool:      "cclint",
@@ -49,7 +49,7 @@ func (f *JSONFormatter) Format(summary *cli.LintSummary) error {
 }
 
 // convertResults maps lint results to JSON-serializable form.
-func convertResults(results []cli.LintResult) []JSONResult {
+func convertResults(results []lint.LintResult) []JSONResult {
 	out := make([]JSONResult, len(results))
 	for i, r := range results {
 		out[i] = convertResult(r)
@@ -58,7 +58,7 @@ func convertResults(results []cli.LintResult) []JSONResult {
 }
 
 // convertResult maps a single lint result to its JSON representation.
-func convertResult(r cli.LintResult) JSONResult {
+func convertResult(r lint.LintResult) JSONResult {
 	jr := JSONResult{
 		File:     r.File,
 		Type:     r.Type,

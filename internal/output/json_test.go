@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/scoring"
 )
@@ -18,7 +18,7 @@ import (
 func TestJSONFormatter_Format(t *testing.T) {
 	tests := []struct {
 		name       string
-		summary    *cli.LintSummary
+		summary    *lint.LintSummary
 		quiet      bool
 		indent     bool
 		outputFile string
@@ -26,14 +26,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 	}{
 		{
 			name: "basic json output - compact",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   0,
 				StartTime:       time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -70,14 +70,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "indented json output",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "command",
@@ -97,14 +97,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "json with errors and warnings",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     2,
 				TotalWarnings:   1,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -169,12 +169,12 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "json with quality scores",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -213,14 +213,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "empty results",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      0,
 				SuccessfulFiles: 0,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results:         []cli.LintResult{},
+				Results:         []lint.LintResult{},
 			},
 			indent: true,
 			validate: func(t *testing.T, output string) {
@@ -239,12 +239,12 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "result without quality score",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -267,14 +267,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "multiple files",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      3,
 				SuccessfulFiles: 2,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test1.md",
 						Type:    "agent",
@@ -345,12 +345,12 @@ func TestJSONFormatter_WriteToFile(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.json")
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 1,
 		FailedFiles:     0,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -389,10 +389,10 @@ func TestJSONFormatter_WriteToFileError(t *testing.T) {
 	// Try to write to invalid path
 	outputFile := "/invalid/path/that/does/not/exist/output.json"
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles: 1,
 		StartTime:  time.Now(),
-		Results:    []cli.LintResult{},
+		Results:    []lint.LintResult{},
 	}
 
 	formatter := NewJSONFormatter(false, true, outputFile)
@@ -408,10 +408,10 @@ func TestJSONFormatter_WriteToFileError(t *testing.T) {
 
 func TestJSONFormatter_DurationFormat(t *testing.T) {
 	startTime := time.Now().Add(-123 * time.Millisecond)
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles: 1,
 		StartTime:  startTime,
-		Results:    []cli.LintResult{},
+		Results:    []lint.LintResult{},
 	}
 
 	output := captureStdout(t, func() {
@@ -471,14 +471,14 @@ func TestNewJSONFormatter(t *testing.T) {
 }
 
 func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      2,
 		SuccessfulFiles: 1,
 		FailedFiles:     1,
 		TotalErrors:     2,
 		TotalWarnings:   1,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:     "test1.md",
 				Type:     "agent",

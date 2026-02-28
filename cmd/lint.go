@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/outputters"
@@ -15,7 +15,7 @@ import (
 
 // LinterFunc is the function signature for component linters.
 // It takes root path, quiet mode, verbose mode, noCycleCheck and returns a summary.
-type LinterFunc func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*cli.LintSummary, error)
+type LinterFunc func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error)
 
 // runComponentLint is the generic function that handles config loading,
 // linter execution, and output formatting for any component type.
@@ -88,24 +88,24 @@ func loadBaselineIfRequested(baselineFile string, quiet bool) *baseline.Baseline
 }
 
 // collectIssuesIfCreatingBaseline collects all issues if baseline creation is requested.
-func collectIssuesIfCreatingBaseline(summary *cli.LintSummary) []cue.ValidationError {
+func collectIssuesIfCreatingBaseline(summary *lint.LintSummary) []cue.ValidationError {
 	if !createBaseline {
 		return nil
 	}
-	return cli.CollectAllIssues(summary)
+	return lint.CollectAllIssues(summary)
 }
 
 // filterWithBaseline filters results using baseline if active.
 // Returns counts of ignored issues.
-func filterWithBaseline(summary *cli.LintSummary, b *baseline.Baseline) (total, errors, suggestions int) {
+func filterWithBaseline(summary *lint.LintSummary, b *baseline.Baseline) (total, errors, suggestions int) {
 	if !useBaseline || b == nil {
 		return 0, 0, 0
 	}
-	return cli.FilterResults(summary, b)
+	return lint.FilterResults(summary, b)
 }
 
 // formatAndOutputResults formats and outputs the lint results.
-func formatAndOutputResults(cfg *config.Config, summary *cli.LintSummary) error {
+func formatAndOutputResults(cfg *config.Config, summary *lint.LintSummary) error {
 	outputter := outputters.NewOutputter(cfg)
 	if err := outputter.Format(summary, cfg.Format); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)

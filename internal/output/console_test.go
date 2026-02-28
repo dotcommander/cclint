@@ -8,15 +8,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/scoring"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 func TestConsoleFormatter_Format(t *testing.T) {
 	tests := []struct {
 		name             string
-		summary          *cli.LintSummary
+		summary          *lint.LintSummary
 		quiet            bool
 		verbose          bool
 		showScores       bool
@@ -26,7 +27,7 @@ func TestConsoleFormatter_Format(t *testing.T) {
 	}{
 		{
 			name: "quiet mode - no output",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
@@ -38,13 +39,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "all passing files",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      2,
 				SuccessfulFiles: 2,
 				FailedFiles:     0,
 				ComponentType:   "agent",
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test1.md",
 						Type:    "agent",
@@ -63,13 +64,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "file with errors",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     2,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -102,13 +103,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "file with warnings",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				TotalWarnings:   1,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "command",
@@ -131,13 +132,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "verbose mode with suggestions",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:       1,
 				SuccessfulFiles:  1,
 				FailedFiles:      0,
 				TotalSuggestions: 2,
 				StartTime:        time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "skill",
@@ -173,13 +174,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "non-verbose mode hides suggestions",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:       1,
 				SuccessfulFiles:  1,
 				FailedFiles:      0,
 				TotalSuggestions: 1,
 				StartTime:        time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "skill",
@@ -199,12 +200,12 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "show quality scores",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -228,12 +229,12 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "verbose with quality scores breakdown",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -262,17 +263,17 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "show improvements",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
 						Success: true,
-						Improvements: []cli.ImprovementRecommendation{
+						Improvements: []textutil.ImprovementRecommendation{
 							{
 								Description: "Add Foundation section",
 								PointValue:  5,
@@ -300,12 +301,12 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "empty summary",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      0,
 				SuccessfulFiles: 0,
 				FailedFiles:     0,
 				StartTime:       time.Now(),
-				Results:         []cli.LintResult{},
+				Results:         []lint.LintResult{},
 			},
 			wantContains: []string{
 				"✓ All 0 files passed",
@@ -313,13 +314,13 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "error without line number",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -342,7 +343,7 @@ func TestConsoleFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "mixed errors, warnings, and suggestions",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:       1,
 				SuccessfulFiles:  0,
 				FailedFiles:      1,
@@ -350,7 +351,7 @@ func TestConsoleFormatter_Format(t *testing.T) {
 				TotalWarnings:    1,
 				TotalSuggestions: 1,
 				StartTime:        time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -439,13 +440,13 @@ func TestConsoleFormatter_Colorization(t *testing.T) {
 			formatter := NewConsoleFormatter(false, false, false, false)
 			formatter.colorize = tt.colorize
 
-			summary := &cli.LintSummary{
+			summary := &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				ComponentType:   "agent",
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -479,13 +480,13 @@ func TestConsoleFormatter_NoColorsInConclusion(t *testing.T) {
 	formatter := NewConsoleFormatter(false, false, false, false)
 	formatter.colorize = false
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 1,
 		FailedFiles:     0,
 		ComponentType:   "agent",
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -515,13 +516,13 @@ func TestConsoleFormatter_NoColorsInConclusion(t *testing.T) {
 func TestConsoleFormatter_EmptyResultsNoNewline(t *testing.T) {
 	formatter := NewConsoleFormatter(false, false, false, false)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      0,
 		SuccessfulFiles: 0,
 		FailedFiles:     0,
 		ComponentType:   "",
 		StartTime:       time.Now(),
-		Results:         []cli.LintResult{}, // Empty results
+		Results:         []lint.LintResult{}, // Empty results
 	}
 
 	old := os.Stdout
@@ -551,12 +552,12 @@ func TestConsoleFormatter_EmptyResultsNoNewline(t *testing.T) {
 func TestConsoleFormatter_EdgeCases(t *testing.T) {
 	t.Run("nil quality score", func(t *testing.T) {
 		formatter := NewConsoleFormatter(false, false, true, false)
-		summary := &cli.LintSummary{
+		summary := &lint.LintSummary{
 			TotalFiles:      1,
 			SuccessfulFiles: 1,
 			FailedFiles:     0,
 			StartTime:       time.Now(),
-			Results: []cli.LintResult{
+			Results: []lint.LintResult{
 				{
 					File:    "test.md",
 					Type:    "agent",
@@ -590,17 +591,17 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 
 	t.Run("improvement without line number", func(t *testing.T) {
 		formatter := NewConsoleFormatter(false, true, false, true) // verbose=true to show files
-		summary := &cli.LintSummary{
+		summary := &lint.LintSummary{
 			TotalFiles:      1,
 			SuccessfulFiles: 1,
 			FailedFiles:     0,
 			StartTime:       time.Now(),
-			Results: []cli.LintResult{
+			Results: []lint.LintResult{
 				{
 					File:    "test.md",
 					Type:    "agent",
 					Success: true,
-					Improvements: []cli.ImprovementRecommendation{
+					Improvements: []textutil.ImprovementRecommendation{
 						{
 							Description: "General improvement",
 							PointValue:  3,
@@ -648,12 +649,12 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 		for _, tier := range tiers {
 			t.Run("tier_"+tier.tier, func(t *testing.T) {
 				formatter := NewConsoleFormatter(false, true, true, false) // verbose=true to show files
-				summary := &cli.LintSummary{
+				summary := &lint.LintSummary{
 					TotalFiles:      1,
 					SuccessfulFiles: 1,
 					FailedFiles:     0,
 					StartTime:       time.Now(),
-					Results: []cli.LintResult{
+					Results: []lint.LintResult{
 						{
 							File:    "test.md",
 							Type:    "agent",
@@ -689,13 +690,13 @@ func TestConsoleFormatter_EdgeCases(t *testing.T) {
 
 func TestConsoleFormatter_UnknownSeverity(t *testing.T) {
 	formatter := NewConsoleFormatter(false, false, false, false)
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 0,
 		FailedFiles:     1,
 		TotalErrors:     1,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -732,13 +733,13 @@ func TestConsoleFormatter_UnknownSeverity(t *testing.T) {
 
 func TestConsoleFormatter_UnknownSource(t *testing.T) {
 	formatter := NewConsoleFormatter(false, true, false, false) // verbose to show sources
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:       1,
 		SuccessfulFiles:  1,
 		FailedFiles:      0,
 		TotalSuggestions: 1,
 		StartTime:        time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -780,13 +781,13 @@ func TestConsoleFormatter_UnknownSource(t *testing.T) {
 
 func TestConsoleFormatter_QuietModeWithErrors(t *testing.T) {
 	formatter := NewConsoleFormatter(true, false, false, false)
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 0,
 		FailedFiles:     1,
 		TotalErrors:     1,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -968,14 +969,14 @@ func TestConsoleFormatter_CelebrationTrigger(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			summary := &cli.LintSummary{
+			summary := &lint.LintSummary{
 				ComponentType:    "agent",
 				TotalFiles:       5,
 				FailedFiles:      tt.failedFiles,
 				TotalErrors:      tt.totalErrors,
 				TotalWarnings:    tt.totalWarnings,
 				TotalSuggestions: tt.totalSuggestions,
-				Results:          []cli.LintResult{},
+				Results:          []lint.LintResult{},
 			}
 
 			// Test the celebration trigger logic directly

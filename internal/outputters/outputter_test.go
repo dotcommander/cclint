@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
 )
 
@@ -16,10 +16,10 @@ import (
 type mockFormatter struct {
 	formatCalled bool
 	formatError  error
-	summary      *cli.LintSummary
+	summary      *lint.LintSummary
 }
 
-func (m *mockFormatter) Format(summary *cli.LintSummary) error {
+func (m *mockFormatter) Format(summary *lint.LintSummary) error {
 	m.formatCalled = true
 	m.summary = summary
 	return m.formatError
@@ -121,7 +121,7 @@ func TestOutputter_Format_Success(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType:   "agents",
 		TotalFiles:      10,
 		SuccessfulFiles: 8,
@@ -163,7 +163,7 @@ func TestOutputter_Format_SetsStartTime(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType: "commands",
 		TotalFiles:    5,
 		// StartTime not set (zero value)
@@ -201,7 +201,7 @@ func TestOutputter_Format_PreservesExistingStartTime(t *testing.T) {
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
 	existingTime := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType: "skills",
 		StartTime:     existingTime,
 		TotalFiles:    3,
@@ -231,7 +231,7 @@ func TestOutputter_Format_SetsProjectRoot(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType: "plugins",
 		TotalFiles:    1,
 	}
@@ -260,7 +260,7 @@ func TestOutputter_Format_CreateFormatterError(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType: "agents",
 		TotalFiles:    10,
 	}
@@ -291,7 +291,7 @@ func TestOutputter_Format_FormatterError(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType: "commands",
 		TotalFiles:    5,
 	}
@@ -479,7 +479,7 @@ func TestOutputter_Format_Integration(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      *config.Config
-		summary     *cli.LintSummary
+		summary     *lint.LintSummary
 		format      string
 		wantErr     bool
 		errContains string
@@ -492,7 +492,7 @@ func TestOutputter_Format_Integration(t *testing.T) {
 				Verbose:    true,
 				ShowScores: true,
 			},
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				ComponentType:   "agents",
 				TotalFiles:      10,
 				SuccessfulFiles: 8,
@@ -507,7 +507,7 @@ func TestOutputter_Format_Integration(t *testing.T) {
 				Root:   "/test/root",
 				Output: "/tmp/output.json",
 			},
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				ComponentType:   "commands",
 				TotalFiles:      5,
 				SuccessfulFiles: 5,
@@ -523,7 +523,7 @@ func TestOutputter_Format_Integration(t *testing.T) {
 				Output:  "/tmp/output.md",
 				Verbose: true,
 			},
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				ComponentType:   "skills",
 				TotalFiles:      3,
 				SuccessfulFiles: 2,
@@ -537,7 +537,7 @@ func TestOutputter_Format_Integration(t *testing.T) {
 			config: &config.Config{
 				Root: "/test/root",
 			},
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				ComponentType: "plugins",
 				TotalFiles:    1,
 			},
@@ -619,7 +619,7 @@ func TestOutputter_Format_EmptySummary(t *testing.T) {
 
 	outputter := NewOutputterWithFactory(cfg, mockFactory)
 
-	summary := &cli.LintSummary{}
+	summary := &lint.LintSummary{}
 
 	err := outputter.Format(summary, "console")
 
@@ -645,7 +645,7 @@ func TestOutputter_MultipleFormats(t *testing.T) {
 
 	outputter := NewOutputter(cfg)
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ComponentType:   "agents",
 		TotalFiles:      10,
 		SuccessfulFiles: 8,

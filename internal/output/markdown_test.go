@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
 func TestMarkdownFormatter_Format(t *testing.T) {
 	tests := []struct {
 		name         string
-		summary      *cli.LintSummary
+		summary      *lint.LintSummary
 		quiet        bool
 		verbose      bool
 		outputFile   string
@@ -22,14 +22,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 	}{
 		{
 			name: "basic markdown output",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -56,14 +56,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "output with errors",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     2,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -99,14 +99,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "output with warnings",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 1,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   2,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "command",
@@ -139,14 +139,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "empty results",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      0,
 				SuccessfulFiles: 0,
 				FailedFiles:     0,
 				TotalErrors:     0,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results:         []cli.LintResult{},
+				Results:         []lint.LintResult{},
 			},
 			wantContains: []string{
 				"# CCLint Report",
@@ -157,14 +157,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "multiple files with table of contents",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      3,
 				SuccessfulFiles: 2,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test1.md",
 						Type:    "agent",
@@ -203,14 +203,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "non-verbose mode hides successful files",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      2,
 				SuccessfulFiles: 1,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				TotalWarnings:   0,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "success.md",
 						Type:    "agent",
@@ -239,13 +239,13 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "error without line number",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "agent",
@@ -267,14 +267,14 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 		},
 		{
 			name: "mixed errors and warnings",
-			summary: &cli.LintSummary{
+			summary: &lint.LintSummary{
 				TotalFiles:      1,
 				SuccessfulFiles: 0,
 				FailedFiles:     1,
 				TotalErrors:     1,
 				TotalWarnings:   1,
 				StartTime:       time.Now(),
-				Results: []cli.LintResult{
+				Results: []lint.LintResult{
 					{
 						File:    "test.md",
 						Type:    "skill",
@@ -330,12 +330,12 @@ func TestMarkdownFormatter_WriteToFile(t *testing.T) {
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.md")
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 1,
 		FailedFiles:     0,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -373,10 +373,10 @@ func TestMarkdownFormatter_WriteToFileError(t *testing.T) {
 	// Try to write to invalid path
 	outputFile := "/invalid/path/that/does/not/exist/output.md"
 
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles: 1,
 		StartTime:  time.Now(),
-		Results:    []cli.LintResult{},
+		Results:    []lint.LintResult{},
 	}
 
 	formatter := NewMarkdownFormatter(false, false, outputFile)
@@ -448,12 +448,12 @@ func TestMarkdownFormatter_HelperFunctions(t *testing.T) {
 }
 
 func TestMarkdownFormatter_VerboseMode(t *testing.T) {
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      2,
 		SuccessfulFiles: 2,
 		FailedFiles:     0,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test1.md",
 				Type:    "agent",
@@ -498,12 +498,12 @@ func TestMarkdownFormatter_VerboseMode(t *testing.T) {
 
 func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 	t.Run("single file - no TOC", func(t *testing.T) {
-		summary := &cli.LintSummary{
+		summary := &lint.LintSummary{
 			TotalFiles:      1,
 			SuccessfulFiles: 0,
 			FailedFiles:     1,
 			StartTime:       time.Now(),
-			Results: []cli.LintResult{
+			Results: []lint.LintResult{
 				{
 					File:    "test.md",
 					Type:    "agent",
@@ -526,12 +526,12 @@ func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 	})
 
 	t.Run("multiple files - includes TOC", func(t *testing.T) {
-		summary := &cli.LintSummary{
+		summary := &lint.LintSummary{
 			TotalFiles:      2,
 			SuccessfulFiles: 0,
 			FailedFiles:     2,
 			StartTime:       time.Now(),
-			Results: []cli.LintResult{
+			Results: []lint.LintResult{
 				{
 					File:    "./path/to/test1.md",
 					Type:    "agent",
@@ -569,13 +569,13 @@ func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 }
 
 func TestMarkdownFormatter_SourceTags(t *testing.T) {
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      1,
 		SuccessfulFiles: 0,
 		FailedFiles:     1,
 		TotalErrors:     3,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test.md",
 				Type:    "agent",
@@ -667,13 +667,13 @@ func TestNewMarkdownFormatter(t *testing.T) {
 }
 
 func TestMarkdownFormatter_Separators(t *testing.T) {
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		TotalFiles:      2,
 		SuccessfulFiles: 0,
 		FailedFiles:     2,
 		TotalErrors:     2,
 		StartTime:       time.Now(),
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File:    "test1.md",
 				Type:    "agent",

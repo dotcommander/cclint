@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 )
 
 var contextCmd = &cobra.Command{
@@ -34,5 +34,5 @@ func init() {
 }
 
 func runContextLint() error {
-	return runComponentLint("context", cli.LintContext)
+	return runComponentLint("context", lint.LintContext)
 }

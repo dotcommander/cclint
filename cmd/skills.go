@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 )
 
 var skillsCmd = &cobra.Command{
@@ -33,5 +33,5 @@ func init() {
 }
 
 func runSkillsLint() error {
-	return runComponentLint("skills", cli.LintSkills)
+	return runComponentLint("skills", lint.LintSkills)
 }

@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/textutil"
 	"golang.org/x/term"
 )
 
@@ -32,7 +33,7 @@ func NewConsoleFormatter(quiet, verbose, showScores, showImprovements bool) *Con
 }
 
 // Format formats the lint summary for console output
-func (f *ConsoleFormatter) Format(summary *cli.LintSummary) error {
+func (f *ConsoleFormatter) Format(summary *lint.LintSummary) error {
 	if f.quiet {
 		// Only show exit code in quiet mode
 		return nil
@@ -54,12 +55,12 @@ func (f *ConsoleFormatter) Format(summary *cli.LintSummary) error {
 }
 
 // printHeader prints the report header
-func (f *ConsoleFormatter) printHeader(summary *cli.LintSummary) {
+func (f *ConsoleFormatter) printHeader(summary *lint.LintSummary) {
 	// No header in simplified UX
 }
 
 // printFileResults prints results for each file
-func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
+func (f *ConsoleFormatter) printFileResults(summary *lint.LintSummary) {
 	for i := range summary.Results {
 		if !f.shouldShowFile(&summary.Results[i]) {
 			continue
@@ -73,13 +74,13 @@ func (f *ConsoleFormatter) printFileResults(summary *cli.LintSummary) {
 }
 
 // shouldShowFile determines if a file result should be displayed.
-func (f *ConsoleFormatter) shouldShowFile(result *cli.LintResult) bool {
+func (f *ConsoleFormatter) shouldShowFile(result *lint.LintResult) bool {
 	hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0
 	return hasIssues || f.verbose
 }
 
 // printFileHeader prints the file header with status icon and quality score.
-func (f *ConsoleFormatter) printFileHeader(result *cli.LintResult) {
+func (f *ConsoleFormatter) printFileHeader(result *lint.LintResult) {
 	status := f.getFileStatus(result)
 	fileStyle := f.getFileStyle(result)
 	scoreStr := f.formatScoreString(result)
@@ -88,7 +89,7 @@ func (f *ConsoleFormatter) printFileHeader(result *cli.LintResult) {
 }
 
 // getFileStatus returns the status icon for a file result.
-func (f *ConsoleFormatter) getFileStatus(result *cli.LintResult) string {
+func (f *ConsoleFormatter) getFileStatus(result *lint.LintResult) string {
 	if len(result.Errors) > 0 {
 		return "✗"
 	}
@@ -99,7 +100,7 @@ func (f *ConsoleFormatter) getFileStatus(result *cli.LintResult) string {
 }
 
 // getFileStyle returns the lipgloss style for a file based on its status.
-func (f *ConsoleFormatter) getFileStyle(result *cli.LintResult) lipgloss.Style {
+func (f *ConsoleFormatter) getFileStyle(result *lint.LintResult) lipgloss.Style {
 	if !f.colorize {
 		return lipgloss.NewStyle()
 	}
@@ -115,7 +116,7 @@ func (f *ConsoleFormatter) getFileStyle(result *cli.LintResult) lipgloss.Style {
 }
 
 // formatScoreString formats the quality score string for display.
-func (f *ConsoleFormatter) formatScoreString(result *cli.LintResult) string {
+func (f *ConsoleFormatter) formatScoreString(result *lint.LintResult) string {
 	if !f.showScores || result.Quality == nil {
 		return ""
 	}
@@ -143,7 +144,7 @@ func (f *ConsoleFormatter) getScoreStyle(tier string) lipgloss.Style {
 }
 
 // printFileIssues prints all errors, warnings, and suggestions for a file.
-func (f *ConsoleFormatter) printFileIssues(result *cli.LintResult) {
+func (f *ConsoleFormatter) printFileIssues(result *lint.LintResult) {
 	for _, err := range result.Errors {
 		f.printValidationError(err, "error")
 	}
@@ -158,7 +159,7 @@ func (f *ConsoleFormatter) printFileIssues(result *cli.LintResult) {
 }
 
 // printScoreDetails prints detailed score breakdown in verbose mode.
-func (f *ConsoleFormatter) printScoreDetails(result *cli.LintResult) {
+func (f *ConsoleFormatter) printScoreDetails(result *lint.LintResult) {
 	if !f.verbose || !f.showScores || result.Quality == nil {
 		return
 	}
@@ -169,7 +170,7 @@ func (f *ConsoleFormatter) printScoreDetails(result *cli.LintResult) {
 }
 
 // printImprovements prints improvement suggestions if enabled.
-func (f *ConsoleFormatter) printImprovements(result *cli.LintResult) {
+func (f *ConsoleFormatter) printImprovements(result *lint.LintResult) {
 	if !f.showImprovements || len(result.Improvements) == 0 {
 		return
 	}
@@ -184,7 +185,7 @@ func (f *ConsoleFormatter) printImprovements(result *cli.LintResult) {
 }
 
 // printImprovement prints a single improvement line.
-func (f *ConsoleFormatter) printImprovement(imp cli.ImprovementRecommendation, ptsStyle lipgloss.Style) {
+func (f *ConsoleFormatter) printImprovement(imp textutil.ImprovementRecommendation, ptsStyle lipgloss.Style) {
 	lineRef := ""
 	if imp.Line > 0 {
 		lineRef = fmt.Sprintf(" (line %d)", imp.Line)
@@ -246,7 +247,7 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 }
 
 // printSummary prints the summary statistics
-func (f *ConsoleFormatter) printSummary(summary *cli.LintSummary) {
+func (f *ConsoleFormatter) printSummary(summary *lint.LintSummary) {
 	if f.quiet {
 		return
 	}
@@ -275,7 +276,7 @@ func (f *ConsoleFormatter) printSummary(summary *cli.LintSummary) {
 }
 
 // printConclusion prints the conclusion message
-func (f *ConsoleFormatter) printConclusion(summary *cli.LintSummary) {
+func (f *ConsoleFormatter) printConclusion(summary *lint.LintSummary) {
 	if f.quiet {
 		return
 	}

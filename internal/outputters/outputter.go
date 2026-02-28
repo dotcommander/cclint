@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/output"
 )
@@ -18,7 +18,7 @@ import (
 // concrete formatter implementations (DIP compliance).
 type Formatter interface {
 	// Format formats the lint summary and outputs it
-	Format(summary *cli.LintSummary) error
+	Format(summary *lint.LintSummary) error
 }
 
 // FormatterFactory creates formatters based on format type.
@@ -85,7 +85,7 @@ func NewOutputterWithFactory(config *config.Config, factory FormatterFactory) *O
 }
 
 // Format formats the lint summary using the configured format.
-func (o *Outputter) Format(summary *cli.LintSummary, format string) error {
+func (o *Outputter) Format(summary *lint.LintSummary, format string) error {
 	// Set start time if not set
 	if summary.StartTime.IsZero() {
 		summary.StartTime = time.Now()
@@ -101,4 +101,16 @@ func (o *Outputter) Format(summary *cli.LintSummary, format string) error {
 	}
 
 	return formatter.Format(summary)
+}
+
+// FormatAll formats multiple lint summaries using the compact formatter.
+// This is used for the full scan mode where multiple component types are linted.
+func (o *Outputter) FormatAll(summaries []*lint.LintSummary, startTime time.Time) error {
+	if o.config.Quiet {
+		return nil
+	}
+
+	// Use compact formatter for multi-summary output
+	formatter := output.NewCompactFormatter(o.config.Quiet, o.config.Verbose, o.config.ShowScores, o.config.ShowImprovements, startTime)
+	return formatter.FormatAll(summaries)
 }

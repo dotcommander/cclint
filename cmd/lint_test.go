@@ -6,15 +6,15 @@ import (
 	"testing"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // mockLinterFunc creates a mock linter function for testing
-func mockLinterFunc(summary *cli.LintSummary, err error) LinterFunc {
-	return func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*cli.LintSummary, error) {
+func mockLinterFunc(summary *lint.LintSummary, err error) LinterFunc {
+	return func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error) {
 		return summary, err
 	}
 }
@@ -50,7 +50,7 @@ func TestRunComponentLint_Success(t *testing.T) {
 	}()
 
 	// Create a successful linter
-	successSummary := &cli.LintSummary{
+	successSummary := &lint.LintSummary{
 		ProjectRoot:      tmpDir,
 		ComponentType:    "agents",
 		TotalFiles:       1,
@@ -106,12 +106,12 @@ func TestRunComponentLint_BaselineCreation(t *testing.T) {
 	}()
 
 	// Create linter with some issues
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
 		TotalErrors:   2,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "test.md",
 				Type: "agent",
@@ -169,12 +169,12 @@ func TestRunComponentLint_BaselineFiltering(t *testing.T) {
 	}()
 
 	// Create linter with issues (one should be filtered)
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
 		TotalErrors:   2,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "test.md",
 				Type: "agent",
@@ -215,11 +215,11 @@ func TestRunComponentLint_AbsoluteBaselinePath(t *testing.T) {
 	}()
 
 	// Create linter
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
-		Results:       []cli.LintResult{},
+		Results:       []lint.LintResult{},
 	}
 	linter := mockLinterFunc(summary, nil)
 
@@ -255,11 +255,11 @@ func TestRunComponentLint_RelativeBaselinePath(t *testing.T) {
 	}()
 
 	// Create linter
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
-		Results:       []cli.LintResult{},
+		Results:       []lint.LintResult{},
 	}
 	linter := mockLinterFunc(summary, nil)
 
@@ -302,11 +302,11 @@ func TestRunComponentLint_BaselineLoadError(t *testing.T) {
 	defer func() { os.Stderr = oldStderr }()
 
 	// Create linter
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
-		Results:       []cli.LintResult{},
+		Results:       []lint.LintResult{},
 	}
 	linter := mockLinterFunc(summary, nil)
 
@@ -337,11 +337,11 @@ func TestRunComponentLint_NoBaseline(t *testing.T) {
 	}()
 
 	// Create linter
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
-		Results:       []cli.LintResult{},
+		Results:       []lint.LintResult{},
 	}
 	linter := mockLinterFunc(summary, nil)
 
@@ -369,12 +369,12 @@ func TestRunComponentLint_VerboseOutput(t *testing.T) {
 	}()
 
 	// Create linter
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    5,
 		TotalErrors:   2,
-		Results:       []cli.LintResult{},
+		Results:       []lint.LintResult{},
 	}
 	linter := mockLinterFunc(summary, nil)
 
@@ -385,8 +385,8 @@ func TestRunComponentLint_VerboseOutput(t *testing.T) {
 
 func TestLinterFuncSignature(t *testing.T) {
 	// Test that our mock matches the actual signature
-	var linter LinterFunc = func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*cli.LintSummary, error) {
-		return &cli.LintSummary{}, nil
+	var linter LinterFunc = func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error) {
+		return &lint.LintSummary{}, nil
 	}
 
 	// Should be able to call it with expected parameters
@@ -425,12 +425,12 @@ func TestRunComponentLint_QuietMode(t *testing.T) {
 	}()
 
 	// Create linter with issues
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
 		TotalErrors:   1,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "test.md",
 				Type: "agent",
@@ -454,7 +454,7 @@ func TestRunComponentLint_ConfigLoadError(t *testing.T) {
 	defer func() { rootPath = oldRootPath }()
 
 	// Create a dummy linter (shouldn't be called)
-	linter := mockLinterFunc(&cli.LintSummary{}, nil)
+	linter := mockLinterFunc(&lint.LintSummary{}, nil)
 
 	// Should fail at config loading stage
 	// Note: config.LoadConfig may actually succeed even with non-existent path
@@ -495,12 +495,12 @@ func TestRunComponentLint_BaselineFilteringWithIgnored(t *testing.T) {
 	}()
 
 	// Create linter with issue that matches baseline
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
 		TotalErrors:   1,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "test.md",
 				Type: "agent",
@@ -540,12 +540,12 @@ func TestRunComponentLint_BaselineCreationQuietMode(t *testing.T) {
 	}()
 
 	// Create linter with some issues
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    2,
 		TotalErrors:   3,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "agent1.md",
 				Type: "agent",
@@ -606,11 +606,11 @@ func TestRunComponentLint_ExistingBaseline(t *testing.T) {
 	}()
 
 	// Create linter with new issues
-	summary := &cli.LintSummary{
+	summary := &lint.LintSummary{
 		ProjectRoot:   tmpDir,
 		ComponentType: "agents",
 		TotalFiles:    1,
-		Results: []cli.LintResult{
+		Results: []lint.LintResult{
 			{
 				File: "new.md",
 				Type: "agent",
@@ -655,11 +655,11 @@ func TestLinterFuncParameters(t *testing.T) {
 		noCycleCheck = oldNoCycleCheck
 	}()
 
-	linter := func(rp string, q bool, v bool, ncc bool) (*cli.LintSummary, error) {
+	linter := func(rp string, q bool, v bool, ncc bool) (*lint.LintSummary, error) {
 		linterCalled = true
 		// Verify parameters are passed (they come from config, not flags directly)
 		assert.NotEmpty(t, rp)
-		return &cli.LintSummary{ProjectRoot: rp}, nil
+		return &lint.LintSummary{ProjectRoot: rp}, nil
 	}
 
 	_ = runComponentLint("test", linter)

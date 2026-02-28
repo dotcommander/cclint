@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/spf13/cobra"
 )
 
@@ -35,5 +35,5 @@ func init() {
 }
 
 func runRulesLint() error {
-	return runComponentLint("rules", cli.LintRules)
+	return runComponentLint("rules", lint.LintRules)
 }

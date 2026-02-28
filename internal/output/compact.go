@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 	"golang.org/x/term"
 )
@@ -24,19 +24,19 @@ type CompactFormatter struct {
 }
 
 // NewCompactFormatter creates a new CompactFormatter.
-func NewCompactFormatter(quiet, verbose, showScores, showImprovements bool) *CompactFormatter {
+func NewCompactFormatter(quiet, verbose, showScores, showImprovements bool, startTime time.Time) *CompactFormatter {
 	return &CompactFormatter{
 		quiet:            quiet,
 		verbose:          verbose,
 		colorize:         true,
 		showScores:       showScores,
 		showImprovements: showImprovements,
-		startTime:        time.Now(),
+		startTime:        startTime,
 	}
 }
 
 // FormatAll formats multiple lint summaries in compact style.
-func (f *CompactFormatter) FormatAll(summaries []*cli.LintSummary) error {
+func (f *CompactFormatter) FormatAll(summaries []*lint.LintSummary) error {
 	if f.quiet {
 		return nil
 	}
@@ -47,62 +47,100 @@ func (f *CompactFormatter) FormatAll(summaries []*cli.LintSummary) error {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	boldStyle := lipgloss.NewStyle().Bold(true)
 
-	// Track totals
+	// Aggregate totals and collect errors/suggestions from all summaries
 	var totalFiles, totalErrors, totalSuggestions int
 	var allErrors []errorEntry
 	var allSuggestions []errorEntry
 
-	// Calculate max component name length for alignment
-	maxNameLen, maxCountLen := f.calculateColumnWidths(summaries)
-
-	// Print component status table
-	fmt.Println()
 	for _, s := range summaries {
 		if s.TotalFiles == 0 {
 			continue
 		}
-
-		name := pluralize(s.ComponentType)
-		padding := strings.Repeat(" ", maxNameLen-len(name))
-
-		statusInfo := getStatusInfo(s, maxCountLen, greenStyle, redStyle)
-		f.printStatusLine(statusLineParams{
-			icon:     statusInfo.icon,
-			name:     name,
-			padding:  padding,
-			text:     statusInfo.text,
-			style:    statusInfo.style,
-			dimStyle: dimStyle,
-		})
-
-		// Collect totals and errors
 		totalFiles += s.TotalFiles
 		totalErrors += s.TotalErrors
 		totalSuggestions += s.TotalSuggestions
 		allErrors, allSuggestions = f.collectErrorsAndSuggestions(s, allErrors, allSuggestions)
 	}
 
-	// Print errors if any
-	f.printAllErrors(allErrors, boldStyle, redStyle)
+	if f.verbose {
+		// Verbose: print full component table + errors + suggestions + summary
+		maxNameLen, maxCountLen := f.calculateColumnWidths(summaries)
 
-	// Print suggestions if verbose
-	f.printAllSuggestions(allSuggestions, dimStyle)
+		fmt.Println()
+		for _, s := range summaries {
+			if s.TotalFiles == 0 {
+				continue
+			}
 
-	// Print summary line
-	f.printSummaryLine(summaryLineParams{
-		totalFiles:       totalFiles,
-		totalErrors:      totalErrors,
-		totalSuggestions: totalSuggestions,
-		summaries:        summaries,
-		greenStyle:       greenStyle,
-		redStyle:         redStyle,
-	})
+			name := pluralize(s.ComponentType)
+			padding := strings.Repeat(" ", maxNameLen-len(name))
+
+			statusInfo := getStatusInfo(s, maxCountLen, greenStyle, redStyle)
+			f.printStatusLine(statusLineParams{
+				icon:     statusInfo.icon,
+				name:     name,
+				padding:  padding,
+				text:     statusInfo.text,
+				style:    statusInfo.style,
+				dimStyle: dimStyle,
+			})
+		}
+
+		f.printAllErrors(allErrors, boldStyle, redStyle)
+		f.printAllSuggestions(allSuggestions, dimStyle)
+		f.printSummaryLine(summaryLineParams{
+			totalFiles:       totalFiles,
+			totalErrors:      totalErrors,
+			totalSuggestions: totalSuggestions,
+			summaries:        summaries,
+			greenStyle:       greenStyle,
+			redStyle:         redStyle,
+		})
+	} else {
+		// Default: minimal PASS/FAIL line + errors only
+		f.printMinimalResult(totalFiles, totalErrors, allErrors, boldStyle, redStyle)
+	}
 
 	return nil
 }
 
+// printMinimalResult prints a single PASS/FAIL line plus errors for the default (non-verbose) path.
+func (f *CompactFormatter) printMinimalResult(totalFiles, totalErrors int, allErrors []errorEntry, boldStyle, redStyle lipgloss.Style) {
+	duration := time.Since(f.startTime)
+	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+
+	fmt.Println()
+	if totalErrors == 0 {
+		line := fmt.Sprintf("✓ PASS  %d %s  %s", totalFiles, pluralizeCount("file", totalFiles), formatDuration(duration))
+		if f.colorize {
+			fmt.Println(greenStyle.Render(line))
+		} else {
+			fmt.Println(line)
+		}
+	} else {
+		successCount := totalFiles - countErrorFiles(allErrors)
+		line := fmt.Sprintf("✗ FAIL  %d/%d files  %d %s  %s",
+			successCount, totalFiles, totalErrors, pluralizeCount("error", totalErrors), formatDuration(duration))
+		if f.colorize {
+			fmt.Println(redStyle.Render(line))
+		} else {
+			fmt.Println(line)
+		}
+		f.printAllErrors(allErrors, boldStyle, redStyle)
+	}
+}
+
+// countErrorFiles counts the number of unique files that have at least one error.
+func countErrorFiles(errors []errorEntry) int {
+	seen := make(map[string]bool)
+	for _, e := range errors {
+		seen[e.file] = true
+	}
+	return len(seen)
+}
+
 // calculateColumnWidths computes the maximum name and count column widths.
-func (f *CompactFormatter) calculateColumnWidths(summaries []*cli.LintSummary) (maxNameLen, maxCountLen int) {
+func (f *CompactFormatter) calculateColumnWidths(summaries []*lint.LintSummary) (maxNameLen, maxCountLen int) {
 	for _, s := range summaries {
 		name := pluralize(s.ComponentType)
 		if len(name) > maxNameLen {
@@ -124,7 +162,7 @@ type statusInfo struct {
 }
 
 // getStatusInfo returns the status icon, text, and style for a summary.
-func getStatusInfo(s *cli.LintSummary, maxCountLen int, greenStyle, redStyle lipgloss.Style) statusInfo {
+func getStatusInfo(s *lint.LintSummary, maxCountLen int, greenStyle, redStyle lipgloss.Style) statusInfo {
 	if s.FailedFiles > 0 {
 		return statusInfo{
 			icon:  "✗",
@@ -163,7 +201,7 @@ func (f *CompactFormatter) printStatusLine(p statusLineParams) {
 }
 
 // collectErrorsAndSuggestions aggregates errors and suggestions from a summary.
-func (f *CompactFormatter) collectErrorsAndSuggestions(s *cli.LintSummary, allErrors, allSuggestions []errorEntry) ([]errorEntry, []errorEntry) {
+func (f *CompactFormatter) collectErrorsAndSuggestions(s *lint.LintSummary, allErrors, allSuggestions []errorEntry) ([]errorEntry, []errorEntry) {
 	for _, result := range s.Results {
 		for _, err := range result.Errors {
 			allErrors = append(allErrors, errorEntry{
@@ -241,7 +279,7 @@ type summaryLineParams struct {
 	totalFiles       int
 	totalErrors      int
 	totalSuggestions int
-	summaries        []*cli.LintSummary
+	summaries        []*lint.LintSummary
 	greenStyle       lipgloss.Style
 	redStyle         lipgloss.Style
 }
@@ -285,8 +323,8 @@ func (f *CompactFormatter) printCelebration(msg string) {
 }
 
 // Format implements Formatter interface for single summary (falls back to verbose style).
-func (f *CompactFormatter) Format(summary *cli.LintSummary) error {
-	return f.FormatAll([]*cli.LintSummary{summary})
+func (f *CompactFormatter) Format(summary *lint.LintSummary) error {
+	return f.FormatAll([]*lint.LintSummary{summary})
 }
 
 // printError prints a single error with indentation.
@@ -345,7 +383,7 @@ func pluralizeCount(s string, count int) string {
 }
 
 // countFilesWithErrors counts files that have at least one error.
-func countFilesWithErrors(summaries []*cli.LintSummary) int {
+func countFilesWithErrors(summaries []*lint.LintSummary) int {
 	count := 0
 	for _, s := range summaries {
 		count += s.FailedFiles

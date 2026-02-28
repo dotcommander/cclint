@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/scoring"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +15,7 @@ func TestAggregateResults(t *testing.T) {
 		TopIssues:  make(map[string]int),
 	}
 
-	results := []cli.LintResult{
+	results := []lint.LintResult{
 		{
 			File: "test1.md",
 			Type: "agent",
@@ -388,7 +388,7 @@ func TestComponentSummaryTypes(t *testing.T) {
 		TierCounts:      make(map[string]int),
 		TopIssues:       make(map[string]int),
 		LowestScoring:   []ScoredComponent{},
-		AllResults:      []cli.LintResult{},
+		AllResults:      []lint.LintResult{},
 	}
 
 	assert.Equal(t, 10, summary.TotalComponents)
@@ -423,7 +423,7 @@ func TestAggregateResults_NilQuality(t *testing.T) {
 		TopIssues:  make(map[string]int),
 	}
 
-	results := []cli.LintResult{
+	results := []lint.LintResult{
 		{
 			File:    "test.md",
 			Type:    "agent",
@@ -450,7 +450,7 @@ func TestAggregateResults_MultipleIssuesOfSameType(t *testing.T) {
 		TopIssues:  make(map[string]int),
 	}
 
-	results := []cli.LintResult{
+	results := []lint.LintResult{
 		{
 			File: "test1.md",
 			Type: "agent",
@@ -634,7 +634,7 @@ func TestAggregateResults_EmptyResults(t *testing.T) {
 	}
 
 	// Aggregate empty results
-	aggregateResults(summary, []cli.LintResult{})
+	aggregateResults(summary, []lint.LintResult{})
 
 	assert.Empty(t, summary.AllResults)
 	assert.Empty(t, summary.TierCounts)
@@ -647,7 +647,7 @@ func TestAggregateResults_OnlySuggestions(t *testing.T) {
 		TopIssues:  make(map[string]int),
 	}
 
-	results := []cli.LintResult{
+	results := []lint.LintResult{
 		{
 			File: "test.md",
 			Type: "agent",

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/cli"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
@@ -27,7 +27,7 @@ func NewMarkdownFormatter(quiet, verbose bool, outputFile string) *MarkdownForma
 }
 
 // Format formats the lint summary as Markdown
-func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
+func (f *MarkdownFormatter) Format(summary *lint.LintSummary) error {
 	var builder strings.Builder
 
 	f.writeHeader(&builder, summary)
@@ -38,7 +38,7 @@ func (f *MarkdownFormatter) Format(summary *cli.LintSummary) error {
 	return f.writeOutput(builder.String())
 }
 
-func (f *MarkdownFormatter) writeHeader(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeHeader(builder *strings.Builder, summary *lint.LintSummary) {
 	builder.WriteString("# CCLint Report\n\n")
 	builder.WriteString(fmt.Sprintf("**Generated:** %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
 	builder.WriteString(fmt.Sprintf("**Project:** %s\n\n", detectProjectRootForMarkdown()))
@@ -46,7 +46,7 @@ func (f *MarkdownFormatter) writeHeader(builder *strings.Builder, summary *cli.L
 	builder.WriteString(strings.Repeat("-", 50) + "\n\n")
 }
 
-func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary *lint.LintSummary) {
 	builder.WriteString("## Summary\n\n")
 	builder.WriteString("| Metric | Count |\n")
 	builder.WriteString("|--------|-------|\n")
@@ -58,7 +58,7 @@ func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary 
 	builder.WriteString("\n")
 }
 
-func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summary *lint.LintSummary) {
 	builder.WriteString("## Detailed Results\n\n")
 
 	if summary.TotalFiles == 0 {
@@ -70,7 +70,7 @@ func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summa
 	f.writeFileResults(builder, summary)
 }
 
-func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summary *lint.LintSummary) {
 	if summary.TotalFiles <= 1 {
 		return
 	}
@@ -82,7 +82,7 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 	builder.WriteString("\n")
 }
 
-func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *lint.LintSummary) {
 	for _, result := range summary.Results {
 		if !f.verbose && result.Success {
 			continue
@@ -120,7 +120,7 @@ func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.V
 	builder.WriteString("\n")
 }
 
-func (f *MarkdownFormatter) writeConclusion(builder *strings.Builder, summary *cli.LintSummary) {
+func (f *MarkdownFormatter) writeConclusion(builder *strings.Builder, summary *lint.LintSummary) {
 	builder.WriteString("## Conclusion\n\n")
 	if summary.FailedFiles == 0 {
 		builder.WriteString("✓ All files passed validation!\n")
