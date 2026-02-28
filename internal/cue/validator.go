@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dotcommander/cclint/internal/frontend"
+	"github.com/dotcommander/cclint/internal/textutil"
+	"github.com/dotcommander/cclint/internal/types"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -15,38 +16,23 @@ import (
 //go:embed schemas/*.cue
 var schemaFS embed.FS
 
-// Rule source constants
-const (
-	SourceAnthropicDocs = "anthropic-docs"     // Official Anthropic documentation
-	SourceCClintObserve = "cclint-observation" // Our best practice observations
-	SourceAgentSkillsIO = "agentskills-io"     // agentskills.io specification
-)
+// Re-export types and constants from internal/types for backward compatibility.
+type ValidationError = types.ValidationError
 
-// Severity level constants
 const (
-	SeverityError      = "error"
-	SeverityWarning    = "warning"
-	SeveritySuggestion = "suggestion"
-	SeverityInfo       = "info"
+	SourceAnthropicDocs = types.SourceAnthropicDocs
+	SourceCClintObserve = types.SourceCClintObserve
+	SourceAgentSkillsIO = types.SourceAgentSkillsIO
+	SeverityError       = types.SeverityError
+	SeverityWarning     = types.SeverityWarning
+	SeveritySuggestion  = types.SeveritySuggestion
+	SeverityInfo        = types.SeverityInfo
+	TypeAgent           = types.TypeAgent
+	TypeCommand         = types.TypeCommand
+	TypeSkill           = types.TypeSkill
+	TypeRule            = types.TypeRule
+	TypeHTTP            = types.TypeHTTP
 )
-
-// Component type constants
-const (
-	TypeAgent   = "agent"
-	TypeCommand = "command"
-	TypeSkill   = "skill"
-	TypeRule    = "rule"
-)
-
-// ValidationError represents a validation error
-type ValidationError struct {
-	File     string
-	Message  string
-	Severity string // error, warning, suggestion
-	Source   string // anthropic-docs or cclint-observation
-	Line     int
-	Column   int
-}
 
 // Validator handles CUE validation
 type Validator struct {
@@ -206,9 +192,9 @@ type Frontmatter struct {
 }
 
 // ParseFrontmatter parses YAML frontmatter from markdown content.
-// Delegates to frontend.ParseYAMLFrontmatter to avoid duplicate implementations.
+// Delegates to textutil.ParseYAMLFrontmatter to avoid duplicate implementations.
 func ParseFrontmatter(content string) (*Frontmatter, error) {
-	fm, err := frontend.ParseYAMLFrontmatter(content)
+	fm, err := textutil.ParseYAMLFrontmatter(content)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing frontmatter: %w", err)
 	}

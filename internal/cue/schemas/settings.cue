@@ -7,8 +7,8 @@ package schemas
 // Hook matcher pattern
 #Matcher: string
 
-// Hook type - command, prompt, or agent (v2.1.0+ added prompt and agent for plugins)
-#HookType: "command" | "prompt" | "agent"
+// Hook type - command, prompt, agent, or http (v2.1.0+ added prompt and agent for plugins)
+#HookType: "command" | "prompt" | "agent" | "http"
 
 // Hook handler definition
 // PreToolUse hooks can return additionalContext to the model (v2.1.9+)
@@ -20,6 +20,18 @@ package schemas
 
 	// Required for type: "prompt"
 	prompt?: string
+
+	// Required for type: "http"
+	url?: string
+
+	// Optional: HTTP headers (type: "http" only)
+	headers?: {[string]: string}
+
+	// Optional: environment variables to forward (type: "http" only)
+	allowedEnvVars?: [...string]
+
+	// Optional: status message displayed while hook runs
+	statusMessage?: string
 
 	// Optional: run command asynchronously (type: "command" only)
 	async?: bool
@@ -35,6 +47,11 @@ package schemas
 	// Enforce prompt field when type is "prompt"
 	if type == "prompt" {
 		prompt: string
+	}
+
+	// Enforce url field when type is "http"
+	if type == "http" {
+		url: string
 	}
 }
 
