@@ -175,9 +175,9 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 
 What cclint validates, for the `/updater` workflow. Source files in parentheses.
 
-### Hook Events — 17 total (`internal/lint/settings.go`)
+### Hook Events — 18 total (`internal/lint/settings.go`)
 
-`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`
 
 Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
@@ -221,7 +221,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 **Memory scopes**: user, project, local
 
-**Marketplace sources**: github, git, url, npm, file, directory, hostPattern
+**Marketplace sources**: github, git, git-subdir, url, npm, file, directory, hostPattern
 
 ## Operational Context
 
@@ -232,7 +232,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.63 |
+| claude_code_last_updated | v2.1.69 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
