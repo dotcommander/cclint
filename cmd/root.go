@@ -314,8 +314,8 @@ type classifiedArgs struct {
 
 // classifyArgs classifies each argument as either a type filter or a file/directory path.
 //
-// An arg is a type filter if discovery.ParseFileType succeeds AND os.Stat fails
-// (i.e., it's a known type name that doesn't exist as a file/directory on disk).
+// An arg is a type filter if discovery.ParseFileType succeeds (recognized type name).
+// Type names always win over directory names; use ./dir/ to force directory mode.
 // Everything else is treated as a file/directory path.
 //
 // Mixing type filters with file paths is an error.
@@ -323,9 +323,8 @@ func classifyArgs(args []string) (*classifiedArgs, error) {
 	result := &classifiedArgs{}
 	for _, arg := range args {
 		ft, parseErr := discovery.ParseFileType(arg)
-		_, statErr := os.Stat(arg)
-		if parseErr == nil && statErr != nil {
-			// Known type name, doesn't exist on disk → type filter
+		if parseErr == nil {
+			// Known type name → type filter (always wins over directory match)
 			result.typeFilters = append(result.typeFilters, ft)
 		} else {
 			// Everything else → file/directory path
