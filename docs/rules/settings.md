@@ -38,7 +38,7 @@ Hook event names must match Anthropic's documented event types. Valid events: Pr
 Every key in the `hooks` object matches a valid hook event name from Anthropic documentation.
 
 **Fail Message:**
-`Unknown hook event '[eventName]'. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded`
+`Unknown hook event '[eventName]'. Valid events: <sorted list of all valid events>`
 
 **Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 18 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded"
 

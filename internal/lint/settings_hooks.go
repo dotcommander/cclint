@@ -8,12 +8,12 @@ import (
 
 // validateHooks validates hooks for settings (full event set)
 func validateHooks(hooks any, filePath string) []cue.ValidationError {
-	return validateHooksWithEvents(hooks, filePath, validHookEvents, "PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded")
+	return validateHooksWithEvents(hooks, filePath, validHookEvents, eventLabel(validHookEvents))
 }
 
 // ValidateComponentHooks validates hooks for agents and skills (scoped event set)
 func ValidateComponentHooks(hooks any, filePath string) []cue.ValidationError {
-	return validateHooksWithEvents(hooks, filePath, validComponentHookEvents, "PreToolUse, PostToolUse, Stop")
+	return validateHooksWithEvents(hooks, filePath, validComponentHookEvents, eventLabel(validComponentHookEvents))
 }
 
 // validateHooksWithEvents validates the hooks section with specified allowed events

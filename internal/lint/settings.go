@@ -1,6 +1,9 @@
 package lint
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
@@ -80,6 +83,16 @@ var knownToolNames = map[string]bool{
 	"computer":       true,
 	"text_editor":    true,
 	"MultiModelTool": true,
+}
+
+// eventLabel builds a sorted, comma-separated label from a hook event map.
+func eventLabel(events map[string]bool) string {
+	keys := make([]string, 0, len(events))
+	for k := range events {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ", ")
 }
 
 // validateSettingsSpecific implements settings-specific validation rules
