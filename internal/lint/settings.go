@@ -32,6 +32,7 @@ var validHookEvents = map[string]bool{
 	"ConfigChange":       true, // config file change event (v2.1.49+)
 	"WorktreeCreate":     true, // worktree lifecycle event (v2.1.50+)
 	"WorktreeRemove":     true, // worktree lifecycle event (v2.1.50+)
+	"InstructionsLoaded": true, // instructions loaded event (v2.1.69+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

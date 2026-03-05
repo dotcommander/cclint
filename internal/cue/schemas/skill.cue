@@ -7,6 +7,7 @@ import "strings"
 // Source: https://code.claude.com/docs/en/skills
 // String substitutions available in skills:
 //   ${CLAUDE_SESSION_ID} - current session ID (v2.1.9+)
+//   ${CLAUDE_SKILL_DIR} - skill's own directory path (v2.1.69+)
 // ============================================================================
 
 // Valid model options for Claude Code
