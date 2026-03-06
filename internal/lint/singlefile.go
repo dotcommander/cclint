@@ -374,6 +374,10 @@ func expandDirectories(paths []string, typeOverride string) []fileWithHint {
 			if _, err := discovery.DetectFileType(absPath, rootPath); err == nil {
 				result = append(result, fileWithHint{Path: path})
 			} else if dirHint != "" {
+				// Skills require SKILL.md filename — don't apply dirHint to arbitrary .md files
+				if dirHint == "skill" && !strings.EqualFold(filepath.Base(path), "SKILL.md") {
+					return nil
+				}
 				result = append(result, fileWithHint{Path: path, TypeHint: dirHint})
 			}
 			return nil
