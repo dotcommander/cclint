@@ -20,8 +20,8 @@ import (
 	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/textutil"
 	"github.com/dotcommander/cclint/internal/scoring"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // =============================================================================
@@ -267,9 +267,13 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 
 	// Add info message if cross-file validation was skipped
 	if crossValidator == nil && !ctx.Quiet {
+		message := "Cross-file validation skipped (could not discover project files)"
+		if ctx.crossLoadErr != nil {
+			message = fmt.Sprintf("Cross-file validation skipped: %v", ctx.crossLoadErr)
+		}
 		result.Suggestions = append(result.Suggestions, cue.ValidationError{
 			File:     ctx.File.RelPath,
-			Message:  "Cross-file validation skipped (could not discover project files)",
+			Message:  message,
 			Severity: "info",
 			Source:   cue.SourceCClintObserve,
 		})
@@ -330,23 +334,9 @@ func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLint
 // Used by DetectSwallowedFields to identify when a block scalar has absorbed
 // what should be a sibling frontmatter field.
 var knownFrontmatterFields = map[string]map[string]bool{
-	"agent": {
-		"name": true, "description": true, "model": true, "color": true,
-		"tools": true, "disallowedTools": true, "permissionMode": true,
-		"maxTurns": true, "skills": true, "hooks": true, "memory": true,
-		"mcpServers": true,
-	},
-	"command": {
-		"name": true, "description": true, "allowed-tools": true,
-		"argument-hint": true, "model": true, "disable-model-invocation": true,
-	},
-	"skill": {
-		"name": true, "description": true, "argument-hint": true,
-		"disable-model-invocation": true, "user-invocable": true,
-		"allowed-tools": true, "model": true, "context": true, "agent": true,
-		"hooks": true, "license": true, "compatibility": true, "metadata": true,
-		"version": true,
-	},
+	"agent":   knownAgentFields,
+	"command": knownCommandFields,
+	"skill":   knownSkillFields,
 }
 
 // blockScalarPattern matches YAML block scalar indicators (| or >) with optional modifiers.
@@ -368,19 +358,8 @@ var blockScalarPattern = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9_-]*)\s*:\s*[|>
 func DetectSwallowedFields(contents, filePath, componentType string) []cue.ValidationError {
 	lines := strings.Split(contents, "\n")
 
-	// Find frontmatter boundaries
-	fmStart, fmEnd := -1, -1
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "---" {
-			if fmStart == -1 {
-				fmStart = i
-			} else {
-				fmEnd = i
-				break
-			}
-		}
-	}
-	if fmStart == -1 || fmEnd == -1 {
+	fmStart, fmEnd, ok := findFrontmatterBounds(lines)
+	if !ok {
 		return nil
 	}
 
@@ -392,65 +371,91 @@ func DetectSwallowedFields(contents, filePath, componentType string) []cue.Valid
 		return nil
 	}
 
+	fmLines := lines[fmStart+1 : fmEnd]
+	return detectSwallowedBlockScalarFields(fmLines, fmStart, filePath, fields)
+}
+
+func findFrontmatterBounds(lines []string) (int, int, bool) {
+	fmStart, fmEnd := -1, -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "---" {
+			continue
+		}
+		if fmStart == -1 {
+			fmStart = i
+			continue
+		}
+		fmEnd = i
+		break
+	}
+	if fmStart == -1 || fmEnd == -1 {
+		return 0, 0, false
+	}
+	return fmStart, fmEnd, true
+}
+
+func detectSwallowedBlockScalarFields(fmLines []string, fmStart int, filePath string, fields map[string]bool) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Scan frontmatter lines for block scalar indicators
-	fmLines := lines[fmStart+1 : fmEnd]
 	for i, line := range fmLines {
 		match := blockScalarPattern.FindStringSubmatch(line)
 		if match == nil {
 			continue
 		}
 		scalarField := match[1]
-
-		// Scan subsequent lines that are part of this block scalar's content.
-		// Block scalar content is indented relative to the field; the first
-		// non-empty line after the indicator sets the indentation level.
-		// A line at column 0 with "key: value" terminates the block — but
-		// YAML only does that if the line is NOT indented. If the line IS
-		// indented (even by one space), it remains part of the scalar.
-		//
-		// We flag any indented line inside the block scalar that looks like
-		// a known frontmatter field (e.g., "  model: haiku").
-		for j := i + 1; j < len(fmLines); j++ {
-			subsequent := fmLines[j]
-
-			// Empty lines are valid block scalar content
-			if strings.TrimSpace(subsequent) == "" {
-				continue
-			}
-
-			// Non-indented line = end of block scalar
-			if len(subsequent) > 0 && subsequent[0] != ' ' && subsequent[0] != '\t' {
-				break
-			}
-
-			// Check if indented line looks like a swallowed field
-			trimmed := strings.TrimSpace(subsequent)
-			colonIdx := strings.Index(trimmed, ":")
-			if colonIdx <= 0 {
-				continue
-			}
-			candidateKey := trimmed[:colonIdx]
-
-			if !fields[candidateKey] {
-				continue
-			}
-
-			// This indented line matches a known frontmatter field name —
-			// it was almost certainly swallowed by the block scalar above.
-			lineNum := fmStart + 1 + j + 1 // 1-based
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Field '%s' appears to be swallowed by block scalar '%s: |' above — it is parsed as text, not a separate field", candidateKey, scalarField),
-				Severity: cue.SeverityError,
-				Source:   cue.SourceCClintObserve,
-				Line:     lineNum,
-			})
-		}
+		errors = append(errors, findSwallowedFieldsForScalar(fmLines, fmStart, filePath, fields, scalarField, i)...)
 	}
 
 	return errors
+}
+
+func findSwallowedFieldsForScalar(fmLines []string, fmStart int, filePath string, fields map[string]bool, scalarField string, scalarIndex int) []cue.ValidationError {
+	var errors []cue.ValidationError
+
+	for j := scalarIndex + 1; j < len(fmLines); j++ {
+		subsequent := fmLines[j]
+		if strings.TrimSpace(subsequent) == "" {
+			continue
+		}
+		if !isIndentedLine(subsequent) {
+			break
+		}
+
+		candidateKey, ok := swallowedFieldCandidate(subsequent, fields)
+		if !ok {
+			continue
+		}
+
+		lineNum := fmStart + j + 2
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Field '%s' appears to be swallowed by block scalar '%s: |' above — it is parsed as text, not a separate field", candidateKey, scalarField),
+			Severity: cue.SeverityError,
+			Source:   cue.SourceCClintObserve,
+			Line:     lineNum,
+		})
+	}
+
+	return errors
+}
+
+func isIndentedLine(line string) bool {
+	return len(line) > 0 && (line[0] == ' ' || line[0] == '\t')
+}
+
+func swallowedFieldCandidate(line string, fields map[string]bool) (string, bool) {
+	trimmed := strings.TrimSpace(line)
+	colonIdx := strings.Index(trimmed, ":")
+	if colonIdx <= 0 {
+		return "", false
+	}
+
+	candidateKey := trimmed[:colonIdx]
+	if !fields[candidateKey] {
+		return "", false
+	}
+
+	return candidateKey, true
 }
 
 // DetectXMLTags checks for XML-like tags in a string and returns an error if found.

@@ -1,7 +1,10 @@
 package lint
 
 import (
+	"sort"
 	"testing"
+
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 func TestValidatePermissions(t *testing.T) {
@@ -123,11 +126,7 @@ func TestValidatePermissions(t *testing.T) {
 		{
 			name: "all known tools are valid",
 			perms: map[string]any{
-				"allow": []any{
-					"Bash", "Read", "Write", "Edit", "Glob", "Grep",
-					"Task", "Skill", "WebSearch", "WebFetch",
-					"TodoRead", "TodoWrite", "TaskOutput", "AskUser",
-				},
+				"allow": allKnownPermissionTools(),
 			},
 			wantErrors: 0,
 		},
@@ -159,7 +158,24 @@ func TestValidatePermissions(t *testing.T) {
 	}
 }
 
-func TestExtractToolName(t *testing.T) {
+func allKnownPermissionTools() []any {
+	tools := make([]string, 0, len(textutil.KnownTools))
+	for tool := range textutil.KnownTools {
+		if tool == "*" {
+			continue
+		}
+		tools = append(tools, tool)
+	}
+	sort.Strings(tools)
+
+	values := make([]any, 0, len(tools))
+	for _, tool := range tools {
+		values = append(values, tool)
+	}
+	return values
+}
+
+func TestCanonicalToolName(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -175,9 +191,9 @@ func TestExtractToolName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := extractToolName(tt.input)
+			got := canonicalToolName(tt.input)
 			if got != tt.want {
-				t.Errorf("extractToolName(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("canonicalToolName(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

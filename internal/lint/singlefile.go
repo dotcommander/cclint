@@ -69,13 +69,25 @@ type SingleFileLinterContext struct {
 	Quiet     bool
 	Verbose   bool
 	Validator *cue.Validator
+	Warnings  []cue.ValidationError
 
 	// Lazy-loaded for cross-file validation
 	crossValidator *crossfile.CrossFileValidator
 	crossLoaded    bool
+	crossLoadErr   error
 
 	// Shared discovery cache (optional, set by LintFiles for multi-file mode)
 	discoveryCache *DiscoveryCache
+}
+
+// SingleFileRequest groups the inputs needed for a single-file lint run.
+type SingleFileRequest struct {
+	FilePath       string
+	RootPath       string
+	TypeOverride   string
+	Quiet          bool
+	Verbose        bool
+	DiscoveryCache *DiscoveryCache
 }
 
 // NewSingleFileLinterContext creates a context for linting a single file.
@@ -96,13 +108,24 @@ type SingleFileLinterContext struct {
 //
 // Returns an error with actionable message for any validation failure.
 func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, verbose bool) (*SingleFileLinterContext, error) {
+	return newSingleFileLinterContext(SingleFileRequest{
+		FilePath:     filePath,
+		RootPath:     rootPath,
+		TypeOverride: typeOverride,
+		Quiet:        quiet,
+		Verbose:      verbose,
+	})
+}
+
+func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext, error) {
 	// Validate file path (checks existence, not dir, not binary, etc.)
-	absPath, err := discovery.ValidateFilePath(filePath)
+	absPath, err := discovery.ValidateFilePath(req.FilePath)
 	if err != nil {
 		return nil, err
 	}
 
 	// Find project root if not provided
+	rootPath := req.RootPath
 	if rootPath == "" {
 		rootPath, err = findProjectRootForFile(absPath)
 		if err != nil {
@@ -118,8 +141,8 @@ func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, 
 
 	// Determine file type
 	var fileType discovery.FileType
-	if typeOverride != "" {
-		fileType, err = discovery.ParseFileType(typeOverride)
+	if req.TypeOverride != "" {
+		fileType, err = discovery.ParseFileType(req.TypeOverride)
 		if err != nil {
 			return nil, err
 		}
@@ -144,30 +167,39 @@ func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, 
 	relPath = filepath.ToSlash(relPath) // Normalize for display
 
 	// Get file info for size
-	info, _ := os.Stat(absPath)
-	var size int64
-	if info != nil {
-		size = info.Size()
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot stat file %s: %w", absPath, err)
 	}
 
 	file := discovery.File{
 		Path:     absPath,
 		RelPath:  relPath,
-		Size:     size,
+		Size:     info.Size(),
 		Type:     fileType,
 		Contents: string(contents),
 	}
 
 	// Initialize CUE validator
 	validator := cue.NewValidator()
-	_ = validator.LoadSchemas("") // Soft failure OK
+	var warnings []cue.ValidationError
+	if err := validator.LoadSchemas(""); err != nil {
+		warnings = append(warnings, cue.ValidationError{
+			File:     relPath,
+			Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", err),
+			Severity: cue.SeverityWarning,
+			Source:   cue.SourceCClintObserve,
+		})
+	}
 
 	return &SingleFileLinterContext{
-		RootPath:  rootPath,
-		File:      file,
-		Quiet:     quiet,
-		Verbose:   verbose,
-		Validator: validator,
+		RootPath:       rootPath,
+		File:           file,
+		Quiet:          req.Quiet,
+		Verbose:        req.Verbose,
+		Validator:      validator,
+		Warnings:       warnings,
+		discoveryCache: req.DiscoveryCache,
 	}, nil
 }
 
@@ -198,7 +230,9 @@ func (ctx *SingleFileLinterContext) EnsureCrossFileValidator() *crossfile.CrossF
 	}
 
 	if err == nil && len(files) > 0 {
-		ctx.crossValidator = crossfile.NewCrossFileValidator(files)
+		ctx.crossValidator = crossfile.NewCrossFileValidator(files, ctx.RootPath)
+	} else {
+		ctx.crossLoadErr = err
 	}
 	ctx.crossLoaded = true
 
@@ -253,20 +287,21 @@ func findProjectRootForFile(absPath string) (string, error) {
 //   - 1: Lint errors found
 //   - 2: Invalid invocation (returned as error)
 func LintSingleFile(filePath, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
-	return lintSingleFileWithCache(filePath, rootPath, typeOverride, quiet, verbose, nil)
+	return lintSingleFileRequest(SingleFileRequest{
+		FilePath:     filePath,
+		RootPath:     rootPath,
+		TypeOverride: typeOverride,
+		Quiet:        quiet,
+		Verbose:      verbose,
+	})
 }
 
-// lintSingleFileWithCache is the internal implementation of LintSingleFile
-// that accepts an optional DiscoveryCache for sharing discovery results
-// across multiple single-file lint invocations (used by LintFiles).
-func lintSingleFileWithCache(filePath, rootPath, typeOverride string, quiet, verbose bool, cache *DiscoveryCache) (*LintSummary, error) {
-	ctx, err := NewSingleFileLinterContext(filePath, rootPath, typeOverride, quiet, verbose)
+// lintSingleFileRequest is the internal implementation of LintSingleFile.
+func lintSingleFileRequest(req SingleFileRequest) (*LintSummary, error) {
+	ctx, err := newSingleFileLinterContext(req)
 	if err != nil {
 		return nil, err
 	}
-
-	// Attach shared discovery cache if provided
-	ctx.discoveryCache = cache
 
 	summary := &LintSummary{
 		ProjectRoot: ctx.RootPath,
@@ -296,6 +331,8 @@ func lintSingleFileWithCache(filePath, rootPath, typeOverride string, quiet, ver
 	default:
 		return nil, fmt.Errorf("unsupported file type: %s", ctx.File.Type.String())
 	}
+	result.Warnings = append(result.Warnings, ctx.Warnings...)
+	result.Success = len(result.Errors) == 0
 
 	// Update summary
 	if result.Success {
@@ -330,7 +367,7 @@ type fileWithHint struct {
 // directory names (e.g., "command/", "agent/") to work alongside the
 // standard plural forms. When typeOverride is set, all .md/.json files are
 // included since the user is explicitly declaring the component type.
-func expandDirectories(paths []string, typeOverride string) []fileWithHint {
+func expandDirectories(paths []string, typeOverride string) ([]fileWithHint, error) {
 	result := make([]fileWithHint, 0, len(paths))
 	for _, p := range paths {
 		info, err := os.Stat(p)
@@ -338,7 +375,10 @@ func expandDirectories(paths []string, typeOverride string) []fileWithHint {
 			result = append(result, fileWithHint{Path: p, TypeHint: typeOverride})
 			continue
 		}
-		absDir, _ := filepath.Abs(p)
+		absDir, err := filepath.Abs(p)
+		if err != nil {
+			return nil, fmt.Errorf("cannot resolve directory %s: %w", p, err)
+		}
 		rootPath := filepath.Dir(absDir)
 
 		// Pre-check: can the directory name itself hint at a component type?
@@ -349,9 +389,9 @@ func expandDirectories(paths []string, typeOverride string) []fileWithHint {
 			}
 		}
 
-		_ = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+		if err := filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
-				return nil
+				return err
 			}
 			if d.IsDir() {
 				if path != p && strings.HasPrefix(d.Name(), ".") {
@@ -369,7 +409,7 @@ func expandDirectories(paths []string, typeOverride string) []fileWithHint {
 			}
 			absPath, err := filepath.Abs(path)
 			if err != nil {
-				return nil
+				return err
 			}
 			if _, err := discovery.DetectFileType(absPath, rootPath); err == nil {
 				result = append(result, fileWithHint{Path: path})
@@ -381,9 +421,11 @@ func expandDirectories(paths []string, typeOverride string) []fileWithHint {
 				result = append(result, fileWithHint{Path: path, TypeHint: dirHint})
 			}
 			return nil
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("cannot walk directory %s: %w", p, err)
+		}
 	}
-	return result
+	return result, nil
 }
 
 // LintFiles lints multiple files and returns a combined summary.
@@ -402,7 +444,10 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		return nil, fmt.Errorf("no files specified")
 	}
 
-	expanded := expandDirectories(filePaths, typeOverride)
+	expanded, err := expandDirectories(filePaths, typeOverride)
+	if err != nil {
+		return nil, err
+	}
 	if len(expanded) == 0 {
 		return nil, fmt.Errorf("no lintable files found")
 	}
@@ -424,7 +469,14 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		if fh.TypeHint != "" {
 			effectiveType = fh.TypeHint
 		}
-		result, err := lintSingleFileWithCache(fh.Path, rootPath, effectiveType, quiet, verbose, cache)
+		result, err := lintSingleFileRequest(SingleFileRequest{
+			FilePath:       fh.Path,
+			RootPath:       rootPath,
+			TypeOverride:   effectiveType,
+			Quiet:          quiet,
+			Verbose:        verbose,
+			DiscoveryCache: cache,
+		})
 		if err != nil {
 			// Record as failed result with error message
 			summary.Results = append(summary.Results, LintResult{
@@ -503,4 +555,3 @@ func lintSingleOutputStyle(ctx *SingleFileLinterContext) LintResult {
 func lintSingleRule(ctx *SingleFileLinterContext) LintResult {
 	return lintComponent(ctx, NewRuleLinter())
 }
-

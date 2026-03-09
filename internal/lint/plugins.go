@@ -328,41 +328,10 @@ func validatePluginPathsExist(data map[string]any, rootPath, filePath, contents 
 func validatePluginBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
-	// Check for homepage
-	if _, ok := data["homepage"].(string); !ok {
+	for _, gap := range collectPluginMetadataGaps(data) {
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
-			Message:  "Consider adding 'homepage' field with project URL",
-			Severity: "suggestion",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Check for repository
-	if _, ok := data["repository"].(string); !ok {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Consider adding 'repository' field with source code URL",
-			Severity: "suggestion",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Check for license
-	if _, ok := data["license"].(string); !ok {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Consider adding 'license' field (e.g., MIT, Apache-2.0)",
-			Severity: "suggestion",
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	// Check for keywords
-	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
-		suggestions = append(suggestions, cue.ValidationError{
-			File:     filePath,
-			Message:  "Consider adding 'keywords' array for discoverability",
+			Message:  "Consider " + strings.ToLower(gap.Improvement[:1]) + gap.Improvement[1:],
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
 		})
@@ -382,6 +351,50 @@ func validatePluginBestPractices(filePath string, contents string, data map[stri
 	return suggestions
 }
 
+type pluginMetadataGap struct {
+	Improvement string
+	PointValue  int
+	Severity    string
+}
+
+func collectPluginMetadataGaps(data map[string]any) []pluginMetadataGap {
+	var gaps []pluginMetadataGap
+
+	if _, ok := data["homepage"].(string); !ok {
+		gaps = append(gaps, pluginMetadataGap{
+			Improvement: "Add 'homepage' field with project URL",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if _, ok := data["repository"].(string); !ok {
+		gaps = append(gaps, pluginMetadataGap{
+			Improvement: "Add 'repository' field with source code URL",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if _, ok := data["license"].(string); !ok {
+		gaps = append(gaps, pluginMetadataGap{
+			Improvement: "Add 'license' field (e.g., MIT, Apache-2.0)",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
+		gaps = append(gaps, pluginMetadataGap{
+			Improvement: "Add 'keywords' array for discoverability",
+			PointValue:  5,
+			Severity:    textutil.SeverityLow,
+		})
+	}
+
+	return gaps
+}
+
 // FindJSONFieldLine finds the line number of a JSON field
 func FindJSONFieldLine(content string, fieldName string) int {
 	lines := strings.Split(content, "\n")
@@ -399,36 +412,11 @@ func FindJSONFieldLine(content string, fieldName string) int {
 func GetPluginImprovements(content string, data map[string]any) []textutil.ImprovementRecommendation {
 	var recs []textutil.ImprovementRecommendation
 
-	// Check for missing optional but recommended fields
-	if _, ok := data["homepage"]; !ok {
+	for _, gap := range collectPluginMetadataGaps(data) {
 		recs = append(recs, textutil.ImprovementRecommendation{
-			Description: "Add 'homepage' field with project URL",
-			PointValue:  5,
-			Severity:    textutil.SeverityLow,
-		})
-	}
-
-	if _, ok := data["repository"]; !ok {
-		recs = append(recs, textutil.ImprovementRecommendation{
-			Description: "Add 'repository' field with source code URL",
-			PointValue:  5,
-			Severity:    textutil.SeverityLow,
-		})
-	}
-
-	if _, ok := data["license"]; !ok {
-		recs = append(recs, textutil.ImprovementRecommendation{
-			Description: "Add 'license' field (e.g., MIT, Apache-2.0)",
-			PointValue:  5,
-			Severity:    textutil.SeverityLow,
-		})
-	}
-
-	if keywords, ok := data["keywords"].([]any); !ok || len(keywords) == 0 {
-		recs = append(recs, textutil.ImprovementRecommendation{
-			Description: "Add 'keywords' array for discoverability",
-			PointValue:  5,
-			Severity:    textutil.SeverityLow,
+			Description: gap.Improvement,
+			PointValue:  gap.PointValue,
+			Severity:    gap.Severity,
 		})
 	}
 

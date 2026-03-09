@@ -431,7 +431,10 @@ func TestExpandDirectories(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandDirectories(tt.paths, tt.typeOver)
+			result, err := expandDirectories(tt.paths, tt.typeOver)
+			if err != nil {
+				t.Fatalf("expandDirectories() error = %v", err)
+			}
 			if len(result) != tt.wantCount {
 				t.Errorf("expandDirectories() = %d files, want %d", len(result), tt.wantCount)
 				for _, fh := range result {
@@ -527,4 +530,3 @@ func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 		})
 	}
 }
-

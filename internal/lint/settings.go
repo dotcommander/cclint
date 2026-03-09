@@ -63,28 +63,6 @@ var validHookTypes = map[string]bool{
 	"http":    true,
 }
 
-// knownToolNames lists the tool names recognized by Claude Code.
-var knownToolNames = map[string]bool{
-	"Bash":           true,
-	"Read":           true,
-	"Write":          true,
-	"Edit":           true,
-	"Glob":           true,
-	"Grep":           true,
-	"Task":           true,
-	"Skill":          true,
-	"WebSearch":      true,
-	"WebFetch":       true,
-	"TodoRead":       true,
-	"TodoWrite":      true,
-	"TaskOutput":     true,
-	"AskUser":        true,
-	"mcp__":          true, // MCP tool prefix (matched specially)
-	"computer":       true,
-	"text_editor":    true,
-	"MultiModelTool": true,
-}
-
 // eventLabel builds a sorted, comma-separated label from a hook event map.
 func eventLabel(events map[string]bool) string {
 	keys := make([]string, 0, len(events))

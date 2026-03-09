@@ -73,7 +73,7 @@ func validateMatcherToolName(toolNamePattern string, location string, filePath s
 	}
 
 	// Extract the base tool name
-	baseTool := extractToolName(toolNamePattern)
+	baseTool := canonicalToolName(toolNamePattern)
 	if !isKnownTool(baseTool) {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,

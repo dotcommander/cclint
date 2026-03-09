@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // validatePermissions validates the permissions section of settings.json.
@@ -68,7 +69,7 @@ func validatePermissionEntries(entries any, listName string, filePath string) []
 		}
 
 		// Extract tool name from patterns like "Bash(npm*)" or plain "Read"
-		toolName := extractToolName(str)
+		toolName := canonicalToolName(str)
 		if !isKnownTool(toolName) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -82,21 +83,20 @@ func validatePermissionEntries(entries any, listName string, filePath string) []
 	return errors
 }
 
-// extractToolName returns the tool name portion from a permission entry.
+// canonicalToolName returns the base tool name used for validation.
 // "Bash(npm*)" -> "Bash", "Read" -> "Read", "mcp__foo" -> "mcp__"
-func extractToolName(entry string) string {
-	// Handle parenthesized patterns like "Bash(npm*)"
-	if idx := strings.Index(entry, "("); idx > 0 {
-		return entry[:idx]
-	}
-	// Handle MCP tool prefix like "mcp__server_tool"
-	if strings.HasPrefix(entry, "mcp__") {
+func canonicalToolName(entry string) string {
+	base := textutil.ExtractBaseToolName(entry)
+	if strings.HasPrefix(base, "mcp__") {
 		return "mcp__"
 	}
-	return entry
+	return base
 }
 
 // isKnownTool checks whether a tool name is in the known tools set.
 func isKnownTool(name string) bool {
-	return knownToolNames[name]
+	if name == "mcp__" {
+		return true
+	}
+	return textutil.KnownTools[name]
 }

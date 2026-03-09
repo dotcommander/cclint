@@ -33,33 +33,35 @@ func validateHooksWithEvents(hooks any, filePath string, allowedEvents map[strin
 
 	// Validate each event name and its hooks
 	for eventName, eventConfig := range hooksMap {
-		// Check if event name is valid
-		if !allowedEvents[eventName] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown hook event '%s'. Valid events: %s", eventName, eventLabel),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-			continue
-		}
+		errors = append(errors, validateHookEvent(eventName, eventConfig, filePath, allowedEvents, eventLabel)...)
+	}
 
-		// Validate the event's hook array
-		hookArray, ok := eventConfig.([]any)
-		if !ok {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Event '%s': hook configuration must be an array", eventName),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-			continue
-		}
+	return errors
+}
 
-		// Validate each hook matcher in the array
-		for i, hookMatcher := range hookArray {
-			errors = append(errors, validateHookMatcher(hookMatcher, eventName, i, filePath)...)
-		}
+func validateHookEvent(eventName string, eventConfig any, filePath string, allowedEvents map[string]bool, eventLabel string) []cue.ValidationError {
+	if !allowedEvents[eventName] {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Unknown hook event '%s'. Valid events: %s", eventName, eventLabel),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	hookArray, ok := eventConfig.([]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  fmt.Sprintf("Event '%s': hook configuration must be an array", eventName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	var errors []cue.ValidationError
+	for i, hookMatcher := range hookArray {
+		errors = append(errors, validateHookMatcher(hookMatcher, eventName, i, filePath)...)
 	}
 
 	return errors
@@ -196,48 +198,70 @@ type hookContext struct {
 
 // validateInnerHookType validates type-specific requirements for a hook entry.
 func validateInnerHookType(hookMap map[string]any, hookType string, ctx hookContext) []cue.ValidationError {
-	var errors []cue.ValidationError
+	validator, ok := innerHookValidators[hookType]
+	if !ok {
+		return nil
+	}
+	return validator(hookMap, ctx)
+}
 
-	switch hookType {
-	case cue.TypeCommand:
-		cmdVal, exists := hookMap["command"]
-		if !exists {
-			errors = append(errors, cue.ValidationError{
-				File:     ctx.FilePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		} else if cmdStr, ok := cmdVal.(string); ok {
-			errors = append(errors, validateHookCommandSecurity(cmdStr, ctx)...)
-		}
-	case "prompt":
-		if !promptHookEvents[ctx.EventName] {
-			errors = append(errors, cue.ValidationError{
-				File:     ctx.FilePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", ctx.EventName, ctx.HookIdx, ctx.InnerIdx, ctx.EventName),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		}
-		if _, exists := hookMap["prompt"]; !exists {
-			errors = append(errors, cue.ValidationError{
-				File:     ctx.FilePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		}
-	case cue.TypeHTTP:
-		if _, exists := hookMap["url"]; !exists {
-			errors = append(errors, cue.ValidationError{
-				File:     ctx.FilePath,
-				Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'http' requires 'url' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-			})
-		}
+type innerHookValidator func(map[string]any, hookContext) []cue.ValidationError
+
+var innerHookValidators = map[string]innerHookValidator{
+	cue.TypeCommand: validateCommandInnerHook,
+	"prompt":        validatePromptInnerHook,
+	cue.TypeHTTP:    validateHTTPInnerHook,
+}
+
+func validateCommandInnerHook(hookMap map[string]any, ctx hookContext) []cue.ValidationError {
+	cmdVal, exists := hookMap["command"]
+	if !exists {
+		return []cue.ValidationError{{
+			File:     ctx.FilePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		}}
 	}
 
+	cmdStr, ok := cmdVal.(string)
+	if !ok {
+		return nil
+	}
+
+	return validateHookCommandSecurity(cmdStr, ctx)
+}
+
+func validatePromptInnerHook(hookMap map[string]any, ctx hookContext) []cue.ValidationError {
+	var errors []cue.ValidationError
+	if !promptHookEvents[ctx.EventName] {
+		errors = append(errors, cue.ValidationError{
+			File:     ctx.FilePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", ctx.EventName, ctx.HookIdx, ctx.InnerIdx, ctx.EventName),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
+	if _, exists := hookMap["prompt"]; !exists {
+		errors = append(errors, cue.ValidationError{
+			File:     ctx.FilePath,
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
+			Severity: "error",
+			Source:   cue.SourceAnthropicDocs,
+		})
+	}
 	return errors
+}
+
+func validateHTTPInnerHook(hookMap map[string]any, ctx hookContext) []cue.ValidationError {
+	if _, exists := hookMap["url"]; exists {
+		return nil
+	}
+
+	return []cue.ValidationError{{
+		File:     ctx.FilePath,
+		Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'http' requires 'url' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
+		Severity: "error",
+		Source:   cue.SourceAnthropicDocs,
+	}}
 }

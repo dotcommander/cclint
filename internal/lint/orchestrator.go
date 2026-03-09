@@ -25,7 +25,7 @@ func DefaultLinters() []LinterEntry {
 		{Name: "settings", Linter: LintSettings},
 		{Name: "rules", Linter: LintRules},
 		{Name: "output-styles", Linter: LintOutputStyles},
-		// {Name: "plugins", Linter: LintPlugins}, // TODO: re-enable when output is less overwhelming
+		{Name: "plugins", Linter: LintPlugins},
 	}
 }
 
@@ -191,7 +191,10 @@ func (o *Orchestrator) loadBaseline(baselineFile string) (*baseline.Baseline, er
 	}
 
 	if _, err := os.Stat(baselineFile); err != nil {
-		return nil, nil // File doesn't exist, not an error
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("cannot access baseline %s: %w", baselineFile, err)
 	}
 
 	return baseline.LoadBaseline(baselineFile)
@@ -228,7 +231,11 @@ func (o *Orchestrator) runMemoryChecks() {
 
 	// Check combined memory size
 	fd := discovery.NewFileDiscovery(o.cfg.Root, false)
-	allFiles, _ := fd.DiscoverFiles()
+	allFiles, err := fd.DiscoverFiles()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: unable to run combined memory checks: %v\n", err)
+		return
+	}
 	sizeWarnings := CheckCombinedMemorySize(o.cfg.Root, allFiles)
 	for _, w := range sizeWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w.Message)
