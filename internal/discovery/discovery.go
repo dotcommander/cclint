@@ -17,63 +17,87 @@ type TypePattern struct {
 	FileType FileType
 }
 
-// typePatterns defines the canonical patterns for detecting component types.
-// These patterns mirror those used in DiscoverFiles() for consistency.
-// Order matters: more specific patterns should come first.
-var typePatterns = []TypePattern{
-	// Skills - most specific (requires SKILL.md filename)
-	{".claude/skills/**/SKILL.md", FileTypeSkill},
-	{"skills/**/SKILL.md", FileTypeSkill},
-	// Catch misnamed lowercase skill files so PreValidate can report the casing error
-	{".claude/skills/**/skill.md", FileTypeSkill},
-	{"skills/**/skill.md", FileTypeSkill},
-
-	// Settings - exact filename match
-	{".claude/settings.json", FileTypeSettings},
-	{"claude/settings.json", FileTypeSettings},
-
-	// Context - exact filename match
-	{".claude/CLAUDE.md", FileTypeContext},
-	{"CLAUDE.md", FileTypeContext},
-
-	// Plugins - specific directory structure
-	{"**/.claude-plugin/plugin.json", FileTypePlugin},
-
-	// Rules - .claude/rules/**/*.md (before agents/commands to avoid misdetection)
-	{".claude/rules/**/*.md", FileTypeRule},
-	{"rules/**/*.md", FileTypeRule},
-
-	// Agents - directory-based (after more specific patterns)
-	{".claude/agents/**/*.md", FileTypeAgent},
-	{"agents/**/*.md", FileTypeAgent},
-
-	// Output Styles - directory-based
-	{".claude/output-styles/**/*.md", FileTypeOutputStyle},
-	{"output-styles/**/*.md", FileTypeOutputStyle},
-
-	// Commands - directory-based
-	{".claude/commands/**/*.md", FileTypeCommand},
-	{"commands/**/*.md", FileTypeCommand},
-}
-
 // FileTypeEntry defines the discovery configuration for a file type.
 // This enables adding new component types without modifying DiscoverFiles().
 type FileTypeEntry struct {
-	Type     FileType
-	Patterns []string
+	Type                  FileType
+	Patterns              []string
+	DetectPatterns        []string
+	FallbackBasenames     []string
+	FallbackPathSubstring string
 }
 
 // DefaultFileTypes is the registry of file types and their discovery patterns.
-// To add a new component type, simply add an entry here - no code changes needed.
+// To add a new component type, update one entry here and detection/discovery stay aligned.
 var DefaultFileTypes = []FileTypeEntry{
-	{Type: FileTypeAgent, Patterns: []string{".claude/agents/**/*.md", "agents/**/*.md"}},
-	{Type: FileTypeCommand, Patterns: []string{".claude/commands/**/*.md", "commands/**/*.md"}},
-	{Type: FileTypeSettings, Patterns: []string{".claude/settings.json", "claude/settings.json"}},
-	{Type: FileTypeContext, Patterns: []string{".claude/CLAUDE.md", "CLAUDE.md"}},
-	{Type: FileTypeSkill, Patterns: []string{".claude/skills/*/SKILL.md", "skills/*/SKILL.md", ".claude/skills/*/skill.md", "skills/*/skill.md"}},
-	{Type: FileTypePlugin, Patterns: []string{"**/.claude-plugin/plugin.json"}},
-	{Type: FileTypeRule, Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md"}},
-	{Type: FileTypeOutputStyle, Patterns: []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"}},
+	{
+		Type:                  FileTypeSkill,
+		Patterns:              []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md", ".claude/skills/**/skill.md", "skills/**/skill.md"},
+		FallbackBasenames:     []string{"SKILL.md", "skill.md"},
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypeSettings,
+		Patterns:              []string{".claude/settings.json", "claude/settings.json"},
+		FallbackBasenames:     []string{"settings.json"},
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypeContext,
+		Patterns:              []string{".claude/CLAUDE.md", "CLAUDE.md"},
+		FallbackBasenames:     []string{"CLAUDE.md"},
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypePlugin,
+		Patterns:              []string{"**/.claude-plugin/plugin.json"},
+		FallbackBasenames:     []string{"plugin.json"},
+		FallbackPathSubstring: ".claude-plugin",
+	},
+	{
+		Type:                  FileTypeRule,
+		Patterns:              []string{".claude/rules/**/*.md", "rules/**/*.md"},
+		FallbackBasenames:     nil,
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypeAgent,
+		Patterns:              []string{".claude/agents/**/*.md", "agents/**/*.md"},
+		FallbackBasenames:     nil,
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypeOutputStyle,
+		Patterns:              []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"},
+		FallbackBasenames:     nil,
+		FallbackPathSubstring: "",
+	},
+	{
+		Type:                  FileTypeCommand,
+		Patterns:              []string{".claude/commands/**/*.md", "commands/**/*.md"},
+		FallbackBasenames:     nil,
+		FallbackPathSubstring: "",
+	},
+}
+
+// typePatterns mirrors the canonical detection registry for tests and diagnostics.
+var typePatterns = buildTypePatterns(DefaultFileTypes)
+
+func buildTypePatterns(entries []FileTypeEntry) []TypePattern {
+	patterns := make([]TypePattern, 0)
+	for _, entry := range entries {
+		for _, pattern := range entry.detectPatterns() {
+			patterns = append(patterns, TypePattern{Pattern: pattern, FileType: entry.Type})
+		}
+	}
+	return patterns
+}
+
+func (e FileTypeEntry) detectPatterns() []string {
+	if len(e.DetectPatterns) > 0 {
+		return e.DetectPatterns
+	}
+	return e.Patterns
 }
 
 // DetectFileType determines the component type from a file path using glob pattern matching.
@@ -113,28 +137,17 @@ func DetectFileType(absPath, rootPath string) (FileType, error) {
 		return FileTypeUnknown, fmt.Errorf("file is outside project root: %s", absPath)
 	}
 
-	// Try each pattern in order (first match wins)
-	for _, tp := range typePatterns {
-		matched, err := doublestar.Match(tp.Pattern, relPath)
-		if err != nil {
-			continue // Pattern error, try next
-		}
-		if matched {
-			return tp.FileType, nil
-		}
+	fileType, err := detectFileTypeFromRelativePath(relPath)
+	if err != nil {
+		return FileTypeUnknown, err
+	}
+	if fileType != FileTypeUnknown {
+		return fileType, nil
 	}
 
-	// Fallback: match by basename for files outside standard directories
-	basename := filepath.Base(absPath)
-	switch {
-	case strings.EqualFold(basename, "SKILL.md"):
-		return FileTypeSkill, nil
-	case strings.EqualFold(basename, "CLAUDE.md"):
-		return FileTypeContext, nil
-	case basename == "settings.json":
-		return FileTypeSettings, nil
-	case basename == "plugin.json" && strings.Contains(absPath, ".claude-plugin"):
-		return FileTypePlugin, nil
+	// Fallback: match by basename for files outside standard directories.
+	if fileType = detectFileTypeFromBasename(absPath); fileType != FileTypeUnknown {
+		return fileType, nil
 	}
 
 	// Cannot determine type - provide actionable error
@@ -317,7 +330,7 @@ func ParseFileType(s string) (FileType, error) {
 
 // FileDiscovery manages file discovery operations
 type FileDiscovery struct {
-	rootPath   string
+	rootPath       string
 	followSymlinks bool
 }
 
@@ -342,21 +355,18 @@ func (fd *FileDiscovery) DiscoverFilesWithRegistry(registry []FileTypeEntry) ([]
 	var files []File
 
 	for _, ftc := range registry {
-		discovered, err := fd.findFilesByPattern(ftc.Patterns)
+		discovered, err := fd.findFilesByPattern(ftc.Patterns, ftc.Type)
 		if err != nil {
 			return nil, fmt.Errorf("error discovering %s files: %w", ftc.Type.String(), err)
 		}
-		for _, f := range discovered {
-			f.Type = ftc.Type
-			files = append(files, f)
-		}
+		files = append(files, discovered...)
 	}
 
 	return files, nil
 }
 
-// findFilesByPattern finds files matching the given glob patterns
-func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
+// findFilesByPattern finds files matching the given glob patterns.
+func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType) ([]File, error) {
 	var files []File
 
 	for _, pattern := range patterns {
@@ -367,7 +377,7 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 		}
 
 		for _, match := range matches {
-			f, ok := fd.processMatch(match)
+			f, ok := fd.processMatch(match, fileType)
 			if ok {
 				files = append(files, f)
 			}
@@ -378,7 +388,7 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string) ([]File, error) {
 }
 
 // processMatch converts a glob match into a File, returning false if the match should be skipped.
-func (fd *FileDiscovery) processMatch(match string) (File, bool) {
+func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bool) {
 	fullPath := filepath.Join(fd.rootPath, match)
 
 	info, err := os.Stat(fullPath)
@@ -405,7 +415,7 @@ func (fd *FileDiscovery) processMatch(match string) (File, bool) {
 		Path:     fullPath,
 		RelPath:  relPath,
 		Size:     info.Size(),
-		Type:     fd.determineFileType(relPath),
+		Type:     fileType,
 		Contents: string(contents),
 	}, true
 }
@@ -438,59 +448,45 @@ func (fd *FileDiscovery) resolveSymlink(fullPath string) (string, os.FileInfo, b
 // Uses path component matching (not substring) to avoid false positives
 // like matching "/my-agents-backup/" when looking for "/agents/".
 func (fd *FileDiscovery) determineFileType(path string) FileType {
-	lowerPath := strings.ToLower(path)
+	normalizedPath := filepath.ToSlash(path)
+	fileType, err := detectFileTypeFromRelativePath(normalizedPath)
+	if err == nil && fileType != FileTypeUnknown {
+		return fileType
+	}
+	return detectFileTypeFromBasename(normalizedPath)
+}
 
-	// Rules must be checked before agents/commands (rules/ is inside .claude/)
-	if hasPathComponent(lowerPath, ".claude/rules") && strings.HasSuffix(lowerPath, ".md") {
-		return FileTypeRule
+func detectFileTypeFromRelativePath(relPath string) (FileType, error) {
+	for _, tp := range typePatterns {
+		matched, err := doublestar.Match(tp.Pattern, relPath)
+		if err != nil {
+			return FileTypeUnknown, fmt.Errorf("invalid detection pattern %q: %w", tp.Pattern, err)
+		}
+		if matched {
+			return tp.FileType, nil
+		}
 	}
-	// Output styles (before agents/commands to avoid misdetection)
-	if (hasPathComponent(lowerPath, ".claude/output-styles") || hasPathComponent(lowerPath, "output-styles")) && strings.HasSuffix(lowerPath, ".md") {
-		return FileTypeOutputStyle
-	}
-	if hasPathComponent(lowerPath, "agents") && strings.HasSuffix(lowerPath, ".md") {
-		return FileTypeAgent
-	}
-	if hasPathComponent(lowerPath, "commands") && strings.HasSuffix(lowerPath, ".md") {
-		return FileTypeCommand
-	}
-	if strings.HasSuffix(lowerPath, "settings.json") {
-		return FileTypeSettings
-	}
-	if strings.HasSuffix(lowerPath, "claude.md") {
-		return FileTypeContext
-	}
-	if hasPathComponent(lowerPath, ".claude-plugin") && strings.HasSuffix(lowerPath, "plugin.json") {
-		return FileTypePlugin
+
+	return FileTypeUnknown, nil
+}
+
+func detectFileTypeFromBasename(path string) FileType {
+	basename := filepath.Base(path)
+	normalizedPath := filepath.ToSlash(path)
+
+	for _, entry := range DefaultFileTypes {
+		for _, candidate := range entry.FallbackBasenames {
+			if !strings.EqualFold(basename, candidate) {
+				continue
+			}
+			if entry.FallbackPathSubstring != "" && !strings.Contains(normalizedPath, entry.FallbackPathSubstring) {
+				continue
+			}
+			return entry.Type
+		}
 	}
 
 	return FileTypeUnknown
-}
-
-// hasPathComponent checks if a path contains a directory component.
-// Unlike strings.Contains, this matches on path boundaries to avoid
-// false positives (e.g., "agents" won't match "my-agents-backup").
-func hasPathComponent(path, component string) bool {
-	// Handle both forward and back slashes for cross-platform support
-	normalizedPath := strings.ReplaceAll(path, "\\", "/")
-	normalizedComponent := strings.ReplaceAll(component, "\\", "/")
-	sep := "/"
-
-	// Check: /component/, /component (end), component/ (start)
-	if strings.Contains(normalizedPath, sep+normalizedComponent+sep) {
-		return true
-	}
-	if strings.HasSuffix(normalizedPath, sep+normalizedComponent) {
-		return true
-	}
-	if strings.HasPrefix(normalizedPath, normalizedComponent+sep) {
-		return true
-	}
-	// Exact match (path == component)
-	if normalizedPath == normalizedComponent {
-		return true
-	}
-	return false
 }
 
 // ReadFileContents reads the contents of a file

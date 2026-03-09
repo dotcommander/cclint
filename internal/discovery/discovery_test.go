@@ -325,7 +325,7 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 		".claude/agents/nested/agent2.md":       "agent content",
 		".claude/commands/cmd1.md":              "command content",
 		".claude/skills/skill1/SKILL.md":        "skill content",
-		".claude/skills/nested/skill2/SKILL.md": "skill content", // Nested: not discovered as top-level skill
+		".claude/skills/nested/skill2/SKILL.md": "skill content",
 		".claude/settings.json":                 `{"key": "value"}`,
 		".claude/CLAUDE.md":                     "context content",
 		".claude/rules/core.md":                 "rule content",
@@ -352,7 +352,7 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 	expectedCounts := map[FileType]int{
 		FileTypeAgent:    2,
 		FileTypeCommand:  1,
-		FileTypeSkill:    1,
+		FileTypeSkill:    2,
 		FileTypeSettings: 1,
 		FileTypeContext:  1,
 		FileTypeRule:     1,
@@ -522,7 +522,7 @@ func TestFindFilesByPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			found, err := fd.findFilesByPattern(tt.patterns)
+			found, err := fd.findFilesByPattern(tt.patterns, FileTypeAgent)
 			if err != nil {
 				t.Fatalf("findFilesByPattern() error = %v", err)
 			}
@@ -556,7 +556,7 @@ func TestFindFilesByPattern_Symlinks(t *testing.T) {
 	// Test with symlinks disabled - may still find files if os.DirFS follows them
 	t.Run("symlinks disabled", func(t *testing.T) {
 		fd := NewFileDiscovery(tmpDir, false)
-		found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+		found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 		if err != nil {
 			t.Fatalf("findFilesByPattern() error = %v", err)
 		}
@@ -567,7 +567,7 @@ func TestFindFilesByPattern_Symlinks(t *testing.T) {
 	// Test with symlinks enabled
 	t.Run("symlinks enabled", func(t *testing.T) {
 		fd := NewFileDiscovery(tmpDir, true)
-		found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+		found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 		if err != nil {
 			t.Fatalf("findFilesByPattern() error = %v", err)
 		}
@@ -595,7 +595,7 @@ func TestFindFilesByPattern_SymlinksOutsideRoot(t *testing.T) {
 
 	// Even with symlinks enabled, should not follow links outside root
 	fd := NewFileDiscovery(tmpDir, true)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -645,7 +645,7 @@ func TestDetermineFileType(t *testing.T) {
 		{"random/file.md", FileTypeUnknown},
 		{"data.json", FileTypeUnknown},
 		{"README.md", FileTypeUnknown},
-		{"rules/go.md", FileTypeUnknown}, // bare rules/ without .claude/ prefix
+		{"rules/go.md", FileTypeRule},
 	}
 
 	for _, tt := range tests {
@@ -794,7 +794,7 @@ func TestFindFilesByPattern_UnreadableFile(t *testing.T) {
 	defer func() { _ = os.Chmod(restrictedFile, 0644) }()
 
 	fd := NewFileDiscovery(tmpDir, false)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -906,12 +906,12 @@ func TestDiscoverFiles_MixedContent(t *testing.T) {
 
 	// Create a mix of valid files and edge cases
 	files := map[string]string{
-		".claude/agents/valid.md":     "valid agent",
-		".claude/agents/empty.md":     "", // Empty file - will have size 0
-		".claude/commands/valid.md":   "valid command",
-		".claude/skills/s1/SKILL.md":  "valid skill",
-		".claude/settings.json":       "{}",
-		".claude/CLAUDE.md":           "context",
+		".claude/agents/valid.md":    "valid agent",
+		".claude/agents/empty.md":    "", // Empty file - will have size 0
+		".claude/commands/valid.md":  "valid command",
+		".claude/skills/s1/SKILL.md": "valid skill",
+		".claude/settings.json":      "{}",
+		".claude/CLAUDE.md":          "context",
 	}
 
 	for path, content := range files {
@@ -1052,7 +1052,7 @@ func TestFindFilesByPattern_StatError(t *testing.T) {
 	_ = os.WriteFile(agentFile, []byte("content"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1068,7 +1068,7 @@ func TestFindFilesByPattern_InvalidPattern(t *testing.T) {
 	fd := NewFileDiscovery(tmpDir, false)
 
 	// Use an invalid glob pattern
-	_, err := fd.findFilesByPattern([]string{"[invalid-pattern"})
+	_, err := fd.findFilesByPattern([]string{"[invalid-pattern"}, FileTypeAgent)
 	if err == nil {
 		t.Error("findFilesByPattern() expected error for invalid pattern")
 	}
@@ -1105,7 +1105,7 @@ func TestFindFilesByPattern_SymlinkEvalError(t *testing.T) {
 
 	// With symlinks enabled, broken symlinks should be skipped
 	fd := NewFileDiscovery(tmpDir, true)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1138,7 +1138,7 @@ func TestFindFilesByPattern_SymlinkTargetStatError(t *testing.T) {
 	os.Remove(targetFile)
 
 	fd := NewFileDiscovery(tmpDir, true)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1195,7 +1195,7 @@ func TestFindFilesByPattern_DirectorySkipping(t *testing.T) {
 	_ = os.WriteFile(filePath, []byte("content"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1230,7 +1230,7 @@ func TestFindFilesByPattern_ComprehensiveErrors(t *testing.T) {
 	_ = os.WriteFile(edgeCase, []byte("temp"), 0644)
 
 	fd := NewFileDiscovery(tmpDir, false)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1545,7 +1545,7 @@ func TestFindFilesByPattern_EmptyPattern(t *testing.T) {
 	tmpDir := t.TempDir()
 	fd := NewFileDiscovery(tmpDir, false)
 
-	found, err := fd.findFilesByPattern([]string{})
+	found, err := fd.findFilesByPattern([]string{}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1567,18 +1567,18 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 		".claude/agents/sub1/sub2/a3.md":    "agent",
 		".claude/commands/c1.md":            "command",
 		".claude/skills/s1/SKILL.md":        "skill",
-		".claude/skills/s1/nested/SKILL.md": "skill", // Nested SKILL.md (not discovered as top-level skill)
+		".claude/skills/s1/nested/SKILL.md": "skill",
 		".claude/rules/r1.md":               "rule",
 		".claude/settings.json":             "{}",
 		".claude/CLAUDE.md":                 "context",
 
 		// Alternative locations
-		"agents/alt.md":           "agent",
-		"commands/alt.md":         "command",
-		"skills/alt/SKILL.md":     "skill",
-		"rules/alt.md":            "rule",
-		"claude/settings.json":    "{}",
-		"CLAUDE.md":               "context",
+		"agents/alt.md":                  "agent",
+		"commands/alt.md":                "command",
+		"skills/alt/SKILL.md":            "skill",
+		"rules/alt.md":                   "rule",
+		"claude/settings.json":           "{}",
+		"CLAUDE.md":                      "context",
 		"pkg/.claude-plugin/plugin.json": "{}",
 
 		// Files that should NOT match
@@ -1612,8 +1612,8 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 	if typeCounts[FileTypeCommand] < 2 {
 		t.Errorf("Expected at least 2 commands, got %d", typeCounts[FileTypeCommand])
 	}
-	if typeCounts[FileTypeSkill] < 2 {
-		t.Errorf("Expected at least 2 skills, got %d", typeCounts[FileTypeSkill])
+	if typeCounts[FileTypeSkill] < 3 {
+		t.Errorf("Expected at least 3 skills, got %d", typeCounts[FileTypeSkill])
 	}
 }
 
@@ -1721,7 +1721,7 @@ func TestValidateFilePath_SymlinkResolutionError(t *testing.T) {
 
 	// Should contain "symlink" in error
 	if !strings.Contains(strings.ToLower(err.Error()), "symlink") &&
-	   !strings.Contains(err.Error(), "cannot resolve") {
+		!strings.Contains(err.Error(), "cannot resolve") {
 		t.Logf("Got error: %v", err)
 	}
 }
@@ -1731,8 +1731,8 @@ func TestValidateFilePath_BinaryContent(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name    string
-		content []byte
+		name     string
+		content  []byte
 		isBinary bool
 	}{
 		{
@@ -1802,7 +1802,7 @@ func TestFindFilesByPattern_SymlinkModeDetection(t *testing.T) {
 	fd := NewFileDiscovery(tmpDir, false)
 
 	// With symlinks disabled, behavior depends on os.DirFS
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1812,7 +1812,7 @@ func TestFindFilesByPattern_SymlinkModeDetection(t *testing.T) {
 
 	// With symlinks enabled
 	fd.followSymlinks = true
-	found, err = fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err = fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1843,7 +1843,7 @@ func TestFindFilesByPattern_SymlinkOutsideRootValidation(t *testing.T) {
 
 	// With symlinks enabled, should validate and skip external targets
 	fd := NewFileDiscovery(tmpDir, true)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1865,14 +1865,14 @@ func TestFindFilesByPattern_GlobError(t *testing.T) {
 
 	// Test various invalid patterns
 	invalidPatterns := []string{
-		"[invalid",           // Unclosed bracket
-		"**[bad",             // Unclosed bracket with **
-		"test[a-",            // Incomplete range
+		"[invalid", // Unclosed bracket
+		"**[bad",   // Unclosed bracket with **
+		"test[a-",  // Incomplete range
 	}
 
 	for _, pattern := range invalidPatterns {
 		t.Run(pattern, func(t *testing.T) {
-			_, err := fd.findFilesByPattern([]string{pattern})
+			_, err := fd.findFilesByPattern([]string{pattern}, FileTypeAgent)
 			if err == nil {
 				t.Errorf("Expected error for invalid pattern %q", pattern)
 			}
@@ -1900,7 +1900,7 @@ func TestFindFilesByPattern_ReadFileError(t *testing.T) {
 	defer func() { _ = os.Chmod(badFile, 0644) }()
 
 	fd := NewFileDiscovery(tmpDir, false)
-	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{".claude/agents/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -1981,7 +1981,7 @@ func TestFindFilesByPattern_MultiplePatterns(t *testing.T) {
 		"agents/**/*.md",
 	}
 
-	found, err := fd.findFilesByPattern(patterns)
+	found, err := fd.findFilesByPattern(patterns, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
@@ -2014,7 +2014,7 @@ func TestFindFilesByPattern_NoMatches(t *testing.T) {
 	fd := NewFileDiscovery(tmpDir, false)
 
 	// Pattern that won't match anything
-	found, err := fd.findFilesByPattern([]string{"nonexistent/**/*.md"})
+	found, err := fd.findFilesByPattern([]string{"nonexistent/**/*.md"}, FileTypeAgent)
 	if err != nil {
 		t.Fatalf("findFilesByPattern() error = %v", err)
 	}
