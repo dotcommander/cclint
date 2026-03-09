@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dotcommander/cclint/internal/lint"
-	"github.com/dotcommander/cclint/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -49,9 +48,18 @@ type ScoredComponent struct {
 }
 
 func runSummary() error {
-	cfg, err := config.LoadConfig(rootPath)
+	cfg, err := loadCLIConfig()
 	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
+		return err
+	}
+
+	result, err := runOrchestratedLint(cfg, []lint.LinterEntry{
+		{Name: "agents", Linter: lint.LintAgents},
+		{Name: "commands", Linter: lint.LintCommands},
+		{Name: "skills", Linter: lint.LintSkills},
+	})
+	if err != nil {
+		return fmt.Errorf("error building summary: %w", err)
 	}
 
 	summary := &ComponentSummary{
@@ -59,27 +67,17 @@ func runSummary() error {
 		TopIssues:  make(map[string]int),
 	}
 
-	// Run all linters
-	agentSummary, err := lint.LintAgents(cfg.Root, true, false, cfg.NoCycleCheck)
-	if err != nil {
-		return fmt.Errorf("error linting agents: %w", err)
+	for _, componentSummary := range result.Summaries {
+		switch componentSummary.ComponentType {
+		case "agent":
+			summary.AgentCount = componentSummary.TotalFiles
+		case "command":
+			summary.CommandCount = componentSummary.TotalFiles
+		case "skill":
+			summary.SkillCount = componentSummary.TotalFiles
+		}
+		aggregateResults(summary, componentSummary.Results)
 	}
-	summary.AgentCount = agentSummary.TotalFiles
-	aggregateResults(summary, agentSummary.Results)
-
-	commandSummary, err := lint.LintCommands(cfg.Root, true, false, cfg.NoCycleCheck)
-	if err != nil {
-		return fmt.Errorf("error linting commands: %w", err)
-	}
-	summary.CommandCount = commandSummary.TotalFiles
-	aggregateResults(summary, commandSummary.Results)
-
-	skillSummary, err := lint.LintSkills(cfg.Root, true, false, cfg.NoCycleCheck)
-	if err != nil {
-		return fmt.Errorf("error linting skills: %w", err)
-	}
-	summary.SkillCount = skillSummary.TotalFiles
-	aggregateResults(summary, skillSummary.Results)
 
 	summary.TotalComponents = summary.AgentCount + summary.CommandCount + summary.SkillCount
 

@@ -9,7 +9,6 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/git"
 	"github.com/dotcommander/cclint/internal/lint"
-	"github.com/dotcommander/cclint/internal/outputters"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/term"
@@ -30,12 +29,12 @@ var (
 	outputFile       string
 	failOn           string
 	typeFlag         string // Force component type (--type flag)
-	diffMode         bool     // Lint only changed files (--diff)
-	stagedMode       bool     // Lint only staged files (--staged)
-	noCycleCheck     bool     // Disable circular dependency detection
-	useBaseline      bool     // Use baseline filtering
-	createBaseline   bool     // Create/update baseline file
-	baselinePath     string   // Custom baseline file path
+	diffMode         bool   // Lint only changed files (--diff)
+	stagedMode       bool   // Lint only staged files (--staged)
+	noCycleCheck     bool   // Disable circular dependency detection
+	useBaseline      bool   // Use baseline filtering
+	createBaseline   bool   // Create/update baseline file
+	baselinePath     string // Custom baseline file path
 
 	// exitFunc is the function called to exit the program.
 	// It can be overridden in tests to prevent actual process termination.
@@ -106,43 +105,9 @@ EXAMPLES:
    • Style suggestions should be verified against official documentation`,
 	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if diffMode || stagedMode {
-			// Git integration mode
-			if err := runGitLint(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				exitFunc(1)
-			}
-			return
-		}
-
-		classified, err := classifyArgs(args)
-		if err != nil {
+		if err := runRootCommand(args); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			exitFunc(2)
-			return
-		}
-
-		switch {
-		case len(classified.filePaths) > 0:
-			// File/directory mode
-			if err := runSingleFileLint(classified.filePaths); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				exitFunc(2)
-			}
-		case len(classified.typeFilters) > 0:
-			// Type filter mode
-			for _, ft := range classified.typeFilters {
-				if err := runTypeLint(ft); err != nil {
-					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-					exitFunc(1)
-				}
-			}
-		default:
-			// Full scan mode
-			if err := runLint(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				exitFunc(1)
-			}
+			exitFunc(1)
 		}
 	},
 }
@@ -185,15 +150,25 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&baselinePath, "baseline-path", ".cclintbaseline.json", "Path to baseline file")
 
 	// Viper bindings
-	_ = viper.BindPFlag("root", rootCmd.PersistentFlags().Lookup("root"))
-	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
-	_ = viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
-	_ = viper.BindPFlag("showScores", rootCmd.PersistentFlags().Lookup("scores"))
-	_ = viper.BindPFlag("showImprovements", rootCmd.PersistentFlags().Lookup("improvements"))
-	_ = viper.BindPFlag("format", rootCmd.PersistentFlags().Lookup("format"))
-	_ = viper.BindPFlag("output", rootCmd.PersistentFlags().Lookup("output"))
-	_ = viper.BindPFlag("fail-on", rootCmd.PersistentFlags().Lookup("fail-on"))
-	_ = viper.BindPFlag("no-cycle-check", rootCmd.PersistentFlags().Lookup("no-cycle-check"))
+	mustBindPFlag("root", "root")
+	mustBindPFlag("quiet", "quiet")
+	mustBindPFlag("verbose", "verbose")
+	mustBindPFlag("showScores", "scores")
+	mustBindPFlag("showImprovements", "improvements")
+	mustBindPFlag("format", "format")
+	mustBindPFlag("output", "output")
+	mustBindPFlag("fail-on", "fail-on")
+	mustBindPFlag("no-cycle-check", "no-cycle-check")
+}
+
+func mustBindPFlag(key, flagName string) {
+	flag := rootCmd.PersistentFlags().Lookup(flagName)
+	if flag == nil {
+		panic(fmt.Sprintf("missing persistent flag %q", flagName))
+	}
+	if err := viper.BindPFlag(key, flag); err != nil {
+		panic(fmt.Sprintf("bind flag %q: %v", flagName, err))
+	}
 }
 
 // shouldFail checks if the lint run should exit with failure based on the --fail-on level.
@@ -259,51 +234,50 @@ func startSpinner(cfg *config.Config) func() {
 }
 
 func runLint() error {
-	// Load configuration
-	cfg, err := config.LoadConfig(rootPath)
-	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
-	}
-
-	// Create and run the orchestrator
-	orchestrator := lint.NewOrchestrator(cfg, lint.OrchestratorConfig{
-		RootPath:       rootPath,
-		UseBaseline:    useBaseline,
-		CreateBaseline: createBaseline,
-		BaselinePath:   baselinePath,
-	})
-
-	stop := startSpinner(cfg)
-	result, err := orchestrator.Run()
-	stop()
-
+	cfg, err := loadCLIConfig()
 	if err != nil {
 		return err
 	}
 
-	// Output all results using the outputter
-	outputter := outputters.NewOutputter(cfg)
-	if err := outputter.FormatAll(result.Summaries, result.StartTime); err != nil {
+	result, err := runOrchestratedLint(cfg, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := formatFullRunOutput(cfg, result); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
 
-	// Print baseline filtering summary
-	if result.BaselineIgnored > 0 && !cfg.Quiet {
-		fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-			result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored)
-	}
-
-	// Print validation reminder (verbose only)
-	if !cfg.Quiet && cfg.Verbose {
-		fmt.Fprintln(os.Stderr, "\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
-	}
-
-	// Exit with error based on --fail-on level
-	if shouldFail(cfg, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions) {
-		exitFunc(1)
-	}
+	printBaselineSummary(result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored, cfg.Quiet)
+	printValidationReminder(cfg)
+	applyFailurePolicy(cfg, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions)
 
 	return nil
+}
+
+func runRootCommand(args []string) error {
+	if diffMode || stagedMode {
+		return runGitLint()
+	}
+
+	classified, err := classifyArgs(args)
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case len(classified.filePaths) > 0:
+		return runSingleFileLint(classified.filePaths)
+	case len(classified.typeFilters) > 0:
+		for _, ft := range classified.typeFilters {
+			if err := runTypeLint(ft); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return runLint()
+	}
 }
 
 // classifiedArgs holds the result of classifying command-line arguments.
@@ -345,51 +319,32 @@ func classifyArgs(args []string) (*classifiedArgs, error) {
 //   - 1: One or more files had lint errors
 //   - 2: Invocation error (file not found, invalid type, etc.)
 func runSingleFileLint(files []string) error {
-	// Load configuration for output settings
-	cfg, err := config.LoadConfig(rootPath)
+	cfg, err := loadCLIConfig()
 	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
+		return err
 	}
 
-	// Override config with flag values
-	cfg.Quiet = quiet
-	cfg.Verbose = verbose
-
-	// Lint files
 	summary, err := lint.LintFiles(files, rootPath, typeFlag, cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
 
-	// Output results
-	outputter := outputters.NewOutputter(cfg)
-	if err := outputter.Format(summary, cfg.Format); err != nil {
+	if err := formatSummaryOutput(cfg, summary); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
 
-	// Print validation reminder (verbose only)
-	if !cfg.Quiet && cfg.Verbose {
-		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
-	}
-
-	// Exit with error based on --fail-on level
-	if shouldFail(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions) {
-		exitFunc(1)
-	}
+	printValidationReminder(cfg)
+	applyFailurePolicy(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }
 
 // runGitLint lints files based on git status (--diff or --staged)
 func runGitLint() error {
-	cfg, err := config.LoadConfig(rootPath)
+	cfg, err := loadCLIConfig()
 	if err != nil {
-		return fmt.Errorf("error loading configuration: %w", err)
+		return err
 	}
-
-	// Override config with flag values
-	cfg.Quiet = quiet
-	cfg.Verbose = verbose
 
 	// Determine git root (use current directory if rootPath not specified)
 	gitRoot := cfg.Root
@@ -427,27 +382,17 @@ func runGitLint() error {
 		return nil
 	}
 
-	// Lint files (pass gitRoot as the root path for correct detection)
 	summary, err := lint.LintFiles(files, gitRoot, "", cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
 
-	// Output results
-	outputter := outputters.NewOutputter(cfg)
-	if err := outputter.Format(summary, cfg.Format); err != nil {
+	if err := formatSummaryOutput(cfg, summary); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
 
-	// Print validation reminder (verbose only)
-	if !cfg.Quiet && cfg.Verbose {
-		fmt.Println("\n⚠️  Validate suggestions against docs.anthropic.com or docs.claude.com")
-	}
-
-	// Exit with error based on --fail-on level
-	if shouldFail(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions) {
-		exitFunc(1)
-	}
+	printValidationReminder(cfg)
+	applyFailurePolicy(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }
