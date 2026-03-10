@@ -23,6 +23,7 @@ import (
 	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
+	"EnterWorktree" | "ExitWorktree" |
 	"LSP" | "Skill" | "DBClient"
 
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)

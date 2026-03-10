@@ -340,6 +340,7 @@ var KnownTools = map[string]bool{
 	// Special
 	"Skill": true, "LSP": true, "NotebookEdit": true,
 	"EnterPlanMode": true, "ExitPlanMode": true,
+	"EnterWorktree": true, "ExitWorktree": true,
 	"KillShell": true, "TaskOutput": true,
 	// Wildcards
 	"*": true,

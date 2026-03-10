@@ -19,6 +19,7 @@ import "strings"
 	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
+	"EnterWorktree" | "ExitWorktree" |
 	"LSP" | "Skill" | "DBClient"
 
 // ============================================================================

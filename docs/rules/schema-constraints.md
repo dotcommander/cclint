@@ -184,11 +184,12 @@ When tools are specified as an array, each tool name must be from the known Clau
 	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
+	"EnterWorktree" | "ExitWorktree" |
 	"LSP" | "Skill" | "DBClient"
 ```
 
 **Valid Values:**
-Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit, WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode, AskUserQuestion, LSP, Skill
+Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit, WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode, AskUserQuestion, EnterWorktree, ExitWorktree, LSP, Skill
 
 **Source:** cclint observation - Derived from Claude Code tool set documented in system prompts
 
