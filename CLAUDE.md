@@ -193,7 +193,7 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, context, agent, hooks, license, compatibility, metadata. Open struct.
 
-**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks. Open struct.
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory. Open struct.
 
 ### CUE #KnownTool Union (shared across agent/command/skill schemas)
 
@@ -215,7 +215,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 **Colors**: red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white
 
-**Models**: sonnet, opus, haiku, sonnet[1m], opusplan, inherit (skill.cue also allows `claude-*` pattern)
+**Models**: sonnet, opus, haiku, sonnet[1m], opusplan, inherit, `claude-*` pattern (e.g. claude-opus-4-5) — all schemas
 
 **Permission modes**: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
 
@@ -232,7 +232,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.73 |
+| claude_code_last_updated | v2.1.75 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
