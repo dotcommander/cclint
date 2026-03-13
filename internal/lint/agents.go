@@ -18,7 +18,8 @@ var bodyToolNegativePattern = regexp.MustCompile(`(?i)\b(do not use|don't use|ne
 // validModelPattern matches known Claude Code model values.
 // Bare names: haiku, sonnet, opus, inherit, opusplan.
 // Optional version suffix in brackets: sonnet[1m], haiku[2].
-var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan)(\[\w+\])?$`)
+// Full model IDs: claude-* (e.g. claude-opus-4-5, claude-sonnet-4-6).
+var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan)(\[\w+\])?$|^claude-[a-z0-9-]+$`)
 
 // LintResult represents a single linting result
 type LintResult struct {
@@ -215,7 +216,7 @@ func validateAgentModel(data map[string]any, filePath, contents string) []cue.Va
 
 	return []cue.ValidationError{{
 		File:     filePath,
-		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m])", model),
+		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m]), or full model ID (claude-*)", model),
 		Severity: "warning",
 		Source:   cue.SourceCClintObserve,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "model"),

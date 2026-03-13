@@ -16,7 +16,8 @@ import (
 #MemoryScope: "user" | "project" | "local"
 
 // Valid model options for Claude Code
-#Model: "sonnet" | "opus" | "haiku" | "sonnet[1m]" | "opusplan" | "inherit"
+#Model: "sonnet" | "opus" | "haiku" | "sonnet[1m]" | "opusplan" | "inherit" |
+	=~"^claude-[a-z0-9-]+$"  // allow full model names like claude-opus-4-5
 
 // Known Claude Code tools for validation
 #KnownTool: "Read" | "Write" | "Edit" | "MultiEdit" | "Bash" |
@@ -105,7 +106,7 @@ validate: {
 // Check if model value is valid
 #isValidModel: {
 	model: string
-	valid: strings.Contains("sonnet,opus,haiku,sonnet[1m],opusplan,inherit", model)
+	valid: strings.Contains("sonnet,opus,haiku,sonnet[1m],opusplan,inherit", model) || regexp.Match("^claude-[a-z0-9-]+$", model)
 }
 
 // Check if name format is valid (lowercase, numbers, hyphens)

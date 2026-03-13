@@ -718,6 +718,11 @@ func TestValidateAgentModelValues(t *testing.T) {
 		{"invalid random", "fast", 1},
 		{"invalid arbitrary string", "turbo-3", 1},
 		{"invalid partial", "son", 1},
+		{"valid full model claude-opus-4-5", "claude-opus-4-5", 0},
+		{"valid full model claude-sonnet-4-6", "claude-sonnet-4-6", 0},
+		{"valid full model with date", "claude-haiku-4-5-20251001", 0},
+		{"invalid claude- bare prefix", "claude-", 1},
+		{"invalid claude uppercase", "claude-OPUS", 1},
 	}
 
 	for _, tt := range tests {
@@ -849,6 +854,11 @@ func TestValidModelPattern(t *testing.T) {
 		{"Haiku", false},
 		{"sonnet[]", false},
 		{"fast", false},
+		{"claude-opus-4-5", true},
+		{"claude-sonnet-4-6", true},
+		{"claude-haiku-4-5-20251001", true},
+		{"claude-", false},
+		{"claude-OPUS", false},
 	}
 
 	for _, tt := range tests {

@@ -331,6 +331,15 @@ func TestValidateAgent(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "valid full model ID claude-opus-4-5",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with full model ID",
+				"model":       "claude-opus-4-5",
+			},
+			wantError: false,
+		},
 	}
 
 	v := NewValidator()
@@ -422,9 +431,17 @@ func TestValidateCommand(t *testing.T) {
 			name: "invalid model",
 			data: map[string]any{
 				"name":  "test-cmd",
-				"model": "claude-invalid",
+				"model": "not-a-model",
 			},
 			wantError: true,
+		},
+		{
+			name: "valid full model ID",
+			data: map[string]any{
+				"name":  "test-cmd",
+				"model": "claude-opus-4-5",
+			},
+			wantError: false,
 		},
 	}
 
@@ -591,6 +608,13 @@ func TestValidateSettings(t *testing.T) {
 				"model":       "sonnet",
 				"permissions": map[string]any{},
 				"mcp":         map[string]any{},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with autoMemoryDirectory",
+			data: map[string]any{
+				"autoMemoryDirectory": "/custom/memory/path",
 			},
 			wantError: false,
 		},
