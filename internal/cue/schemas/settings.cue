@@ -114,6 +114,9 @@ package schemas
 	// Non-managed settings cannot disable managed hooks set by enterprise policy
 	disableAllHooks?: bool
 
+	// Auto-memory storage directory override (v2.1.74+)
+	autoMemoryDirectory?: string
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
