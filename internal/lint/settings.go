@@ -36,6 +36,9 @@ var validHookEvents = map[string]bool{
 	"WorktreeCreate":     true, // worktree lifecycle event (v2.1.50+)
 	"WorktreeRemove":     true, // worktree lifecycle event (v2.1.50+)
 	"InstructionsLoaded": true, // instructions loaded event (v2.1.69+)
+	"PostCompact":        true, // fires after compaction completes (v2.1.76+)
+	"Elicitation":        true, // MCP elicitation request event (v2.1.76+)
+	"ElicitationResult":  true, // MCP elicitation result event (v2.1.76+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

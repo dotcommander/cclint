@@ -117,6 +117,16 @@ package schemas
 	// Auto-memory storage directory override (v2.1.74+)
 	autoMemoryDirectory?: string
 
+	// Worktree settings (v2.1.76+)
+	worktree?: {
+		// Sparse checkout paths for large monorepos
+		sparsePaths?: [...string]
+		...
+	}
+
+	// Feedback survey sample rate for enterprise admins (v2.1.76+)
+	feedbackSurveyRate?: number
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
