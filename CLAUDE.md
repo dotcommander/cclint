@@ -175,9 +175,9 @@ Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. En
 
 What cclint validates, for the `/updater` workflow. Source files in parentheses.
 
-### Hook Events — 18 total (`internal/lint/settings.go`)
+### Hook Events — 21 total (`internal/lint/settings.go`)
 
-`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`
 
 Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
@@ -193,7 +193,7 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, context, agent, hooks, license, compatibility, metadata. Open struct.
 
-**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory. Open struct.
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate. Open struct.
 
 ### CUE #KnownTool Union (shared across agent/command/skill schemas)
 
@@ -232,7 +232,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.75 |
+| claude_code_last_updated | v2.1.76 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
