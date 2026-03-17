@@ -54,14 +54,7 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 	// Note: name is optional in frontmatter - it's derived from filename (per Anthropic docs)
 	// Check name format if present - format rule from Anthropic docs
 	if name, ok := data["name"].(string); ok && name != "" {
-		valid := true
-		for _, c := range name {
-			if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
-				valid = false
-				break
-			}
-		}
-		if !valid {
+		if !isKebabCase(name) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  "Name must be lowercase alphanumeric with hyphens only",
