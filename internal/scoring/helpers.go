@@ -59,26 +59,7 @@ func ScoreRequiredFields(frontmatter map[string]any, specs []FieldSpec) (int, []
 // ScoreSections scores the presence of required sections in content.
 // It follows the Open/Closed Principle - new sections can be added via the specs slice.
 func ScoreSections(content string, specs []SectionSpec) (int, []Metric) {
-	var total int
-	var details []Metric
-
-	for _, sec := range specs {
-		matched, _ := regexp.MatchString(sec.Pattern, content)
-		points := 0
-		if matched {
-			points = sec.Points
-		}
-		total += points
-		details = append(details, Metric{
-			Category:  "structural",
-			Name:      sec.Name,
-			Points:    points,
-			MaxPoints: sec.Points,
-			Passed:    matched,
-		})
-	}
-
-	return total, details
+	return ScoreSectionsWithFallback(content, specs, nil)
 }
 
 // ScoreSectionsWithFallback scores sections with a custom fallback check function.
