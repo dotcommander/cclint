@@ -31,7 +31,7 @@ func NewComponentFormatter(componentType string) Formatter {
 	case "skill":
 		return &SkillFormatter{}
 	default:
-		return &GenericFormatter{}
+		return &SkillFormatter{}
 	}
 }
 
@@ -141,104 +141,45 @@ func normalizeMarkdown(body string, hasFrontmatter bool) string {
 	return result
 }
 
-// AgentFormatter formats agent files.
-type AgentFormatter struct{}
-
-func (f *AgentFormatter) Format(content string) (string, error) {
+// formatComponent formats a component file with the given priority field ordering.
+func formatComponent(content string, priorityFields []string) (string, error) {
 	result := parseFrontmatterRaw(content)
 	if result.err != nil {
 		return content, result.err
 	}
 
 	if !result.hasFrontmatter {
-		// No frontmatter - just normalize markdown
 		return normalizeMarkdown(result.body, false), nil
 	}
 
-	// Normalize frontmatter with agent-specific field order
-	priorityFields := []string{"name", "description", "model", "tools", "allowed-tools"}
 	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
 	if err != nil {
 		return content, err
 	}
 
-	// Normalize body
 	normalizedBody := normalizeMarkdown(result.body, true)
-
-	// Reassemble
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
+}
+
+// AgentFormatter formats agent files.
+type AgentFormatter struct{}
+
+func (f *AgentFormatter) Format(content string) (string, error) {
+	return formatComponent(content, []string{"name", "description", "model", "tools", "allowed-tools"})
 }
 
 // CommandFormatter formats command files.
 type CommandFormatter struct{}
 
 func (f *CommandFormatter) Format(content string) (string, error) {
-	result := parseFrontmatterRaw(content)
-	if result.err != nil {
-		return content, result.err
-	}
-
-	if !result.hasFrontmatter {
-		return normalizeMarkdown(result.body, false), nil
-	}
-
-	// Normalize frontmatter with command-specific field order
-	priorityFields := []string{"name", "description", "allowed-tools"}
-	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
-	if err != nil {
-		return content, err
-	}
-
-	normalizedBody := normalizeMarkdown(result.body, true)
-	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
+	return formatComponent(content, []string{"name", "description", "allowed-tools"})
 }
 
 // SkillFormatter formats skill files.
 type SkillFormatter struct{}
 
 func (f *SkillFormatter) Format(content string) (string, error) {
-	result := parseFrontmatterRaw(content)
-	if result.err != nil {
-		return content, result.err
-	}
-
-	if !result.hasFrontmatter {
-		return normalizeMarkdown(result.body, false), nil
-	}
-
-	// Normalize frontmatter with skill-specific field order
-	priorityFields := []string{"name", "description"}
-	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
-	if err != nil {
-		return content, err
-	}
-
-	normalizedBody := normalizeMarkdown(result.body, true)
-	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
-}
-
-// GenericFormatter formats generic markdown files.
-type GenericFormatter struct{}
-
-func (f *GenericFormatter) Format(content string) (string, error) {
-	result := parseFrontmatterRaw(content)
-	if result.err != nil {
-		return content, result.err
-	}
-
-	if !result.hasFrontmatter {
-		return normalizeMarkdown(result.body, false), nil
-	}
-
-	// Generic alphabetical order
-	priorityFields := []string{"name", "description"}
-	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
-	if err != nil {
-		return content, err
-	}
-
-	normalizedBody := normalizeMarkdown(result.body, true)
-	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
+	return formatComponent(content, []string{"name", "description"})
 }
 
 // Diff computes a simple unified diff between original and formatted content.

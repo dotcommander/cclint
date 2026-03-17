@@ -406,14 +406,14 @@ func TestNewComponentFormatter(t *testing.T) {
 			expectedType:  "*format.SkillFormatter",
 		},
 		{
-			name:          "generic formatter for unknown type",
+			name:          "skill formatter for unknown type",
 			componentType: "unknown",
-			expectedType:  "*format.GenericFormatter",
+			expectedType:  "*format.SkillFormatter",
 		},
 		{
-			name:          "generic formatter for empty string",
+			name:          "skill formatter for empty string",
 			componentType: "",
-			expectedType:  "*format.GenericFormatter",
+			expectedType:  "*format.SkillFormatter",
 		},
 	}
 
@@ -438,8 +438,8 @@ func TestNewComponentFormatter(t *testing.T) {
 					t.Errorf("Expected *SkillFormatter, got %T", formatter)
 				}
 			default:
-				if _, ok := formatter.(*GenericFormatter); !ok {
-					t.Errorf("Expected *GenericFormatter, got %T", formatter)
+				if _, ok := formatter.(*SkillFormatter); !ok {
+					t.Errorf("Expected *SkillFormatter, got %T", formatter)
 				}
 			}
 
@@ -458,7 +458,7 @@ func TestNewComponentFormatter(t *testing.T) {
 	}
 }
 
-func TestGenericFormatter(t *testing.T) {
+func TestSkillFormatterDefaultCase(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -523,7 +523,7 @@ Content.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			formatter := &GenericFormatter{}
+			formatter := &SkillFormatter{}
 			result, err := formatter.Format(tt.input)
 			if err != nil {
 				t.Fatalf("Format() error = %v", err)
@@ -575,7 +575,7 @@ Content`,
 		},
 		{
 			name:      "generic formatter with invalid YAML",
-			formatter: &GenericFormatter{},
+			formatter: &SkillFormatter{},
 			input: `---
 name: test
 broken: [[[
