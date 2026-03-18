@@ -403,6 +403,18 @@ func TestValidateAgentSpecific(t *testing.T) {
 			wantSuggCount: 0,
 		},
 		{
+			name: "valid effort field",
+			data: map[string]any{
+				"name":        "test",
+				"description": "test. Use PROACTIVELY when testing.",
+				"effort":      "high",
+			},
+			filePath:      "agents/test.md",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\neffort: high\n---\n",
+			wantErrCount:  0,
+			wantSuggCount: 0,
+		},
+		{
 			name: "valid agent without isolation or background",
 			data: map[string]any{
 				"name":        "test",
@@ -559,7 +571,7 @@ func TestValidateAgentBestPractices(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "skills", "hooks", "memory", "mcpServers", "isolation", "background"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "effort", "skills", "hooks", "memory", "mcpServers", "isolation", "background"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)

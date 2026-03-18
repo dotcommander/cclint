@@ -62,6 +62,7 @@ var knownAgentFields = map[string]bool{
 	"mcpServers":      true, // Optional: MCP server names available to agent
 	"isolation":       true, // Optional: subagent isolation mode (worktree) (v2.1.49+)
 	"background":      true, // Optional: always run as background task (v2.1.49+)
+	"effort":          true, // Optional: reasoning effort level (v2.1.78+)
 }
 
 // validateAgentSpecific implements agent-specific validation rules.

@@ -39,6 +39,7 @@ var validHookEvents = map[string]bool{
 	"PostCompact":        true, // fires after compaction completes (v2.1.76+)
 	"Elicitation":        true, // MCP elicitation request event (v2.1.76+)
 	"ElicitationResult":  true, // MCP elicitation result event (v2.1.76+)
+	"StopFailure":        true, // API error stop event (v2.1.78+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

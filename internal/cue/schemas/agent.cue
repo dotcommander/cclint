@@ -76,6 +76,7 @@ import (
 	disallowedTools?: #Tools                                  // tool access denylist
 	permissionMode?: "default" | "acceptEdits" | "delegate" | "dontAsk" | "bypassPermissions" | "plan"
 	maxTurns?: int & >0                                       // max conversation turns (positive integer)
+	effort?:   string                                         // reasoning effort level (v2.1.78+)
 	skills?: string                                           // skills to preload into agent context
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)
 	memory?: #MemoryScope                                     // persistent memory scope (v2.1.33+)

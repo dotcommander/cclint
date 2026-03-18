@@ -181,6 +181,23 @@ func TestValidateHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
+			name: "valid StopFailure hook",
+			hooks: map[string]any{
+				"StopFailure": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
+								"type":    "command",
+								"command": "echo stop failed",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "Setup event rejected as unknown",
 			hooks: map[string]any{
 				"Setup": []any{
