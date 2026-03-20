@@ -173,7 +173,7 @@ func TestExtractSkillName(t *testing.T) {
 func TestKnownSkillFields(t *testing.T) {
 	// Core fields from Anthropic docs
 	expected := []string{
-		"name", "description", "argument-hint", "allowed-tools", "model",
+		"name", "description", "argument-hint", "allowed-tools", "model", "effort",
 		"context", "agent", "user-invocable", "hooks",
 	}
 	// agentskills.io spec fields

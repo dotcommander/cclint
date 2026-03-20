@@ -230,7 +230,7 @@ func TestValidateCommandBestPractices(t *testing.T) {
 }
 
 func TestKnownCommandFields(t *testing.T) {
-	expected := []string{"name", "description", "allowed-tools", "argument-hint", "model", "disable-model-invocation"}
+	expected := []string{"name", "description", "allowed-tools", "argument-hint", "model", "effort", "disable-model-invocation"}
 	for _, field := range expected {
 		if !knownCommandFields[field] {
 			t.Errorf("knownCommandFields missing expected field: %s", field)
