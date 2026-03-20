@@ -189,9 +189,9 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Agent** (`internal/cue/schemas/agent.cue`): name (required), description (required), model, color, tools, disallowedTools, permissionMode, maxTurns, effort, skills, hooks, memory, mcpServers, isolation, background. Open struct (`...`).
 
-**Command** (`internal/cue/schemas/command.cue`): name, description, allowed-tools, argument-hint, model, disable-model-invocation, hooks. Open struct.
+**Command** (`internal/cue/schemas/command.cue`): name, description, allowed-tools, argument-hint, model, effort, disable-model-invocation, hooks. Open struct.
 
-**Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, context, agent, hooks, license, compatibility, metadata. Open struct.
+**Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, effort, context, agent, hooks, license, compatibility, metadata. Open struct.
 
 **Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate. Open struct.
 
@@ -221,7 +221,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 **Memory scopes**: user, project, local
 
-**Marketplace sources**: github, git, git-subdir, url, npm, file, directory, hostPattern
+**Marketplace sources**: github, git, git-subdir, url, npm, file, directory, hostPattern, settings
 
 ## Operational Context
 
@@ -232,7 +232,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.78 |
+| claude_code_last_updated | v2.1.80 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
