@@ -54,6 +54,7 @@ import "strings"
 	"allowed-tools"?: "*" | string | [...#KnownTool]           // commands use 'allowed-tools:', NOT 'tools:'
 	"argument-hint"?: string                                   // argument hint for help
 	model?: #Model
+	effort?: string                                            // reasoning effort level (v2.1.80+)
 	"disable-model-invocation"?: bool                          // prevent SlashCommand tool from calling this
 	hooks?: #CommandHooks                                      // command-level hooks (PreToolUse, PostToolUse, Stop)
 

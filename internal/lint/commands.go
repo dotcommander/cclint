@@ -31,6 +31,7 @@ var knownCommandFields = map[string]bool{
 	"allowed-tools":            true, // Optional: tool access permissions
 	"argument-hint":            true, // Optional: hint for command arguments
 	"model":                    true, // Optional: model to use
+	"effort":                   true, // Optional: reasoning effort level (v2.1.80+)
 	"disable-model-invocation": true, // Optional: prevent SlashCommand tool from calling
 }
 
@@ -43,7 +44,7 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 		if !knownCommandFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, argument-hint, model, disable-model-invocation", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, argument-hint, model, effort, disable-model-invocation", key),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     textutil.FindFrontmatterFieldLine(contents, key),

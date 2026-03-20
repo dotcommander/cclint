@@ -64,6 +64,7 @@ import "strings"
 	"user-invocable"?: bool                                   // show in slash command menu (default true)
 	"allowed-tools"?: "*" | string | [...#KnownTool]          // skills use 'allowed-tools:', NOT 'tools:'
 	model?: #Model                                            // model to use when skill is active
+	effort?: string                                           // reasoning effort level (v2.1.80+)
 	context?: "fork"                                          // run skill in forked sub-agent context
 	agent?: string                                            // agent type for execution
 	hooks?: #SkillHooks                                       // skill-level hooks (PreToolUse, PostToolUse, Stop)

@@ -23,6 +23,7 @@ var knownSkillFields = map[string]bool{
 	"user-invocable":           true, // Optional: show in slash command menu (default true)
 	"allowed-tools":            true, // Optional: tool access permissions
 	"model":                    true, // Optional: model to use when skill is active
+	"effort":                   true, // Optional: reasoning effort level (v2.1.80+)
 	"context":                  true, // Optional: "fork" for sub-agent context
 	"agent":                    true, // Optional: agent type for execution
 	"hooks":                    true, // Optional: skill-level hooks (PreToolUse, PostToolUse, Stop)
