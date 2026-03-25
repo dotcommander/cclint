@@ -127,6 +127,18 @@ package schemas
 	// Feedback survey sample rate for enterprise admins (v2.1.76+)
 	feedbackSurveyRate?: number
 
+	// Sandbox settings (v2.1.83+)
+	sandbox?: {
+		failIfUnavailable?: bool
+		...
+	}
+
+	// Deep link registration control (v2.1.83+)
+	disableDeepLinkRegistration?: bool
+
+	// Tool result file cleanup period in days (v2.1.83+)
+	cleanupPeriodDays?: number
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

@@ -83,6 +83,7 @@ import (
 	mcpServers?: [...string]                                   // MCP server names available to agent
 	isolation?: "worktree"                                    // subagent isolation mode (v2.1.49+)
 	background?: bool                                         // always run as background task (v2.1.49+)
+	initialPrompt?: string                                    // auto-submit first turn (v2.1.83+)
 
 	// Allow additional fields
 	...

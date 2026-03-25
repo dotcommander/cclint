@@ -37,8 +37,8 @@ type LintSummary struct {
 }
 
 // LintAgents runs linting on agent files using the generic linter.
-func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +63,7 @@ var knownAgentFields = map[string]bool{
 	"isolation":       true, // Optional: subagent isolation mode (worktree) (v2.1.49+)
 	"background":      true, // Optional: always run as background task (v2.1.49+)
 	"effort":          true, // Optional: reasoning effort level (v2.1.78+)
+	"initialPrompt":   true, // Optional: auto-submit first turn (v2.1.83+)
 }
 
 // validateAgentSpecific implements agent-specific validation rules.

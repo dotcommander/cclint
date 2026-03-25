@@ -340,6 +340,15 @@ func TestValidateAgent(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "valid initialPrompt field",
+			data: map[string]any{
+				"name":          "test-agent",
+				"description":   "Agent with initial prompt",
+				"initialPrompt": "Analyze the current directory and report findings.",
+			},
+			wantError: false,
+		},
 	}
 
 	v := NewValidator()
@@ -615,6 +624,29 @@ func TestValidateSettings(t *testing.T) {
 			name: "valid settings with autoMemoryDirectory",
 			data: map[string]any{
 				"autoMemoryDirectory": "/custom/memory/path",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with sandbox",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"failIfUnavailable": true,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with disableDeepLinkRegistration",
+			data: map[string]any{
+				"disableDeepLinkRegistration": true,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with cleanupPeriodDays",
+			data: map[string]any{
+				"cleanupPeriodDays": 30,
 			},
 			wantError: false,
 		},

@@ -8,8 +8,8 @@ import (
 )
 
 // LintSettings runs linting on settings files using the generic linter.
-func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +40,8 @@ var validHookEvents = map[string]bool{
 	"Elicitation":        true, // MCP elicitation request event (v2.1.76+)
 	"ElicitationResult":  true, // MCP elicitation result event (v2.1.76+)
 	"StopFailure":        true, // API error stop event (v2.1.78+)
+	"CwdChanged":         true, // working directory change event (v2.1.83+)
+	"FileChanged":        true, // file change event (v2.1.83+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

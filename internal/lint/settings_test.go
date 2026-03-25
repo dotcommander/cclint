@@ -6,7 +6,7 @@ import (
 
 func TestLintSettings(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintSettings("testdata/empty", false, false, true)
+	summary, err := LintSettings("testdata/empty", false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintSettings() error = %v", err)
 	}
@@ -120,6 +120,44 @@ func TestValidateSettingsSpecific(t *testing.T) {
 				},
 			},
 			wantErrorCount: 1,
+		},
+		{
+			name: "valid CwdChanged hook event",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"CwdChanged": []any{
+						map[string]any{
+							"matcher": map[string]any{},
+							"hooks": []any{
+								map[string]any{
+									"type":    "command",
+									"command": "echo cwd changed",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "valid FileChanged hook event",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"FileChanged": []any{
+						map[string]any{
+							"matcher": map[string]any{},
+							"hooks": []any{
+								map[string]any{
+									"type":    "command",
+									"command": "echo file changed",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
 		},
 	}
 
