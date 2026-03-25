@@ -171,13 +171,25 @@ cclint --baseline agents
 
 Supports `.cclintrc.json`, `.cclintrc.yaml`, `.cclintrc.yml` in project root. Environment variables with `CCLINT_` prefix also supported.
 
+**Exclude patterns**: Use `exclude` to skip files from linting. Patterns use doublestar glob matching against relative paths from the root.
+
+```json
+{
+  "exclude": [
+    "commands/skill-optimize.md",
+    "plugins/cache/**",
+    "plugins/marketplaces/**"
+  ]
+}
+```
+
 ## Validation Surface
 
 What cclint validates, for the `/updater` workflow. Source files in parentheses.
 
-### Hook Events — 22 total (`internal/lint/settings.go`)
+### Hook Events — 24 total (`internal/lint/settings.go`)
 
-`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`
+`PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`
 
 Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
@@ -187,13 +199,13 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 ### CUE Schema Fields
 
-**Agent** (`internal/cue/schemas/agent.cue`): name (required), description (required), model, color, tools, disallowedTools, permissionMode, maxTurns, effort, skills, hooks, memory, mcpServers, isolation, background. Open struct (`...`).
+**Agent** (`internal/cue/schemas/agent.cue`): name (required), description (required), model, color, tools, disallowedTools, permissionMode, maxTurns, effort, skills, hooks, memory, mcpServers, isolation, background, initialPrompt. Open struct (`...`).
 
 **Command** (`internal/cue/schemas/command.cue`): name, description, allowed-tools, argument-hint, model, effort, disable-model-invocation, hooks. Open struct.
 
 **Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, effort, context, agent, hooks, license, compatibility, metadata. Open struct.
 
-**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate. Open struct.
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate, sandbox, disableDeepLinkRegistration, cleanupPeriodDays. Open struct.
 
 ### CUE #KnownTool Union (shared across agent/command/skill schemas)
 
@@ -232,9 +244,9 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.80 |
+| claude_code_last_updated | v2.1.83 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
-| command_allowed_tools | Task, Skill, AskUserQuestion only — other tools are errors |
+| command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
 | knowntools_location | `internal/textutil/lineutil.go` exported `KnownTools` var (shared by tool validation and body scanning) |
 | stale_binary_trap | Always `go build -o cclint .` before running `./cclint` — stale binary causes phantom results |
