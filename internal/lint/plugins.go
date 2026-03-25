@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -45,7 +46,9 @@ var pluginPathFields = []string{
 	"commands", "agents", "skills", "hooks", "mcpServers", "outputStyles", "lspServers",
 }
 
-// validatePluginSpecific implements plugin-specific validation rules
+// validatePluginSpecific implements plugin-specific validation rules.
+// External plugins (marketplace/cache) only get error-level checks — suggestions are suppressed
+// since their metadata is third-party and not user-controlled.
 func validatePluginSpecific(data map[string]any, filePath string, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -56,6 +59,12 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 	errors = append(errors, validatePluginAuthor(data, filePath, contents)...)
 	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
 	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
+
+	if isExternalPlugin(filePath) {
+		return slices.DeleteFunc(errors, func(e cue.ValidationError) bool {
+			return e.Severity != "error" && e.Severity != "warning"
+		})
+	}
 
 	return errors
 }
@@ -162,7 +171,7 @@ func validatePluginAuthor(data map[string]any, filePath, contents string) []cue.
 	if !ok {
 		// External plugins (marketplaces, cache) may omit author — demote to warning
 		severity := "error"
-		if strings.Contains(filePath, "marketplaces/") || strings.Contains(filePath, "cache/") {
+		if isExternalPlugin(filePath) {
 			severity = "warning"
 		}
 		return []cue.ValidationError{{
@@ -329,7 +338,12 @@ func validatePluginPathsExist(data map[string]any, rootPath, filePath, contents 
 	return warnings
 }
 
-// validatePluginBestPractices checks opinionated best practices for plugins
+// isExternalPlugin returns true for marketplace or cache plugins (third-party, not user-authored).
+func isExternalPlugin(filePath string) bool {
+	return strings.Contains(filePath, "marketplaces/") || strings.Contains(filePath, "cache/")
+}
+
+// validatePluginBestPractices checks opinionated best practices for plugins.
 func validatePluginBestPractices(filePath string, contents string, data map[string]any) []cue.ValidationError {
 	var suggestions []cue.ValidationError
 
