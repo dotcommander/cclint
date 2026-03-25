@@ -15,8 +15,8 @@ import (
 const frontmatterDelimiter = "---"
 
 // LintCommands runs linting on command files using the generic linter.
-func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -33,6 +33,7 @@ var knownCommandFields = map[string]bool{
 	"model":                    true, // Optional: model to use
 	"effort":                   true, // Optional: reasoning effort level (v2.1.80+)
 	"disable-model-invocation": true, // Optional: prevent SlashCommand tool from calling
+	"hooks":                    true, // Optional: command-level hooks (PreToolUse, PostToolUse, Stop)
 }
 
 // validateCommandSpecific implements command-specific validation rules
@@ -40,11 +41,12 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
+	validList := sortedMapKeys(knownCommandFields)
 	for key := range data {
 		if !knownCommandFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, allowed-tools, argument-hint, model, effort, disable-model-invocation", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: %s", key, validList),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     textutil.FindFrontmatterFieldLine(contents, key),
@@ -75,8 +77,10 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 }
 
 // commandAllowedTools is the set of tools commands are permitted to declare.
+// Delegation tools (Task, Agent, Skill, AskUserQuestion) are always allowed.
 var commandAllowedTools = map[string]bool{
 	"Task":            true,
+	"Agent":           true,
 	"Skill":           true,
 	"AskUserQuestion": true,
 }
@@ -94,7 +98,7 @@ func checkCommandToolAllowlist(data map[string]any, filePath string, contents st
 	if strings.TrimSpace(tools) == "*" {
 		return []cue.ValidationError{{
 			File:     filePath,
-			Message:  `command declares wildcard "*" in allowed-tools — commands should only use Task, Skill, AskUserQuestion`,
+			Message:  `command declares wildcard "*" in allowed-tools — commands should only use Task, Agent, Skill, AskUserQuestion`,
 			Severity: "error",
 			Source:   cue.SourceCClintObserve,
 			Line:     line,
@@ -111,8 +115,8 @@ func checkCommandToolAllowlist(data map[string]any, filePath string, contents st
 		if !commandAllowedTools[base] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("command declares tool %q in allowed-tools — commands should only use Task, Skill, AskUserQuestion", tool),
-				Severity: "error",
+				Message:  fmt.Sprintf("command declares tool %q in allowed-tools — commands should prefer delegation tools (Task, Agent, Skill, AskUserQuestion)", tool),
+				Severity: "warning",
 				Source:   cue.SourceCClintObserve,
 				Line:     line,
 			})

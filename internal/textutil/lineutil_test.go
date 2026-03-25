@@ -388,6 +388,20 @@ func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 			},
 			wantWarnings: 0,
 		},
+		{
+			name: "deprecated TaskOutput tool",
+			data: map[string]any{
+				"allowed-tools": "TaskOutput",
+			},
+			wantWarnings: 1,
+		},
+		{
+			name: "deprecated TaskOutput with valid tools",
+			data: map[string]any{
+				"allowed-tools": "Read, TaskOutput, Write",
+			},
+			wantWarnings: 1,
+		},
 	}
 
 	for _, tt := range tests {

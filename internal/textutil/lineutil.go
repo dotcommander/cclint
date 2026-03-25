@@ -331,7 +331,7 @@ var KnownTools = map[string]bool{
 	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
 	"Glob": true, "Grep": true, "LS": true,
 	// Execution
-	"Bash": true, "Task": true,
+	"Bash": true, "Task": true, "Agent": true,
 	// Web
 	"WebFetch": true, "WebSearch": true,
 	// Interactive
@@ -344,6 +344,11 @@ var KnownTools = map[string]bool{
 	"KillShell": true, "TaskOutput": true, "SendMessage": true,
 	// Wildcards
 	"*": true,
+}
+
+// DeprecatedTools maps tool names to their deprecation message.
+var DeprecatedTools = map[string]string{
+	"TaskOutput": "TaskOutput is deprecated (v2.1.83) — use Read on the background task's output file path instead",
 }
 
 // ValidateAllowedTools validates that allowed-tools and tools fields contain known tool names
@@ -369,6 +374,15 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 				warnings = append(warnings, types.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),
+					Severity: "warning",
+					Source:   types.SourceCClintObserve,
+					Line:     FindFrontmatterFieldLine(contents, field),
+				})
+			}
+			if msg, deprecated := DeprecatedTools[baseTool]; deprecated {
+				warnings = append(warnings, types.ValidationError{
+					File:     filePath,
+					Message:  fmt.Sprintf("Deprecated tool '%s' in %s. %s", tool, field, msg),
 					Severity: "warning",
 					Source:   types.SourceCClintObserve,
 					Line:     FindFrontmatterFieldLine(contents, field),

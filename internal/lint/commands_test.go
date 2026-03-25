@@ -68,23 +68,23 @@ func TestValidateCommandSpecific(t *testing.T) {
 			wantSuggCount: 0,
 		},
 		{
-			name: "Bash forbidden in allowed-tools",
+			name: "Bash warned in allowed-tools",
 			data: map[string]any{
 				"allowed-tools": "Task, Bash",
 			},
 			filePath:      "commands/test.md",
 			contents:      "---\nallowed-tools: Task, Bash\n---\n",
-			wantErrCount:  1,
+			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
 		{
-			name: "multiple forbidden tools Write Read Edit",
+			name: "multiple non-delegation tools Write Read Edit",
 			data: map[string]any{
 				"allowed-tools": "Write, Read, Edit",
 			},
 			filePath:      "commands/test.md",
 			contents:      "---\nallowed-tools: Write, Read, Edit\n---\n",
-			wantErrCount:  3,
+			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
 		{
