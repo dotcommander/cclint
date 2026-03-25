@@ -64,7 +64,7 @@ func TestWithLinters(t *testing.T) {
 	customLinters := []LinterEntry{
 		{
 			Name: "test-linter",
-			Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+			Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 				return &LintSummary{}, nil
 			},
 		},
@@ -350,7 +350,7 @@ func TestRun_Success(t *testing.T) {
 
 	successLinter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				ProjectRoot:      rootPath,
 				ComponentType:    "test",
@@ -418,7 +418,7 @@ func TestRun_WithErrors(t *testing.T) {
 
 	errorLinter := LinterEntry{
 		Name: "error-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				ProjectRoot:      rootPath,
 				ComponentType:    "test",
@@ -488,7 +488,7 @@ func TestRun_SkipEmptyResults(t *testing.T) {
 
 	emptyLinter := LinterEntry{
 		Name: "empty-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles: 0, // No files found
 				Results:    []LintResult{},
@@ -535,7 +535,7 @@ func TestRun_CreateBaseline(t *testing.T) {
 
 	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 1,
@@ -616,7 +616,7 @@ func TestRun_WithBaselineFiltering(t *testing.T) {
 
 	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 2,
@@ -675,7 +675,7 @@ func TestRun_MultipleLinters(t *testing.T) {
 
 	linter1 := LinterEntry{
 		Name: "linter-1",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles:       2,
 				TotalErrors:      1,
@@ -692,7 +692,7 @@ func TestRun_MultipleLinters(t *testing.T) {
 
 	linter2 := LinterEntry{
 		Name: "linter-2",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles:       1,
 				TotalErrors:      0,
@@ -755,7 +755,7 @@ func TestRun_LinterError(t *testing.T) {
 
 	failingLinter := LinterEntry{
 		Name: "failing-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return nil, os.ErrNotExist // Return an error
 		},
 	}
@@ -854,7 +854,7 @@ func TestRun_BaselineFilteringSummary_NotQuiet(t *testing.T) {
 
 	linter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles:  1,
 				TotalErrors: 1,
@@ -908,7 +908,7 @@ func TestRun_ValidationReminder_NotQuiet(t *testing.T) {
 
 	successLinter := LinterEntry{
 		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error) {
+		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 			return &LintSummary{
 				TotalFiles: 1,
 				Results:    []LintResult{{File: "test.md", Success: true}},

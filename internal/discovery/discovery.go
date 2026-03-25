@@ -332,6 +332,7 @@ func ParseFileType(s string) (FileType, error) {
 type FileDiscovery struct {
 	rootPath       string
 	followSymlinks bool
+	exclude        []string
 }
 
 // NewFileDiscovery creates a new FileDiscovery instance
@@ -340,6 +341,13 @@ func NewFileDiscovery(rootPath string, followSymlinks bool) *FileDiscovery {
 		rootPath:       rootPath,
 		followSymlinks: followSymlinks,
 	}
+}
+
+// WithExclude sets glob patterns for files to exclude from discovery.
+// Patterns are matched against relative paths using doublestar.Match.
+func (fd *FileDiscovery) WithExclude(patterns []string) *FileDiscovery {
+	fd.exclude = patterns
+	return fd
 }
 
 // DiscoverFiles finds all relevant files in the project.
@@ -389,6 +397,9 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType
 
 // processMatch converts a glob match into a File, returning false if the match should be skipped.
 func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bool) {
+	if fd.isExcluded(match) {
+		return File{}, false
+	}
 	fullPath := filepath.Join(fd.rootPath, match)
 
 	info, err := os.Stat(fullPath)
@@ -418,6 +429,16 @@ func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bo
 		Type:     fileType,
 		Contents: string(contents),
 	}, true
+}
+
+// isExcluded checks if a relative path matches any exclude pattern.
+func (fd *FileDiscovery) isExcluded(relPath string) bool {
+	for _, pattern := range fd.exclude {
+		if matched, err := doublestar.Match(pattern, relPath); err == nil && matched {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveSymlink follows a symlink if configured, returning the resolved path and info.

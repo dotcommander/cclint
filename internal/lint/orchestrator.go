@@ -14,7 +14,7 @@ import (
 )
 
 // LinterFunc is the function signature for component linters.
-type LinterFunc func(rootPath string, quiet, verbose, noCycleCheck bool) (*LintSummary, error)
+type LinterFunc func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error)
 
 // DefaultLinters returns the standard set of component linters.
 func DefaultLinters() []LinterEntry {
@@ -126,7 +126,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 	var allSummaries []*LintSummary
 
 	for _, l := range o.linters {
-		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck)
+		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error running %s linter: %w", l.Name, err)
 		}

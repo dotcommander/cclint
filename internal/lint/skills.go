@@ -37,8 +37,8 @@ var knownSkillFields = map[string]bool{
 }
 
 // LintSkills runs linting on skill files using the generic linter.
-func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/crossfile"
@@ -569,4 +570,14 @@ type BaseLinter struct{}
 // ValidateAllowedToolsShared is a shared helper for tool validation.
 func ValidateAllowedToolsShared(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return textutil.ValidateAllowedTools(data, filePath, contents)
+}
+
+// sortedMapKeys returns the keys of a map[string]bool as a sorted, comma-separated string.
+func sortedMapKeys(m map[string]bool) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ", ")
 }

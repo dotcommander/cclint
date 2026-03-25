@@ -8,7 +8,7 @@ import (
 
 func TestLintPlugins(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintPlugins("testdata/empty", false, false, true)
+	summary, err := LintPlugins("testdata/empty", false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintPlugins() error = %v", err)
 	}

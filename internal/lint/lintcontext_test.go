@@ -67,7 +67,7 @@ func TestNewLinterContext(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, err := NewLinterContext(tt.rootPath, tt.quiet, tt.verbose, tt.noCycleCheck)
+			ctx, err := NewLinterContext(tt.rootPath, tt.quiet, tt.verbose, tt.noCycleCheck, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -200,7 +200,7 @@ func TestLinterContextAutoDiscoverRoot(t *testing.T) {
 	}
 
 	// Test with empty rootPath - should auto-discover
-	ctx, err := NewLinterContext("", false, false, false)
+	ctx, err := NewLinterContext("", false, false, false, nil)
 	if err != nil {
 		t.Fatalf("NewLinterContext() with empty root failed: %v", err)
 	}

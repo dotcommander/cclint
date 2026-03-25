@@ -27,7 +27,7 @@ type LinterContext struct {
 // NewLinterContext creates a new LinterContext with all dependencies initialized.
 // It handles project root detection, schema loading, file discovery, and
 // cross-file validator setup.
-func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool) (*LinterContext, error) {
+func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LinterContext, error) {
 	// Find project root if not provided
 	if rootPath == "" {
 		var err error
@@ -48,7 +48,7 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool) (*Lint
 	}
 
 	// Initialize discoverer
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
+	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
 
 	// Discover all files
 	files, err := discoverer.DiscoverFiles()
@@ -103,8 +103,8 @@ func (ctx *LinterContext) LogProcessedWithSuggestions(filePath string, errorCoun
 }
 
 // LintContext runs linting on CLAUDE.md context files.
-func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}

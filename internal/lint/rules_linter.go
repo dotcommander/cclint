@@ -14,8 +14,8 @@ import (
 )
 
 // LintRules runs linting on .claude/rules/*.md files using the generic linter.
-func LintRules(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintRules(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}

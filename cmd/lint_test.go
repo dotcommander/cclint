@@ -14,7 +14,7 @@ import (
 
 // mockLinterFunc creates a mock linter function for testing
 func mockLinterFunc(summary *lint.LintSummary, err error) LinterFunc {
-	return func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error) {
+	return func(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*lint.LintSummary, error) {
 		return summary, err
 	}
 }
@@ -397,12 +397,12 @@ func TestRunComponentLint_VerboseOutput(t *testing.T) {
 
 func TestLinterFuncSignature(t *testing.T) {
 	// Test that our mock matches the actual signature
-	var linter LinterFunc = func(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*lint.LintSummary, error) {
+	var linter LinterFunc = func(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*lint.LintSummary, error) {
 		return &lint.LintSummary{}, nil
 	}
 
 	// Should be able to call it with expected parameters
-	summary, err := linter("/tmp", true, false, false)
+	summary, err := linter("/tmp", true, false, false, nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, summary)
 }
@@ -667,7 +667,7 @@ func TestLinterFuncParameters(t *testing.T) {
 		noCycleCheck = oldNoCycleCheck
 	}()
 
-	linter := func(rp string, q bool, v bool, ncc bool) (*lint.LintSummary, error) {
+	linter := func(rp string, q bool, v bool, ncc bool, exclude []string) (*lint.LintSummary, error) {
 		linterCalled = true
 		// Verify parameters are passed (they come from config, not flags directly)
 		assert.NotEmpty(t, rp)

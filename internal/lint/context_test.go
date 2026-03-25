@@ -10,7 +10,7 @@ import (
 
 func TestLintContext(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintContext("testdata/empty", false, false, true)
+	summary, err := LintContext("testdata/empty", false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintContext() error = %v", err)
 	}
@@ -393,7 +393,7 @@ func TestLintContextWithFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summary, err := LintContext(tmpDir, false, false, true)
+	summary, err := LintContext(tmpDir, false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintContext() error = %v", err)
 	}
@@ -443,7 +443,7 @@ func TestLintContextH1TitleNoFalsePositive(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summary, err := LintContext(tmpDir, false, false, true)
+	summary, err := LintContext(tmpDir, false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintContext() error = %v", err)
 	}

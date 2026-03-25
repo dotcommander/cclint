@@ -2185,3 +2185,93 @@ func TestDetectFileType_EdgeCaseBasenames(t *testing.T) {
 		})
 	}
 }
+
+func TestFileDiscoveryExcludePatterns(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create agents directory with two agents
+	agentsDir := filepath.Join(tmpDir, ".claude", "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "keep.md"), []byte("---\nname: keep\n---\nBody"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "skip.md"), []byte("---\nname: skip\n---\nBody"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a skills directory
+	skillsDir := filepath.Join(tmpDir, ".claude", "skills", "test-skill")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(skillsDir, "SKILL.md"), []byte("---\nname: test\n---\nBody"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		exclude     []string
+		wantFiles   int
+		description string
+	}{
+		{
+			name:        "no excludes",
+			exclude:     nil,
+			wantFiles:   3,
+			description: "all files discovered",
+		},
+		{
+			name:        "exclude specific file",
+			exclude:     []string{".claude/agents/skip.md"},
+			wantFiles:   2,
+			description: "skip.md excluded",
+		},
+		{
+			name:        "exclude with doublestar glob",
+			exclude:     []string{".claude/skills/**"},
+			wantFiles:   2,
+			description: "all skills excluded",
+		},
+		{
+			name:        "exclude entire agents directory",
+			exclude:     []string{".claude/agents/**"},
+			wantFiles:   1,
+			description: "all agents excluded",
+		},
+		{
+			name:        "exclude everything",
+			exclude:     []string{"**"},
+			wantFiles:   0,
+			description: "all files excluded",
+		},
+		{
+			name:        "non-matching pattern",
+			exclude:     []string{"nonexistent/**"},
+			wantFiles:   3,
+			description: "no files excluded",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			fd := NewFileDiscovery(tmpDir, false).WithExclude(tt.exclude)
+			files, err := fd.DiscoverFiles()
+			if err != nil {
+				t.Fatalf("DiscoverFiles() error = %v", err)
+			}
+			if len(files) != tt.wantFiles {
+				var names []string
+				for _, f := range files {
+					names = append(names, f.RelPath)
+				}
+				t.Errorf("DiscoverFiles() returned %d files, want %d (%s). Files: %v",
+					len(files), tt.wantFiles, tt.description, names)
+			}
+		})
+	}
+}

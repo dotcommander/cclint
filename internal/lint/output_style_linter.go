@@ -11,8 +11,8 @@ import (
 )
 
 // LintOutputStyles runs linting on output style files using the generic linter.
-func LintOutputStyles(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintOutputStyles(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -96,11 +96,12 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields
+	validList := sortedMapKeys(knownOutputStyleFields)
 	for key := range data {
 		if !knownOutputStyleFields[key] {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: name, description, keep-coding-instructions", key),
+				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: %s", key, validList),
 				Severity: "suggestion",
 				Source:   cue.SourceCClintObserve,
 				Line:     textutil.FindFrontmatterFieldLine(contents, key),

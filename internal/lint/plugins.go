@@ -12,8 +12,8 @@ import (
 )
 
 // LintPlugins runs linting on plugin manifest files using the generic linter.
-func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck)
+func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
+	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -160,10 +160,15 @@ func validatePluginVersion(data map[string]any, filePath, contents string) []cue
 func validatePluginAuthor(data map[string]any, filePath, contents string) []cue.ValidationError {
 	author, ok := data["author"].(map[string]any)
 	if !ok {
+		// External plugins (marketplaces, cache) may omit author — demote to warning
+		severity := "error"
+		if strings.Contains(filePath, "marketplaces/") || strings.Contains(filePath, "cache/") {
+			severity = "warning"
+		}
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Required field 'author' is missing",
-			Severity: "error",
+			Severity: severity,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     FindJSONFieldLine(contents, "author"),
 		}}

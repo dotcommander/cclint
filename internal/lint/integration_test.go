@@ -41,7 +41,7 @@ Test foundation
 		t.Fatal(err)
 	}
 
-	summary, err := LintAgents(tmpDir, true, false, false)
+	summary, err := LintAgents(tmpDir, true, false, false, nil)
 	if err != nil {
 		t.Fatalf("LintAgents() error = %v", err)
 	}
@@ -70,7 +70,7 @@ Task(test-specialist): do something
 		t.Fatal(err)
 	}
 
-	summary, err := LintCommands(tmpDir, true, false, false)
+	summary, err := LintCommands(tmpDir, true, false, false, nil)
 	if err != nil {
 		t.Fatalf("LintCommands() error = %v", err)
 	}
@@ -103,7 +103,7 @@ Content here
 		t.Fatal(err)
 	}
 
-	summary, err := LintSkills(tmpDir, true, false, false)
+	summary, err := LintSkills(tmpDir, true, false, false, nil)
 	if err != nil {
 		t.Fatalf("LintSkills() error = %v", err)
 	}
@@ -135,7 +135,7 @@ Content
 		t.Fatal(err)
 	}
 
-	summary, err := LintRules(tmpDir, true, false, false)
+	summary, err := LintRules(tmpDir, true, false, false, nil)
 	if err != nil {
 		t.Fatalf("LintRules() error = %v", err)
 	}
