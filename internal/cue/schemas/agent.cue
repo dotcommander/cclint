@@ -43,6 +43,7 @@ import (
 	command:  string
 	timeout?: int   // timeout in seconds
 	once?:    bool  // run only once per session (v2.1.0+)
+	"if"?: string   // conditional filter using permission rule syntax (v2.1.85+)
 }
 
 // Agent hook entry - matcher is optional (e.g., Stop hook doesn't need a matcher)

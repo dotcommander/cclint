@@ -39,6 +39,10 @@ package schemas
 	timeout?: *30 | int  // default 30 seconds
 	once?:    bool       // run only once per session (v2.1.0+)
 
+	// Optional: conditional filter using permission rule syntax (v2.1.85+)
+	// e.g., "Bash(git *)" to only run when Bash is called with git commands
+	"if"?: string
+
 	// Enforce command field when type is "command"
 	if type == "command" {
 		command: string

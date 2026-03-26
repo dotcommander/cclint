@@ -184,6 +184,28 @@ func TestValidateAgent(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid agent hook with if condition",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with conditional hook",
+				"hooks": map[string]any{
+					"PreToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":    "command",
+									"command": "echo 'git hook'",
+									"if":      "Bash(git *)",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid with memory user scope",
 			data: map[string]any{
 				"name":        "test-agent",
@@ -437,6 +459,28 @@ func TestValidateCommand(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid command hook with if condition",
+			data: map[string]any{
+				"name":        "test-cmd",
+				"description": "Command with conditional hook",
+				"hooks": map[string]any{
+					"PreToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":    "command",
+									"command": "echo 'conditional'",
+									"if":      "Bash(git *)",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid model",
 			data: map[string]any{
 				"name":  "test-cmd",
@@ -552,6 +596,28 @@ func TestValidateSkill(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "valid skill hook with if condition",
+			data: map[string]any{
+				"name":        "test-skill",
+				"description": "Skill with conditional hook",
+				"hooks": map[string]any{
+					"PreToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":    "command",
+									"command": "echo 'conditional'",
+									"if":      "Bash(git *)",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
 	}
 
 	v := NewValidator()
@@ -603,6 +669,26 @@ func TestValidateSettings(t *testing.T) {
 									"type":    "command",
 									"command": "echo 'test'",
 									"timeout": 30,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings hook with if condition",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PreToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":    "command",
+									"command": "echo 'conditional'",
+									"if":      "Bash(git *)",
 								},
 							},
 						},

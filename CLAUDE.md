@@ -215,13 +215,13 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 ### Hook Handler Fields per Schema
 
-**Settings** `#HookCommand`: type (`command`|`prompt`|`agent`|`http`), command, prompt, async, timeout, once, statusMessage, url, headers, allowedEnvVars. Closed struct.
+**Settings** `#HookCommand`: type (`command`|`prompt`|`agent`|`http`), command, prompt, async, timeout, once, statusMessage, url, headers, allowedEnvVars, if. Closed struct.
 
-**Agent** `#AgentHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+**Agent** `#AgentHookCommand`: type (`command` only), command, timeout, once, if. Closed struct.
 
-**Skill** `#SkillHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+**Skill** `#SkillHookCommand`: type (`command` only), command, timeout, once, if. Closed struct.
 
-**Command** `#CommandHookCommand`: type (`command` only), command, timeout, once. Closed struct.
+**Command** `#CommandHookCommand`: type (`command` only), command, timeout, once, if. Closed struct.
 
 ### Valid Enum Values
 
@@ -244,7 +244,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.84 |
+| claude_code_last_updated | v2.1.85 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |

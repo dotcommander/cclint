@@ -28,6 +28,7 @@ import "strings"
 	command:  string
 	timeout?: int   // timeout in seconds
 	once?:    bool  // run only once per session
+	"if"?: string   // conditional filter using permission rule syntax (v2.1.85+)
 }
 
 // Command hook entry
