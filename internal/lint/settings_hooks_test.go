@@ -317,6 +317,23 @@ func TestValidateHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
+			name: "valid TaskCreated hook",
+			hooks: map[string]any{
+				"TaskCreated": []any{
+					map[string]any{
+						"matcher": map[string]any{},
+						"hooks": []any{
+							map[string]any{
+								"type":    "command",
+								"command": "echo task created",
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "valid WorktreeRemove hook",
 			hooks: map[string]any{
 				"WorktreeRemove": []any{

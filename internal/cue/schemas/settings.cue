@@ -139,6 +139,12 @@ package schemas
 	// Tool result file cleanup period in days (v2.1.83+)
 	cleanupPeriodDays?: number
 
+	// Allowed channel plugins for enterprise admins (v2.1.84+)
+	// Map of plugin patterns to allowed/disallowed
+	allowedChannelPlugins?: {
+		[string]: bool
+	}
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

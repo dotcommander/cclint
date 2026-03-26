@@ -42,6 +42,7 @@ var validHookEvents = map[string]bool{
 	"StopFailure":        true, // API error stop event (v2.1.78+)
 	"CwdChanged":         true, // working directory change event (v2.1.83+)
 	"FileChanged":        true, // file change event (v2.1.83+)
+	"TaskCreated":        true, // task creation event (v2.1.84+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

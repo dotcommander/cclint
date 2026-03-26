@@ -32,7 +32,7 @@ File contains well-formed JSON with proper syntax (valid braces, quotes, commas,
 **Category:** structural
 
 **Description:**
-Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded.
+Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, TaskCreated, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded, Elicitation, ElicitationResult, CwdChanged, FileChanged.
 
 **Pass Criteria:**
 Every key in the `hooks` object matches a valid hook event name from Anthropic documentation.
@@ -40,7 +40,7 @@ Every key in the `hooks` object matches a valid hook event name from Anthropic d
 **Fail Message:**
 `Unknown hook event '[eventName]'. Valid events: <sorted list of all valid events>`
 
-**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 18 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded"
+**Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "Claude Code provides 25 hook events that execute at different lifecycle points: PreToolUse, PostToolUse, PostToolUseFailure, PermissionRequest, Notification, UserPromptSubmit, Stop, StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, TaskCreated, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded, Elicitation, ElicitationResult, CwdChanged, FileChanged"
 
 ---
 
