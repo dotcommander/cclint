@@ -618,6 +618,22 @@ func TestValidateSkill(t *testing.T) {
 			},
 			wantError: false,
 		},
+		{
+			name: "description at max length",
+			data: map[string]any{
+				"name":        "test-skill",
+				"description": strings.Repeat("a", 250),
+			},
+			wantError: false,
+		},
+		{
+			name: "description exceeds max length",
+			data: map[string]any{
+				"name":        "test-skill",
+				"description": strings.Repeat("a", 251),
+			},
+			wantError: true,
+		},
 	}
 
 	v := NewValidator()

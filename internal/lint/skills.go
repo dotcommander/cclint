@@ -292,10 +292,10 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		})
 	}
 
-	if len(description) > 1024 {
+	if len(description) > 250 {
 		out = append(out, cue.ValidationError{
 			File:     filePath,
-			Message:  fmt.Sprintf("Description is %d chars, exceeding the 1024-character hard limit. Descriptions over 1024 chars are truncated by Claude Code.", len(description)),
+			Message:  fmt.Sprintf("Description is %d chars, exceeding the 250-character limit. Skill descriptions over 250 chars are truncated by Claude Code.", len(description)),
 			Severity: "warning",
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),

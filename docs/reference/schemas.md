@@ -173,7 +173,7 @@ hooks:
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | `name` | string | `^[a-z0-9]+(-[a-z0-9]+)*$`, max 64 chars | No leading/trailing/consecutive hyphens |
-| `description` | string | non-empty, max 1024 chars | Skill description |
+| `description` | string | non-empty, max 250 chars | Skill description |
 
 ### Optional Claude Code Fields
 

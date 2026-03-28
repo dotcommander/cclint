@@ -41,6 +41,15 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			wantContains: []string{"50+"},
 		},
 		{
+			name:     "description exceeds 250 chars",
+			filePath: "skills/test/SKILL.md",
+			contents: "---\ndescription: " + strings.Repeat("a", 251) + "\n---\n",
+			fmData: map[string]any{
+				"description": strings.Repeat("a", 251),
+			},
+			wantContains: []string{"250-character limit"},
+		},
+		{
 			name:     "missing trigger phrases",
 			filePath: "skills/test/SKILL.md",
 			contents: "---\ndescription: This is a skill that does things without triggers\n---\n",

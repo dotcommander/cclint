@@ -57,7 +57,7 @@ import "strings"
 	// Required fields
 	// Name: lowercase, numbers, hyphens only. No leading/trailing/consecutive hyphens.
 	name: string & =~("^[a-z0-9]+(-[a-z0-9]+)*$") & strings.MaxRunes(64)
-	description: string & !="" & strings.MaxRunes(1024)       // non-empty description, max 1024 chars
+	description: string & !="" & strings.MaxRunes(250)        // non-empty description, max 250 chars (v2.1.86)
 
 	// Optional Claude Code fields
 	"argument-hint"?: string                                  // hint shown during autocomplete (e.g., "[issue-number]")
