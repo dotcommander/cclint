@@ -43,6 +43,7 @@ var validHookEvents = map[string]bool{
 	"CwdChanged":         true, // working directory change event (v2.1.83+)
 	"FileChanged":        true, // file change event (v2.1.83+)
 	"TaskCreated":        true, // task creation event (v2.1.84+)
+	"PermissionDenied":   true, // auto mode denial event (v2.1.88+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

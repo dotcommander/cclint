@@ -149,6 +149,10 @@ package schemas
 		[string]: bool
 	}
 
+	// Thinking summaries opt-in (v2.1.88+)
+	// Set true to show thinking summaries in interactive sessions (default: off)
+	showThinkingSummaries?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
