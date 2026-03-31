@@ -1,7 +1,8 @@
 package lint
 
 import (
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -73,11 +74,7 @@ var validHookTypes = map[string]bool{
 
 // eventLabel builds a sorted, comma-separated label from a hook event map.
 func eventLabel(events map[string]bool) string {
-	keys := make([]string, 0, len(events))
-	for k := range events {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(events))
 	return strings.Join(keys, ", ")
 }
 
