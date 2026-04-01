@@ -408,11 +408,11 @@ func TestValidateCommand(t *testing.T) {
 		{
 			name: "valid command full",
 			data: map[string]any{
-				"name":            "test-cmd",
-				"description":     "A test command",
-				"allowed-tools":   "*",
-				"argument-hint":   "<arg>",
-				"model":           "sonnet",
+				"name":          "test-cmd",
+				"description":   "A test command",
+				"allowed-tools": "*",
+				"argument-hint": "<arg>",
+				"model":         "sonnet",
 			},
 			wantError: false,
 		},
@@ -753,6 +753,20 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "invalid settings cleanupPeriodDays zero",
+			data: map[string]any{
+				"cleanupPeriodDays": 0,
+			},
+			wantError: true,
+		},
+		{
+			name: "invalid settings cleanupPeriodDays negative",
+			data: map[string]any{
+				"cleanupPeriodDays": -5,
+			},
+			wantError: true,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{
@@ -1040,11 +1054,11 @@ func TestValidationError(t *testing.T) {
 // TestParseFrontmatter tests frontmatter parsing
 func TestParseFrontmatter(t *testing.T) {
 	tests := []struct {
-		name        string
-		content     string
-		wantData    map[string]any
-		wantBody    string
-		wantError   bool
+		name      string
+		content   string
+		wantData  map[string]any
+		wantBody  string
+		wantError bool
 	}{
 		{
 			name: "valid frontmatter",
@@ -1072,9 +1086,9 @@ No frontmatter here`,
 			wantError: false,
 		},
 		{
-			name:    "empty content",
-			content: "",
-			wantData: map[string]any{},
+			name:      "empty content",
+			content:   "",
+			wantData:  map[string]any{},
 			wantBody:  "",
 			wantError: false,
 		},
@@ -1105,7 +1119,7 @@ hooks:
 ---
 Body content`,
 			wantData: map[string]any{
-				"name": "test-agent",
+				"name":  "test-agent",
 				"tools": []any{"Read", "Write"},
 				"hooks": map[string]any{
 					"PreToolUse": []any{
@@ -1300,7 +1314,7 @@ func TestExtractErrorsFromCUE(t *testing.T) {
 
 	// Trigger a validation error
 	invalidData := map[string]any{
-		"name":        "InvalidName",  // uppercase not allowed
+		"name":        "InvalidName", // uppercase not allowed
 		"description": "Test",
 	}
 

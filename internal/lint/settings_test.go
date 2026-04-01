@@ -159,6 +159,27 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			},
 			wantErrorCount: 0,
 		},
+		{
+			name: "valid cleanupPeriodDays",
+			data: map[string]any{
+				"cleanupPeriodDays": float64(30),
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "invalid cleanupPeriodDays zero",
+			data: map[string]any{
+				"cleanupPeriodDays": float64(0),
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "invalid cleanupPeriodDays negative",
+			data: map[string]any{
+				"cleanupPeriodDays": float64(-5),
+			},
+			wantErrorCount: 1,
+		},
 	}
 
 	for _, tt := range tests {

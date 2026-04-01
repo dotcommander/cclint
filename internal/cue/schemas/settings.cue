@@ -141,7 +141,8 @@ package schemas
 	disableDeepLinkRegistration?: bool
 
 	// Tool result file cleanup period in days (v2.1.83+)
-	cleanupPeriodDays?: number
+	// Must be >= 1; 0 silently disables transcript persistence (v2.1.89+)
+	cleanupPeriodDays?: int & >=1
 
 	// Allowed channel plugins for enterprise admins (v2.1.84+)
 	// Map of plugin patterns to allowed/disallowed

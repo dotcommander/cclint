@@ -244,7 +244,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.88 |
+| claude_code_last_updated | v2.1.89 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
