@@ -154,6 +154,14 @@ package schemas
 	// Set true to show thinking summaries in interactive sessions (default: off)
 	showThinkingSummaries?: bool
 
+	// Disable skill shell execution (v2.1.91+)
+	// Prevents inline shell execution in skills, custom slash commands, and plugin commands
+	disableSkillShellExecution?: bool
+
+	// Force remote settings refresh (v2.1.92+)
+	// Blocks startup until remote managed settings are freshly fetched; exits if fetch fails (fail-closed)
+	forceRemoteSettingsRefresh?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

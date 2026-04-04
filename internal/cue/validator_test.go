@@ -767,6 +767,20 @@ func TestValidateSettings(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name: "valid settings with disableSkillShellExecution",
+			data: map[string]any{
+				"disableSkillShellExecution": true,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with forceRemoteSettingsRefresh",
+			data: map[string]any{
+				"forceRemoteSettingsRefresh": true,
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{
