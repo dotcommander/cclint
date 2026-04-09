@@ -41,7 +41,7 @@ var secretPatterns = []struct {
 
 // Pre-compiled placeholder detection patterns (used by isPlaceholderSecret)
 var (
-	placeholderFakeRe   = regexp.MustCompile(`(?i)(x{4,}|0{6,})`)
+	placeholderFakeRe    = regexp.MustCompile(`(?i)(x{4,}|0{6,})`)
 	placeholderBracketRe = regexp.MustCompile(`<[^>]*(?:key|token|secret|password|api)[^>]*>`)
 )
 
@@ -341,7 +341,7 @@ var KnownTools = map[string]bool{
 	"Skill": true, "LSP": true, "NotebookEdit": true,
 	"EnterPlanMode": true, "ExitPlanMode": true,
 	"EnterWorktree": true, "ExitWorktree": true,
-	"KillShell": true, "TaskOutput": true, "SendMessage": true,
+	"KillShell": true, "TaskOutput": true, "SendMessage": true, "Monitor": true,
 	// Wildcards
 	"*": true,
 }

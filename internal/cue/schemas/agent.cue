@@ -25,7 +25,7 @@ import (
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"EnterWorktree" | "ExitWorktree" |
-	"LSP" | "Skill" | "DBClient" | "SendMessage"
+	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor"
 
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"
