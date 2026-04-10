@@ -160,6 +160,25 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
+			name: "valid Setup hook event",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"Setup": []any{
+						map[string]any{
+							"matcher": map[string]any{},
+							"hooks": []any{
+								map[string]any{
+									"type":    "command",
+									"command": "echo setup",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "valid cleanupPeriodDays",
 			data: map[string]any{
 				"cleanupPeriodDays": float64(30),

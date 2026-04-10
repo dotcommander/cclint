@@ -198,7 +198,7 @@ func TestValidateHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
-			name: "Setup event rejected as unknown",
+			name: "valid Setup hook event with matcher",
 			hooks: map[string]any{
 				"Setup": []any{
 					map[string]any{
@@ -212,7 +212,7 @@ func TestValidateHooks(t *testing.T) {
 					},
 				},
 			},
-			wantErrorCount: 1,
+			wantErrorCount: 0,
 		},
 		{
 			name: "valid SubagentStart hook",

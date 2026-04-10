@@ -45,6 +45,7 @@ var validHookEvents = map[string]bool{
 	"FileChanged":        true, // file change event (v2.1.83+)
 	"TaskCreated":        true, // task creation event (v2.1.84+)
 	"PermissionDenied":   true, // auto mode denial event (v2.1.88+)
+	"Setup":              true, // repo setup hook with init/maintenance triggers (v2.1.100+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.
