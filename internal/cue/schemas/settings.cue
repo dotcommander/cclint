@@ -166,6 +166,10 @@ package schemas
 	// Re-runs the status line command every N seconds
 	refreshInterval?: int
 
+	// Allow only managed hooks (v2.1.101+)
+	// When set, only hooks from managed/enterprise settings and force-enabled plugins run
+	allowManagedHooksOnly?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

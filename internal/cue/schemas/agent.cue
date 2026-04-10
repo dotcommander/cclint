@@ -25,7 +25,8 @@ import (
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"EnterWorktree" | "ExitWorktree" |
-	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor"
+	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
 
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"

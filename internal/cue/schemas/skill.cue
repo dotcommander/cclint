@@ -20,7 +20,8 @@ import "strings"
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
 	"EnterWorktree" | "ExitWorktree" |
-	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor"
+	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
 
 // ============================================================================
 // Skill Hook Definitions

@@ -278,8 +278,8 @@ func TestSeverityConstants(t *testing.T) {
 
 func TestIsPlaceholderSecret(t *testing.T) {
 	tests := []struct {
-		name         string
-		line         string
+		name          string
+		line          string
 		isPlaceholder bool
 	}{
 		// Should be detected as placeholders
@@ -338,7 +338,6 @@ func TestIsPlaceholderSecret(t *testing.T) {
 		})
 	}
 }
-
 
 func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 	tests := []struct {
@@ -401,6 +400,13 @@ func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 				"allowed-tools": "Read, TaskOutput, Write",
 			},
 			wantWarnings: 1,
+		},
+		{
+			name: "v2.1.101 tools valid",
+			data: map[string]any{
+				"allowed-tools": "RemoteTrigger, CronCreate, CronDelete, CronList",
+			},
+			wantWarnings: 0,
 		},
 	}
 
