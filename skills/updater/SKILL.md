@@ -48,11 +48,20 @@ Report: `v{old} → v{latest}`. If no gap, report and stop (unless `--from` over
 
 ### Step 2: Fetch changelog
 
-Primary method — fetch via `aic claude` (Homebrew CLI):
+**Gotchas to avoid:**
+- `aic claude` with no args prints **only the latest version** — not a full changelog. Don't pipe it straight to a file and expect the gap to be in there.
+- Version arg to `aic claude --version` takes **no `v` prefix**: `2.1.104` works, `v2.1.104` errors.
+- **Never** wrap exploration commands in `2>/dev/null`. aic writes "version not found" to stderr — silencing it turns a clear error into a phantom empty stdout and wastes turns.
+
+Primary method — walk the gap with `aic claude`:
 
 ```bash
-aic claude > .work/CHANGELOG.upstream.md
+aic claude --list                          # enumerate all published versions
+aic claude --version 2.1.X --md            # fetch each version newer than pin; skip if "not found"
+aic claude --version 2.1.X --json          # empty changelog bodies still emit JSON metadata — use this to confirm a release is truly empty vs. missing
 ```
+
+Concat the `--md` outputs into `.work/CHANGELOG.upstream.md`. Expect some patch versions to be missing or have empty bodies (internal releases).
 
 Fallback — if `aic` is not available, use GitHub API:
 
