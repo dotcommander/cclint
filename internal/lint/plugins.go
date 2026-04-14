@@ -39,6 +39,7 @@ var knownPluginFields = map[string]bool{
 	"mcpServers":   true, // Optional: MCP server configurations
 	"outputStyles": true, // Optional: output style configurations
 	"lspServers":   true, // Optional: LSP server configurations
+	"monitors":     true, // Optional: background monitor configurations (v2.1.105)
 }
 
 // pluginPathFields lists plugin fields that contain file paths

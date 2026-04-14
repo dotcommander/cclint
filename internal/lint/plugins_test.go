@@ -220,6 +220,23 @@ func TestValidatePluginSpecific(t *testing.T) {
 			contents:      `{"name":"test-plugin","lspServers":["./lsp/gopls.json"]}`,
 			wantMinErrors: 0,
 		},
+		{
+			name: "monitors field recognized (v2.1.105)",
+			data: map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]any{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []any{"test"},
+				"monitors":    []any{"./monitors/watcher.json"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","monitors":["./monitors/watcher.json"]}`,
+			wantMinErrors: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -482,7 +499,7 @@ func TestKnownPluginFields(t *testing.T) {
 	expected := []string{
 		"name", "description", "version", "author", "homepage", "repository",
 		"license", "keywords", "readme", "commands", "agents", "skills",
-		"hooks", "mcpServers", "outputStyles", "lspServers",
+		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors",
 	}
 	for _, field := range expected {
 		if !knownPluginFields[field] {

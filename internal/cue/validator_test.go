@@ -622,7 +622,7 @@ func TestValidateSkill(t *testing.T) {
 			name: "description at max length",
 			data: map[string]any{
 				"name":        "test-skill",
-				"description": strings.Repeat("a", 250),
+				"description": strings.Repeat("a", 1536),
 			},
 			wantError: false,
 		},
@@ -630,7 +630,7 @@ func TestValidateSkill(t *testing.T) {
 			name: "description exceeds max length",
 			data: map[string]any{
 				"name":        "test-skill",
-				"description": strings.Repeat("a", 251),
+				"description": strings.Repeat("a", 1537),
 			},
 			wantError: true,
 		},

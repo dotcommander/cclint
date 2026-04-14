@@ -41,13 +41,13 @@ func TestValidateSkillBestPractices(t *testing.T) {
 			wantContains: []string{"50+"},
 		},
 		{
-			name:     "description exceeds 250 chars",
+			name:     "description exceeds 1536 chars",
 			filePath: "skills/test/SKILL.md",
-			contents: "---\ndescription: " + strings.Repeat("a", 251) + "\n---\n",
+			contents: "---\ndescription: " + strings.Repeat("a", 1537) + "\n---\n",
 			fmData: map[string]any{
-				"description": strings.Repeat("a", 251),
+				"description": strings.Repeat("a", 1537),
 			},
-			wantContains: []string{"250-character limit"},
+			wantContains: []string{"1536-character limit"},
 		},
 		{
 			name:     "missing trigger phrases",
@@ -263,12 +263,12 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 	linter := NewSkillLinter()
 
 	tests := []struct {
-		name             string
-		data             map[string]any
-		contents         string
-		wantErrCount     int
-		wantWarnings     int
-		wantSuggestions  int
+		name            string
+		data            map[string]any
+		contents        string
+		wantErrCount    int
+		wantWarnings    int
+		wantSuggestions int
 	}{
 		{
 			name: "unknown frontmatter field",
