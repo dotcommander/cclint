@@ -71,6 +71,14 @@ var BuiltInSubagentTypes = map[string]bool{
 	"opus":   true,
 }
 
+// BuiltInSkillNames are Skill() targets that exist in Claude Code's runtime as
+// built-in slash commands (v2.1.108+). These should not trigger "missing skill" errors.
+var BuiltInSkillNames = map[string]bool{
+	"init":            true, // /init — project initialisation
+	"review":          true, // /review — code review
+	"security-review": true, // /security-review — security audit
+}
+
 // CrossFileValidator validates references between components
 type CrossFileValidator struct {
 	agents   map[string]discovery.File
@@ -652,4 +660,3 @@ func (v *CrossFileValidator) findSkillOrphans(referencedSkills map[string]bool) 
 
 	return orphans
 }
-

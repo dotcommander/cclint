@@ -258,6 +258,9 @@ func discoverReferenceFiles(rootPath string) []string {
 func (v *CrossFileValidator) validateTriggerRef(ref TriggerRef) []cue.ValidationError {
 	switch ref.RefType {
 	case "skill":
+		if BuiltInSkillNames[ref.RefName] {
+			return nil
+		}
 		if _, exists := v.skills[ref.RefName]; !exists {
 			return []cue.ValidationError{{
 				File:     ref.File,

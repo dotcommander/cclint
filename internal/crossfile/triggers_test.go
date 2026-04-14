@@ -57,7 +57,7 @@ Some prose without any tables.`,
 			want: false,
 		},
 		{
-			name: "empty string",
+			name:     "empty string",
 			contents: "",
 			want:     false,
 		},
@@ -161,7 +161,7 @@ func TestParseTriggerTable(t *testing.T) {
 			},
 		},
 		{
-			name: "handles backtick-wrapped Task()",
+			name:     "handles backtick-wrapped Task()",
 			contents: "| Trigger | Agent |\n|---------|-------|\n| commit | `Task(commit-agent)` |",
 			wantRefs: []TriggerRef{
 				{File: "test.md", RefType: "agent", RefName: "commit-agent"},
@@ -340,6 +340,26 @@ func TestValidateTriggerMaps(t *testing.T) {
 		errs := v.ValidateTriggerMaps(root)
 		require.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Message, "ghost-agent")
+	})
+
+	t.Run("built-in skill names are not flagged", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+
+		refDir := filepath.Join(root, "skills", "dispatch", "references")
+		require.NoError(t, os.MkdirAll(refDir, 0o755))
+
+		// security-review is the only hyphenated built-in that IsLikelySkillName accepts
+		triggerContent := `| Trigger | Skill |
+|---------|-------|
+| audit code | security-review |
+`
+		require.NoError(t, os.WriteFile(filepath.Join(refDir, "builtins.md"), []byte(triggerContent), 0o644))
+
+		v := NewCrossFileValidator([]discovery.File{}) // no skills registered
+
+		errs := v.ValidateTriggerMaps(root)
+		assert.Empty(t, errs, "built-in skill names should not be flagged as ghost triggers")
 	})
 
 	t.Run("built-in agent types are not flagged", func(t *testing.T) {
