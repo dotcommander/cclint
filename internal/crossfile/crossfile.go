@@ -77,6 +77,8 @@ var BuiltInSkillNames = map[string]bool{
 	"init":            true, // /init — project initialisation
 	"review":          true, // /review — code review
 	"security-review": true, // /security-review — security audit
+	"tui":             true, // /tui — fullscreen rendering toggle (v2.1.110+)
+	"focus":           true, // /focus — focus view toggle (v2.1.110+)
 }
 
 // CrossFileValidator validates references between components

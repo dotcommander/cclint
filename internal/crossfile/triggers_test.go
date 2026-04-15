@@ -362,6 +362,20 @@ func TestValidateTriggerMaps(t *testing.T) {
 		assert.Empty(t, errs, "built-in skill names should not be flagged as ghost triggers")
 	})
 
+	t.Run("v2.1.110 built-in skill names tui and focus are not flagged", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+
+		refDir := filepath.Join(root, "skills", "dispatch", "references")
+		require.NoError(t, os.MkdirAll(refDir, 0o755))
+
+		// tui and focus are single-word built-ins; IsLikelySkillName rejects them (no hyphen)
+		// so they would only be flagged if they somehow passed the skill-name filter.
+		// Verify they are present in BuiltInSkillNames directly.
+		assert.True(t, BuiltInSkillNames["tui"], "tui must be in BuiltInSkillNames")
+		assert.True(t, BuiltInSkillNames["focus"], "focus must be in BuiltInSkillNames")
+	})
+
 	t.Run("built-in agent types are not flagged", func(t *testing.T) {
 		root := t.TempDir()
 
