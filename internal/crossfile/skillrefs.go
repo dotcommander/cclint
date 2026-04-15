@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 )
@@ -52,12 +53,39 @@ func validateSingleSkillRefs(rootPath, relPath, contents string) []cue.Validatio
 
 // extractMentionedRefs returns a sorted, deduplicated list of reference filenames
 // mentioned in the skill content (e.g. "foo.md" from "references/foo.md").
+//
+// Two categories of lines are skipped:
+//  1. Lines inside fenced code blocks (``` or ~~~): these are example output,
+//     not real local references.
+//  2. Lines where a "Skill(...)" or "Task(...)" prefix precedes "references/":
+//     those paths resolve against another skill's references/ dir, not the
+//     current skill's, so they must not be validated as local refs.
 func extractMentionedRefs(contents string) []string {
 	seen := make(map[string]bool)
-	matches := referenceFileMentionPattern.FindAllStringSubmatch(contents, -1)
-	for _, m := range matches {
-		if len(m) >= 2 {
-			seen[m[1]] = true
+	inFence := false
+	for _, line := range strings.Split(contents, "\n") {
+		trimmed := strings.TrimSpace(line)
+		// Toggle fenced code block state on opening/closing fence markers.
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
+		matches := referenceFileMentionPattern.FindAllStringSubmatchIndex(line, -1)
+		for _, m := range matches {
+			if len(m) < 4 {
+				continue
+			}
+			matchStart := m[0]
+			// If a "Skill(" or "Task(" prefix appears earlier on the same line,
+			// the "references/" path is cross-skill — skip it.
+			prefix := line[:matchStart]
+			if strings.Contains(prefix, "Skill(") || strings.Contains(prefix, "Task(") {
+				continue
+			}
+			seen[line[m[2]:m[3]]] = true
 		}
 	}
 

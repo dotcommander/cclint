@@ -61,6 +61,36 @@ func TestExtractMentionedRefs(t *testing.T) {
 			contents: "See references/my-long_name.md.",
 			want:     []string{"my-long_name.md"},
 		},
+		{
+			name:     "cross-skill Skill() prefix skipped",
+			contents: "Use Skill(provider-web-scraping) then Read(references/06-rod-headless-chrome.md).",
+			want:     nil,
+		},
+		{
+			name:     "cross-skill Task() prefix skipped",
+			contents: "Task(agent-foo) will Read(references/bar.md).",
+			want:     nil,
+		},
+		{
+			name:     "multi-line mix: local line captured, cross-skill line skipped",
+			contents: "Read references/local.md first.\nThen Skill(other-skill) can Read(references/remote.md).",
+			want:     []string{"local.md"},
+		},
+		{
+			name:     "fenced code block content skipped",
+			contents: "See references/real.md for details.\n\n```json\n{\"path\": \"references/06-concurrency.md\"}\n```\n",
+			want:     []string{"real.md"},
+		},
+		{
+			name:     "tilde fenced block also skipped",
+			contents: "See references/real.md.\n~~~\nreferences/fake.md\n~~~\n",
+			want:     []string{"real.md"},
+		},
+		{
+			name:     "reference only inside fenced block - nil result",
+			contents: "```json\n{\"path\": \"/.../.../references/06-concurrency.md\", \"skill\": \"lang-go-dev\"}\n```\n",
+			want:     nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -225,5 +255,20 @@ func TestValidateSkillReferences(t *testing.T) {
 		v := NewCrossFileValidator([]discovery.File{})
 		errs := v.ValidateSkillReferences(root)
 		assert.Empty(t, errs)
+	})
+
+	t.Run("cross-skill reference via Skill() prefix not flagged as phantom", func(t *testing.T) {
+		root := t.TempDir()
+		skillDir := filepath.Join(root, "skills", "my-skill")
+		require.NoError(t, os.MkdirAll(skillDir, 0o755))
+
+		v := NewCrossFileValidator([]discovery.File{{
+			RelPath:  "skills/my-skill/SKILL.md",
+			Type:     discovery.FileTypeSkill,
+			Contents: "Use Skill(other-skill) then Read(references/shared.md) for context.",
+		}})
+
+		errs := v.ValidateSkillReferences(root)
+		assert.Empty(t, errs, "cross-skill references must not be flagged as phantom")
 	})
 }

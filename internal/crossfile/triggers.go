@@ -168,25 +168,33 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols 
 		}
 
 		// Second pass: extract bare skill names from cells that have no Task() pattern.
-		// Strip file path references first to avoid matching path components as skill names.
+		// A cell is treated as a skill-name cell only when, after stripping reference
+		// paths, the entire trimmed cell is a single hyphenated token (e.g.
+		// "code-testing-qa"). This avoids matching hyphenated prose terms like
+		// "anti-trigger" embedded inside sentence-style cells.
 		if len(taskMatches) == 0 {
-			cleanCell := stripReferencePaths(cell)
-			nameMatches := triggerSkillCellPattern.FindAllStringSubmatch(cleanCell, -1)
-			for _, m := range nameMatches {
-				if len(m) < 2 {
-					continue
-				}
-				name := m[1]
-				if !IsLikelySkillName(name) {
-					continue
-				}
-				key := "skill:" + name
-				if seen[key] {
-					continue
-				}
-				seen[key] = true
-				refs = append(refs, TriggerRef{File: filePath, RefType: "skill", RefName: name})
+			cleanCell := strings.TrimSpace(stripReferencePaths(cell))
+			// Strip optional surrounding backticks (markdown inline code).
+			cleanCell = strings.Trim(cleanCell, "`")
+			if !IsLikelySkillName(cleanCell) {
+				continue
 			}
+			// The cell must be EXACTLY one token — no whitespace, no prose.
+			if strings.ContainsAny(cleanCell, " \t") {
+				continue
+			}
+			// Re-match to confirm the entire cleanCell is the token (no punctuation).
+			m := triggerSkillCellPattern.FindStringSubmatch(cleanCell)
+			if len(m) < 2 || m[0] != cleanCell {
+				continue
+			}
+			name := m[1]
+			key := "skill:" + name
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			refs = append(refs, TriggerRef{File: filePath, RefType: "skill", RefName: name})
 		}
 	}
 	return refs

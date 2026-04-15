@@ -221,9 +221,32 @@ func TestParseTriggerTable(t *testing.T) {
 			contents: `| Trigger | Agent |
 |---------|-------|
 | "meeseeks" | agent-claude-code (Read references/meeseeks-methodology.md) |`,
+			// Under the tighter single-token rule, this cell contains prose (spaces remain
+			// after stripping the reference path), so no skill name is extracted.
+			wantRefs: nil,
+		},
+		{
+			name: "hyphenated prose term in cell is not extracted as skill",
+			contents: `| Trigger | Description |
+|---------|-------------|
+| anti-trigger concept | This describes the anti-trigger term used in routing. |`,
+			wantRefs: nil,
+		},
+		{
+			name: "single-token skill-name cell still extracted",
+			contents: `| Trigger | Skill |
+|---------|-------|
+| route me | skill-name-here |`,
 			wantRefs: []TriggerRef{
-				{File: "test.md", RefType: "skill", RefName: "agent-claude-code"},
+				{File: "test.md", RefType: "skill", RefName: "skill-name-here"},
 			},
+		},
+		{
+			name: "prose cell with hyphenated word mixed with spaces - not extracted",
+			contents: `| Trigger | Route To |
+|---------|----------|
+| lint | runs anti-trigger logic first |`,
+			wantRefs: nil,
 		},
 	}
 
