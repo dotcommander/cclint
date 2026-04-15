@@ -170,6 +170,14 @@ package schemas
 	// When set, only hooks from managed/enterprise settings and force-enabled plugins run
 	allowManagedHooksOnly?: bool
 
+	// TUI rendering mode (v2.1.110+)
+	// Controls rendering mode for the CLI; "/tui fullscreen" switches to flicker-free fullscreen rendering.
+	tui?: string
+
+	// Conversation auto-scroll toggle (v2.1.110+)
+	// Disable auto-scroll in fullscreen mode (default: true)
+	autoScrollEnabled?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
