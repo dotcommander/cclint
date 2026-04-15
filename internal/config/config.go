@@ -43,7 +43,7 @@ type SchemaConfig struct {
 func LoadConfig(rootPath string) (*Config, error) {
 	// Set default values
 	homeDir, _ := os.UserHomeDir()
-	viper.SetDefault("root", filepath.Join(homeDir, ".claude"))
+	viper.SetDefault("root", defaultRoot(homeDir))
 	viper.SetDefault("format", "console")
 	viper.SetDefault("failOn", "error")
 	viper.SetDefault("followSymlinks", false)
@@ -110,6 +110,42 @@ func validateConfig(config *Config) error {
 	// which is a valid use case (e.g., piping to jq).
 
 	return nil
+}
+
+// defaultRoot chooses the default project root for cclint.
+//
+// When invoked from inside a Claude Code project the expected root is that
+// project, not ~/.claude. This walks up from the current working directory
+// looking for Claude-specific markers (a plugin manifest or a .claude
+// directory). On the first match, that directory becomes the default root.
+// If no project is found we fall back to ~/.claude to preserve the
+// historical behaviour when cclint is run from unrelated directories.
+//
+// A dedicated walk is used here (rather than project.FindProjectRoot) so we
+// only auto-switch on Claude-specific markers — stumbling into an unrelated
+// git repo or go.mod should not hijack cclint's default root.
+func defaultRoot(homeDir string) string {
+	fallback := filepath.Join(homeDir, ".claude")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fallback
+	}
+
+	dir := cwd
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".claude-plugin", "plugin.json")); err == nil {
+			return dir
+		}
+		if info, err := os.Stat(filepath.Join(dir, ".claude")); err == nil && info.IsDir() {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return fallback
+		}
+		dir = parent
+	}
 }
 
 // SaveConfig saves the current configuration to a file

@@ -157,6 +157,36 @@ func TestFindProjectRoot(t *testing.T) {
 			},
 			expectFound: true,
 		},
+		{
+			name: "plugin nested in git repo - stops at plugin root",
+			setupFunc: func(t *testing.T) (string, string) {
+				// Simulates dotcommander-plugins layout: a git repo containing
+				// one or more plugins under plugins/<name>/, each with its own
+				// .claude-plugin/plugin.json. cclint run from inside a plugin
+				// must resolve the plugin dir as the project root (not the
+				// outer .git repo), so relative paths like agents/foo.md
+				// match the discovery patterns.
+				tmpDir := t.TempDir()
+				if err := os.Mkdir(filepath.Join(tmpDir, ".git"), 0755); err != nil {
+					t.Fatalf("failed to create outer .git: %v", err)
+				}
+				pluginDir := filepath.Join(tmpDir, "plugins", "dc")
+				manifestDir := filepath.Join(pluginDir, ".claude-plugin")
+				if err := os.MkdirAll(manifestDir, 0755); err != nil {
+					t.Fatalf("failed to create plugin manifest dir: %v", err)
+				}
+				manifest := filepath.Join(manifestDir, "plugin.json")
+				if err := os.WriteFile(manifest, []byte(`{"name":"dc"}`), 0644); err != nil {
+					t.Fatalf("failed to create plugin.json: %v", err)
+				}
+				agentsDir := filepath.Join(pluginDir, "agents")
+				if err := os.MkdirAll(agentsDir, 0755); err != nil {
+					t.Fatalf("failed to create agents dir: %v", err)
+				}
+				return agentsDir, pluginDir
+			},
+			expectFound: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -242,6 +272,32 @@ func TestIsProjectRoot(t *testing.T) {
 				return tmpDir
 			},
 			want: true,
+		},
+		{
+			name: "directory with .claude-plugin/plugin.json",
+			setupFunc: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				manifestDir := filepath.Join(tmpDir, ".claude-plugin")
+				if err := os.Mkdir(manifestDir, 0755); err != nil {
+					t.Fatalf("failed to create .claude-plugin: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(manifestDir, "plugin.json"), []byte(`{"name":"test"}`), 0644); err != nil {
+					t.Fatalf("failed to create plugin.json: %v", err)
+				}
+				return tmpDir
+			},
+			want: true,
+		},
+		{
+			name: "directory with .claude-plugin but no plugin.json",
+			setupFunc: func(t *testing.T) string {
+				tmpDir := t.TempDir()
+				if err := os.Mkdir(filepath.Join(tmpDir, ".claude-plugin"), 0755); err != nil {
+					t.Fatalf("failed to create .claude-plugin: %v", err)
+				}
+				return tmpDir
+			},
+			want: false,
 		},
 		{
 			name: "directory with multiple markers",
