@@ -399,6 +399,19 @@ func TestValidateTriggerMaps(t *testing.T) {
 		assert.True(t, BuiltInSkillNames["focus"], "focus must be in BuiltInSkillNames")
 	})
 
+	t.Run("v2.1.111 built-in skill names less-permission-prompts and ultrareview are not flagged", func(t *testing.T) {
+		t.Parallel()
+		root := t.TempDir()
+
+		refDir := filepath.Join(root, "skills", "dispatch", "references")
+		require.NoError(t, os.MkdirAll(refDir, 0o755))
+
+		// less-permission-prompts and ultrareview are built-in slash commands added in v2.1.111.
+		// Verify they are present in BuiltInSkillNames so they never trigger "missing skill" errors.
+		assert.True(t, BuiltInSkillNames["less-permission-prompts"], "less-permission-prompts must be in BuiltInSkillNames")
+		assert.True(t, BuiltInSkillNames["ultrareview"], "ultrareview must be in BuiltInSkillNames")
+	})
+
 	t.Run("built-in agent types are not flagged", func(t *testing.T) {
 		root := t.TempDir()
 

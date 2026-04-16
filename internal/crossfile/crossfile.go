@@ -72,13 +72,15 @@ var BuiltInSubagentTypes = map[string]bool{
 }
 
 // BuiltInSkillNames are Skill() targets that exist in Claude Code's runtime as
-// built-in slash commands (v2.1.108+). These should not trigger "missing skill" errors.
+// built-in slash commands (v2.1.108+, updated v2.1.111). These should not trigger "missing skill" errors.
 var BuiltInSkillNames = map[string]bool{
-	"init":            true, // /init — project initialisation
-	"review":          true, // /review — code review
-	"security-review": true, // /security-review — security audit
-	"tui":             true, // /tui — fullscreen rendering toggle (v2.1.110+)
-	"focus":           true, // /focus — focus view toggle (v2.1.110+)
+	"init":                    true, // /init — project initialisation
+	"review":                  true, // /review — code review
+	"security-review":         true, // /security-review — security audit
+	"tui":                     true, // /tui — fullscreen rendering toggle (v2.1.110+)
+	"focus":                   true, // /focus — focus view toggle (v2.1.110+)
+	"less-permission-prompts": true, // /less-permission-prompts — scans transcripts for read-only Bash/MCP calls and proposes an allowlist (v2.1.111+)
+	"ultrareview":             true, // /ultrareview — comprehensive cloud code review via parallel multi-agent analysis (v2.1.111+)
 }
 
 // CrossFileValidator validates references between components
