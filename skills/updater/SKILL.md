@@ -1,6 +1,6 @@
 ---
 name: updater
-description: "Check Claude Code changelog for lintable changes and implement cclint updates — version gap detection, domain classification, parallel agent dispatch"
+description: "Check Claude Code changelog for lintable changes and implement cclint updates. Use when a new Claude Code version ships, when CLAUDE.md `claude_code_last_updated` is stale, or for version gap detection, domain classification, and parallel agent dispatch across CUE schemas, hook events, known tools, and lint rules."
 user-invocable: false
 ---
 
