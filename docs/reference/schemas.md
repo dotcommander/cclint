@@ -246,6 +246,9 @@ hooks:
 | `model` | string | Default model |
 | `permissions` | object | Permission settings |
 | `mcp` | object | MCP server settings (supports `auto:N` syntax for tool search threshold) - v2.1.9+ |
+| `sandbox` | object | Sandbox settings - v2.1.83+ |
+| `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
+| `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
 
 ### Hooks Format
 
