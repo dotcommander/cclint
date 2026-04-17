@@ -134,6 +134,14 @@ package schemas
 	// Sandbox settings (v2.1.83+)
 	sandbox?: {
 		failIfUnavailable?: bool
+
+		// Network-level domain controls (allowedDomains: v2.1.83+; deniedDomains: v2.1.113+)
+		// deniedDomains takes precedence over allowedDomains wildcards
+		network?: {
+			allowedDomains?: [...string]
+			deniedDomains?: [...string]
+			...
+		}
 		...
 	}
 

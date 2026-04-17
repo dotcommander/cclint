@@ -739,6 +739,18 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with sandbox network",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"network": map[string]any{
+						"allowedDomains": []string{"*.anthropic.com"},
+						"deniedDomains":  []string{"evil.example.com"},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid settings with disableDeepLinkRegistration",
 			data: map[string]any{
 				"disableDeepLinkRegistration": true,
