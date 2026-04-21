@@ -459,18 +459,38 @@ func swallowedFieldCandidate(line string, fields map[string]bool) (string, bool)
 	return candidateKey, true
 }
 
+// xmlTagPattern matches XML-like tags (e.g. <tag>, <br/>) — hoisted to avoid recompilation.
+var xmlTagPattern = regexp.MustCompile(`<[a-zA-Z][^>]*>`)
+
+// descriptionFieldError is the shared constructor for angle-bracket validation errors.
+// Both DetectXMLTags and DetectBareAngleBrackets delegate here to stay in sync.
+func descriptionFieldError(fieldName, message, filePath, fileContents string) *cue.ValidationError {
+	return &cue.ValidationError{
+		File:     filePath,
+		Message:  fmt.Sprintf("%s %s", fieldName, message),
+		Severity: cue.SeverityError,
+		Source:   cue.SourceAnthropicDocs,
+		Line:     textutil.FindFrontmatterFieldLine(fileContents, strings.ToLower(fieldName)),
+	}
+}
+
 // DetectXMLTags checks for XML-like tags in a string and returns an error if found.
-// This is used by agents, commands, and skills to validate the description field.
+// Used by agents and commands. Skills should use DetectBareAngleBrackets instead,
+// which covers a strict superset of inputs (all angle brackets, not just XML tags).
 func DetectXMLTags(content, fieldName, filePath, fileContents string) *cue.ValidationError {
-	xmlTagPattern := regexp.MustCompile(`<[a-zA-Z][^>]*>`)
 	if xmlTagPattern.MatchString(content) {
-		return &cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("%s contains XML-like tags which are not allowed", fieldName),
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(fileContents, strings.ToLower(fieldName)),
-		}
+		return descriptionFieldError(fieldName, "contains XML-like tags which are not allowed", filePath, fileContents)
+	}
+	return nil
+}
+
+// DetectBareAngleBrackets checks for any bare < or > characters in a string.
+// Anthropic's official validator (quick_validate.py) rejects all angle brackets
+// in skill descriptions — not just XML tags. Covers bare <, >, <123>, x < y etc.
+// For skills, call this instead of DetectXMLTags (it is a strict superset).
+func DetectBareAngleBrackets(content, fieldName, filePath, fileContents string) *cue.ValidationError {
+	if strings.ContainsAny(content, "<>") {
+		return descriptionFieldError(fieldName, "contains angle bracket characters (< or >) which are not allowed by Anthropic's validator — use entities like &lt; and &gt; if needed", filePath, fileContents)
 	}
 	return nil
 }

@@ -253,8 +253,10 @@ func validateSkillMetadataField(fmData map[string]any, filePath, contents string
 func validateSkillDescription(description, filePath, contents string) []cue.ValidationError {
 	var out []cue.ValidationError
 
-	if xmlErr := DetectXMLTags(description, "Description", filePath, contents); xmlErr != nil {
-		out = append(out, *xmlErr)
+	// Anthropic's quick_validate.py rejects all angle brackets — not just XML tags.
+	// DetectBareAngleBrackets is a strict superset of DetectXMLTags for this field.
+	if bracketErr := DetectBareAngleBrackets(description, "Description", filePath, contents); bracketErr != nil {
+		out = append(out, *bracketErr)
 	}
 
 	// P3: Third-person description check

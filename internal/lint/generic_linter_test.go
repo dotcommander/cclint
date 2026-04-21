@@ -1,8 +1,8 @@
 package lint
 
 import (
-	"strings"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -28,6 +28,32 @@ func TestDetectXMLTags(t *testing.T) {
 			hasErr := err != nil
 			if hasErr != tt.wantErr {
 				t.Errorf("DetectXMLTags(%q) hasErr = %v, want %v", tt.content, hasErr, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestDetectBareAngleBrackets(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		wantErr bool
+	}{
+		{"no brackets", "Plain text content", false},
+		{"XML tag", "Content with <tag>xml</tag>", true},
+		{"bare less-than", "use option <flag>", true},
+		{"bare greater-than", "output > /dev/null", true},
+		{"angle in math", "x < y and y > z", true},
+		{"digit after bracket", "use <123> as value", true},
+		{"HTML entities", "Content with &amp; entity", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := DetectBareAngleBrackets(tt.content, "Description", "test.md", "")
+			hasErr := err != nil
+			if hasErr != tt.wantErr {
+				t.Errorf("DetectBareAngleBrackets(%q) hasErr = %v, want %v", tt.content, hasErr, tt.wantErr)
 			}
 		})
 	}
@@ -214,7 +240,7 @@ type mockLinter struct {
 	postProcessed bool
 }
 
-func (m *mockLinter) Type() string { return m.typeStr }
+func (m *mockLinter) Type() string                 { return m.typeStr }
 func (m *mockLinter) FileType() discovery.FileType { return m.fileType }
 
 func (m *mockLinter) ParseContent(contents string) (map[string]any, string, error) {
@@ -331,62 +357,62 @@ func TestDetectSwallowedFields(t *testing.T) {
 		wantField string // first swallowed field name (if any)
 	}{
 		{
-			name: "pipe swallows model",
-			contents: "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n---\n# Body",
-			compType: "skill",
+			name:      "pipe swallows model",
+			contents:  "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n---\n# Body",
+			compType:  "skill",
 			wantCount: 1,
 			wantField: "model",
 		},
 		{
-			name: "pipe swallows multiple fields",
-			contents: "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n  context: fork\n---\n# Body",
-			compType: "skill",
+			name:      "pipe swallows multiple fields",
+			contents:  "---\nname: test\ndescription: |\n  Some text.\n  model: haiku\n  context: fork\n---\n# Body",
+			compType:  "skill",
 			wantCount: 2,
 			wantField: "model",
 		},
 		{
-			name: "folded scalar swallows model",
-			contents: "---\nname: test\ndescription: >\n  Folded text.\n  model: sonnet\n---\n# Body",
-			compType: "skill",
+			name:      "folded scalar swallows model",
+			contents:  "---\nname: test\ndescription: >\n  Folded text.\n  model: sonnet\n---\n# Body",
+			compType:  "skill",
 			wantCount: 1,
 			wantField: "model",
 		},
 		{
-			name: "clean inline description",
-			contents: "---\nname: test\ndescription: A clean description\nmodel: haiku\n---\n# Body",
-			compType: "skill",
+			name:      "clean inline description",
+			contents:  "---\nname: test\ndescription: A clean description\nmodel: haiku\n---\n# Body",
+			compType:  "skill",
 			wantCount: 0,
 		},
 		{
-			name: "pipe with no swallowed fields",
-			contents: "---\nname: test\ndescription: |\n  Just normal text here.\n  Nothing special.\n---\n# Body",
-			compType: "skill",
+			name:      "pipe with no swallowed fields",
+			contents:  "---\nname: test\ndescription: |\n  Just normal text here.\n  Nothing special.\n---\n# Body",
+			compType:  "skill",
 			wantCount: 0,
 		},
 		{
-			name: "no frontmatter",
-			contents: "# Just a markdown file\nNo frontmatter here.",
-			compType: "skill",
+			name:      "no frontmatter",
+			contents:  "# Just a markdown file\nNo frontmatter here.",
+			compType:  "skill",
 			wantCount: 0,
 		},
 		{
-			name: "agent pipe swallows model",
-			contents: "---\nname: test-agent\ndescription: |\n  Agent description.\n  model: opus\n---\n# Body",
-			compType: "agent",
+			name:      "agent pipe swallows model",
+			contents:  "---\nname: test-agent\ndescription: |\n  Agent description.\n  model: opus\n---\n# Body",
+			compType:  "agent",
 			wantCount: 1,
 			wantField: "model",
 		},
 		{
-			name: "pipe with strip modifier",
-			contents: "---\nname: test\ndescription: |-\n  Some text.\n  model: haiku\n---\n# Body",
-			compType: "skill",
+			name:      "pipe with strip modifier",
+			contents:  "---\nname: test\ndescription: |-\n  Some text.\n  model: haiku\n---\n# Body",
+			compType:  "skill",
 			wantCount: 1,
 			wantField: "model",
 		},
 		{
-			name: "non-field indented text ignored",
-			contents: "---\nname: test\ndescription: |\n  model_training is important.\n  context_switching too.\n---\n# Body",
-			compType: "skill",
+			name:      "non-field indented text ignored",
+			contents:  "---\nname: test\ndescription: |\n  model_training is important.\n  context_switching too.\n---\n# Body",
+			compType:  "skill",
 			wantCount: 0,
 		},
 	}
