@@ -114,6 +114,19 @@ package schemas
 		}
 	}
 
+	// Strict marketplace allowlist (managed/enterprise settings)
+	// Array of allowed marketplace sources. When set in managed settings,
+	// ONLY these sources can be added as marketplaces. The check runs BEFORE
+	// downloading, so blocked sources never touch the filesystem.
+	// Each entry is an open struct: {source: "<variant>", <variant-specific fields>}.
+	// Example: {source: "github", repo: "acme/approved-plugins"}
+	strictKnownMarketplaces?: [...#MarketplaceSource]
+
+	// Blocked marketplace sources (managed/enterprise settings)
+	// Array of marketplace sources that are explicitly denied. Same element
+	// shape as strictKnownMarketplaces. Also checked BEFORE downloading.
+	blockedMarketplaces?: [...#MarketplaceSource]
+
 	// Disable all hooks (v2.1.49+)
 	// Non-managed settings cannot disable managed hooks set by enterprise policy
 	disableAllHooks?: bool

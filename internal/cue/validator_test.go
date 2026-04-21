@@ -793,6 +793,62 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with strictKnownMarketplaces github entry",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "github", "repo": "acme-corp/approved-plugins"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces npm entry",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "npm", "package": "@acme-corp/compliance-plugins"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces hostPattern entry",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "hostPattern", "hostPattern": `^github\.mycompany\.com$`},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces multiple heterogeneous sources",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "github", "repo": "acme-corp/approved-plugins"},
+					{"source": "npm", "package": "@acme-corp/compliance-plugins"},
+					{"source": "hostPattern", "hostPattern": `^git\.internal$`},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid settings with strictKnownMarketplaces bad source enum",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "ftp", "url": "ftp://example.com/plugins"},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid settings with blockedMarketplaces github entry",
+			data: map[string]any{
+				"blockedMarketplaces": []map[string]any{
+					{"source": "github", "repo": "malicious/plugins"},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{
