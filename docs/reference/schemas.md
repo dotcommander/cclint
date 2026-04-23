@@ -249,10 +249,12 @@ hooks:
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
+| `wslInheritsWindowsSettings` | bool | WSL on Windows inherits Windows-side managed settings (policy key) - v2.1.118+ |
+| `prUrlTemplate` | string | Custom code-review URL for the footer PR badge instead of github.com - v2.1.119+ |
 
 ### Hooks Format
 
-Hook types include `command`, `prompt`, `agent` (v2.1.0+), and `http` (v2.1.63+):
+Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), and `mcp_tool` (v2.1.118+):
 
 ```json
 {
@@ -280,7 +282,7 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), and `http` (v2.1.63+)
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
 - `hooks`: Array of hook commands
-  - `type`: `command`, `prompt`, `agent` (v2.1.0+), or `http` (v2.1.63+)
+  - `type`: `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), or `mcp_tool` (v2.1.118+)
   - `command`: Shell command (for type=command)
   - `timeout`: Timeout in seconds, default 30
   - `once`: Run only once per session (v2.1.0+)

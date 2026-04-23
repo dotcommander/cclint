@@ -205,7 +205,7 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required, max 1536 chars — raised from 250 in v2.1.105), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, effort, context, agent, hooks, license, compatibility, metadata. Open struct.
 
-**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, strictKnownMarketplaces, blockedMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate, sandbox, disableDeepLinkRegistration, cleanupPeriodDays, allowedChannelPlugins, showThinkingSummaries, disableSkillShellExecution, forceRemoteSettingsRefresh, refreshInterval, allowManagedHooksOnly, tui, autoScrollEnabled. Open struct. Sandbox supports nested network.allowedDomains and network.deniedDomains (v2.1.113+). strictKnownMarketplaces/blockedMarketplaces are arrays of #MarketplaceSource entries (managed-settings gates, checked BEFORE download).
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, strictKnownMarketplaces, blockedMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate, sandbox, disableDeepLinkRegistration, cleanupPeriodDays, allowedChannelPlugins, showThinkingSummaries, disableSkillShellExecution, forceRemoteSettingsRefresh, refreshInterval, allowManagedHooksOnly, wslInheritsWindowsSettings, prUrlTemplate, tui, autoScrollEnabled. Open struct. Sandbox supports nested network.allowedDomains and network.deniedDomains (v2.1.113+). strictKnownMarketplaces/blockedMarketplaces are arrays of #MarketplaceSource entries (managed-settings gates, checked BEFORE download). wslInheritsWindowsSettings (v2.1.118+, bool, policy key). prUrlTemplate (v2.1.119+, string).
 
 ### CUE #KnownTool Union (shared across agent/command/skill schemas)
 
@@ -215,7 +215,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 ### Hook Handler Fields per Schema
 
-**Settings** `#HookCommand`: type (`command`|`prompt`|`agent`|`http`), command, prompt, async, timeout, once, statusMessage, url, headers, allowedEnvVars, if. Closed struct.
+**Settings** `#HookCommand`: type (`command`|`prompt`|`agent`|`http`|`mcp_tool`), command, prompt, async, timeout, once, statusMessage, url, headers, allowedEnvVars, if. Closed struct.
 
 **Agent** `#AgentHookCommand`: type (`command` only), command, timeout, once, if. Closed struct.
 
@@ -244,7 +244,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.116 |
+| claude_code_last_updated | v2.1.119 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
