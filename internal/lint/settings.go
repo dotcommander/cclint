@@ -67,10 +67,11 @@ var promptHookEvents = map[string]bool{
 
 // Valid hook types
 var validHookTypes = map[string]bool{
-	"command": true,
-	"prompt":  true,
-	"agent":   true,
-	"http":    true,
+	"command":  true,
+	"prompt":   true,
+	"agent":    true,
+	"http":     true,
+	"mcp_tool": true, // v2.1.118+: invoke MCP tools directly
 }
 
 // eventLabel builds a sorted, comma-separated label from a hook event map.

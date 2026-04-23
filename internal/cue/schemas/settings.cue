@@ -7,8 +7,8 @@ package schemas
 // Hook matcher pattern
 #Matcher: string
 
-// Hook type - command, prompt, agent, or http (v2.1.0+ added prompt and agent for plugins)
-#HookType: "command" | "prompt" | "agent" | "http"
+// Hook type - command, prompt, agent, http, or mcp_tool (v2.1.118+ added mcp_tool)
+#HookType: "command" | "prompt" | "agent" | "http" | "mcp_tool"
 
 // Hook handler definition
 // PreToolUse hooks can return additionalContext to the model (v2.1.9+)
@@ -190,6 +190,14 @@ package schemas
 	// Allow only managed hooks (v2.1.101+)
 	// When set, only hooks from managed/enterprise settings and force-enabled plugins run
 	allowManagedHooksOnly?: bool
+
+	// WSL inheritance of Windows-side managed settings (v2.1.118+)
+	// Policy/managed settings key — allows WSL on Windows to inherit Windows managed settings
+	wslInheritsWindowsSettings?: bool
+
+	// PR URL template (v2.1.119+)
+	// Override github.com with a custom code-review URL for the footer PR badge
+	prUrlTemplate?: string
 
 	// TUI rendering mode (v2.1.110+)
 	// Controls rendering mode for the CLI; "/tui fullscreen" switches to flicker-free fullscreen rendering.
