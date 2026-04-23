@@ -90,7 +90,8 @@ Set dependencies: verification task blocked by all implementation tasks.
 
 Dispatch parallel agents. For each task:
 - Use `Task(sonnet)` for code + tests together (not separate agents)
-- Include in every agent prompt: **"TaskUpdate task #N to in_progress before starting, completed when done."**
+- **Root owns task lifecycle.** Mark `in_progress` before dispatch, `completed` after the result returns. Do NOT instruct agents to call `TaskUpdate` — it is a deferred tool (see `kb/claude-code/deferred-tools-and-toolsearch.md`) that dispatched agents cannot invoke without first loading its schema via `ToolSearch`, and the failure mode is silent ("task tracking appears external to this repo").
+- **Minimal-edit constraint:** include in every agent prompt: "Make only the edits listed in this task. Do not refactor, split, or reorganize existing files beyond what the task specifies." Without this, sonnet-agent will over-tidy — e.g., splitting a single test file into three to make room for one new case.
 - Each agent must add tests alongside code changes
 - **Doc-sync**: When changing code values (hook events, tools, schema fields), agents MUST also update:
   - Hook events → `docs/rules/settings.md` + `docs/reference/schemas.md`
