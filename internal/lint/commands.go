@@ -34,6 +34,7 @@ var knownCommandFields = map[string]bool{
 	"effort":                   true, // Optional: reasoning effort level (v2.1.80+)
 	"disable-model-invocation": true, // Optional: prevent SlashCommand tool from calling
 	"hooks":                    true, // Optional: command-level hooks (PreToolUse, PostToolUse, Stop)
+	"triggers":                 true,
 }
 
 // validateCommandSpecific implements command-specific validation rules
@@ -400,6 +401,7 @@ func appendDangerousPatternIssue(issues []cue.ValidationError, command, filePath
 	}
 	return issues
 }
+
 // positionalArgPattern matches $1, $2, ... $99 substitution variables.
 var positionalArgPattern = regexp.MustCompile(`\$(\d+)`)
 

@@ -64,6 +64,7 @@ var knownAgentFields = map[string]bool{
 	"background":      true, // Optional: always run as background task (v2.1.49+)
 	"effort":          true, // Optional: reasoning effort level (v2.1.78+)
 	"initialPrompt":   true, // Optional: auto-submit first turn (v2.1.83+)
+	"triggers":        true,
 }
 
 // validateAgentSpecific implements agent-specific validation rules.

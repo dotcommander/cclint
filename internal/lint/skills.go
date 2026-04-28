@@ -34,6 +34,7 @@ var knownSkillFields = map[string]bool{
 	// Legacy/common fields
 	"version":      true, // Optional: semver version string
 	"cross_verify": true, // Optional: signal cross-model verification for high-stakes output
+	"triggers":     true,
 }
 
 // LintSkills runs linting on skill files using the generic linter.
