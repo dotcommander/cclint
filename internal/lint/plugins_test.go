@@ -3,6 +3,7 @@ package lint
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -235,6 +236,23 @@ func TestValidatePluginSpecific(t *testing.T) {
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","monitors":["./monitors/watcher.json"]}`,
+			wantMinErrors: 0,
+		},
+		{
+			name: "$schema field recognized (v2.1.120)",
+			data: map[string]any{
+				"$schema":     "https://example.com/plugin-schema.json",
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]any{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []any{"test"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"$schema":"https://example.com/plugin-schema.json","name":"test-plugin"}`,
 			wantMinErrors: 0,
 		},
 	}
@@ -495,8 +513,25 @@ func TestExtractPaths(t *testing.T) {
 	}
 }
 
+func TestSchemaFieldNoUnknownSuggestion(t *testing.T) {
+	t.Parallel()
+	data := map[string]any{
+		"$schema": "https://example.com/plugin-schema.json",
+		"name":    "test-plugin",
+		"version": "1.0.0",
+		"author":  map[string]any{"name": "Test Author"},
+	}
+	issues := validatePluginSpecific(data, "plugin.json", `{"$schema":"https://example.com/plugin-schema.json","name":"test-plugin"}`)
+	for _, issue := range issues {
+		if issue.Severity == "suggestion" && strings.Contains(issue.Message, "$schema") {
+			t.Errorf("unexpected suggestion for $schema field: %s", issue.Message)
+		}
+	}
+}
+
 func TestKnownPluginFields(t *testing.T) {
 	expected := []string{
+		"$schema",
 		"name", "description", "version", "author", "homepage", "repository",
 		"license", "keywords", "readme", "commands", "agents", "skills",
 		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors",

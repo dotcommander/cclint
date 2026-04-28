@@ -23,6 +23,7 @@ func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool, e
 
 // knownPluginFields lists valid plugin.json fields per Anthropic docs
 var knownPluginFields = map[string]bool{
+	"$schema":      true, // Optional: JSON Schema reference (v2.1.120+)
 	"name":         true, // Required: plugin name
 	"description":  true, // Required: plugin description
 	"version":      true, // Recommended: semver version
