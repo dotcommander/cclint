@@ -10,7 +10,7 @@ user-invocable: false
 |------|--------|------|
 | 1. Version gap | Read CLAUDE.md → extract `claude_code_last_updated` | Read |
 | 2. Fetch changelog | `aic claude` (primary) or `gh api` (fallback) | Bash |
-| 3. Classify | Map entries to cclint domains | — |
+| 3. Classify + summarize | Emit user-visible table covering every changelog entry, then map to cclint domains | — |
 | 4. Task list | TaskCreate per domain group | TaskCreate |
 | 5. Implement | Parallel `Task(sonnet)` per task | Task |
 | 6. Verify | `Task(sonnet)`: build, test, cclint | Task |
@@ -74,7 +74,26 @@ Then Read `.work/CHANGELOG.upstream.md` and extract entries between `## {old_ver
 
 ### Step 3: Classify lintable items
 
-For each changelog entry, classify against the Domain Classification Table above. If zero lintable items found, report and stop.
+For each changelog entry, classify against the Domain Classification Table above.
+
+**BLOCKING — Emit a user-visible summary table BEFORE proceeding to Step 4.** Cover *every* changelog entry across all versions in the gap, not just the lintable ones. The user wants to see the full surface review and the reasoning for what was skipped.
+
+Required format (one row per entry):
+
+```
+| Version | Change | Lintable? | cclint action |
+|---|---|---|---|
+| 2.1.X | <one-line description> | ✅ Yes / ⚠️ Partial / ❌ No | <action or skip reason> |
+```
+
+Use:
+- ✅ Yes — schema/lint surface change, will be implemented
+- ⚠️ Partial — adjacent to lintable surface but out of scope (e.g. unmodeled subschema, new file type cclint doesn't yet discover) — document in CLAUDE.md operational context
+- ❌ No — runtime/UX/CLI/SDK/bugfix, no lint surface
+
+End the table with a one-line summary: `N lintable, M actioned, K documented, rest skipped (runtime/UX/bugfixes).`
+
+If zero lintable items found, still emit the table, then report and stop.
 
 ### Step 4: Task list
 
@@ -131,6 +150,7 @@ Ask user before proceeding. Then:
 | Mistake | Why it fails |
 |---------|-------------|
 | Skipping Step 3 classification | Wastes agent time on non-lintable changes |
+| Emitting only the lintable subset | User loses visibility into what was skipped and why — always show every changelog entry in the Step 3 table |
 | Implementing without TaskCreate | No dependency tracking, verification runs too early |
 | Separate test tasks | Tests must ship with code in the same agent |
 | Hardcoding `internal/cli/` paths | Package moved to `internal/lint/` — use Domain Classification Table |
