@@ -249,6 +249,9 @@ hooks:
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
+| `allowManagedHooksOnly` | bool | When set, only hooks from managed/enterprise settings and force-enabled plugins run - v2.1.101+ |
+| `allowManagedDomainsOnly` | bool | When set, `sandbox.network.allowedDomains` from non-managed sources are ignored - v2.1.126+ |
+| `allowManagedReadPathsOnly` | bool | When set, `sandbox.allowedReadPaths` from non-managed sources are ignored - v2.1.126+ |
 | `wslInheritsWindowsSettings` | bool | WSL on Windows inherits Windows-side managed settings (policy key) - v2.1.118+ |
 | `prUrlTemplate` | string | Custom code-review URL for the footer PR badge instead of github.com - v2.1.119+ |
 
