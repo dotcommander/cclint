@@ -205,7 +205,7 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 **Skill** (`internal/cue/schemas/skill.cue`): name (required), description (required, max 1536 chars — raised from 250 in v2.1.105), argument-hint, disable-model-invocation, user-invocable, allowed-tools, model, effort, context, agent, hooks, license, compatibility, metadata. Open struct.
 
-**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, strictKnownMarketplaces, blockedMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate, sandbox, disableDeepLinkRegistration, cleanupPeriodDays, allowedChannelPlugins, showThinkingSummaries, disableSkillShellExecution, forceRemoteSettingsRefresh, refreshInterval, allowManagedHooksOnly, wslInheritsWindowsSettings, prUrlTemplate, tui, autoScrollEnabled. Open struct. Sandbox supports nested network.allowedDomains and network.deniedDomains (v2.1.113+). strictKnownMarketplaces/blockedMarketplaces are arrays of #MarketplaceSource entries (managed-settings gates, checked BEFORE download). wslInheritsWindowsSettings (v2.1.118+, bool, policy key). prUrlTemplate (v2.1.119+, string). mcpServers.*.alwaysLoad (v2.1.121+, bool, MCP server config — currently unmodeled open struct, passes silently).
+**Settings** (`internal/cue/schemas/settings.cue`): hooks, language, respectGitignore, plansDirectory, spinnerTipsOverride, enabledPlugins, extraKnownMarketplaces, strictKnownMarketplaces, blockedMarketplaces, disableAllHooks, autoMemoryDirectory, worktree, feedbackSurveyRate, sandbox, disableDeepLinkRegistration, cleanupPeriodDays, allowedChannelPlugins, showThinkingSummaries, disableSkillShellExecution, forceRemoteSettingsRefresh, refreshInterval, allowManagedHooksOnly, allowManagedDomainsOnly, allowManagedReadPathsOnly, wslInheritsWindowsSettings, prUrlTemplate, tui, autoScrollEnabled. Open struct. Sandbox supports nested network.allowedDomains and network.deniedDomains (v2.1.113+). strictKnownMarketplaces/blockedMarketplaces are arrays of #MarketplaceSource entries (managed-settings gates, checked BEFORE download). wslInheritsWindowsSettings (v2.1.118+, bool, policy key). prUrlTemplate (v2.1.119+, string). mcpServers.*.alwaysLoad (v2.1.121+, bool, MCP server config — currently unmodeled open struct, passes silently). allowManagedDomainsOnly / allowManagedReadPathsOnly (v2.1.126+, bool, managed-settings policy keys gating sandbox.network.allowedDomains and sandbox.allowedReadPaths from non-managed sources).
 
 **Plugin** (`internal/lint/plugins.go` `knownPluginFields`): $schema (v2.1.120+), name (required), description (required), version, author, homepage, repository, license, keywords, readme, commands, agents, skills, hooks, mcpServers, outputStyles, lspServers, monitors. Unknown fields emit a suggestion.
 
@@ -246,7 +246,7 @@ Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.123 |
+| claude_code_last_updated | v2.1.126 |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |
