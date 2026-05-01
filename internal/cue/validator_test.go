@@ -849,6 +849,20 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with allowManagedDomainsOnly",
+			data: map[string]any{
+				"allowManagedDomainsOnly": true,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with allowManagedReadPathsOnly",
+			data: map[string]any{
+				"allowManagedReadPathsOnly": true,
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{

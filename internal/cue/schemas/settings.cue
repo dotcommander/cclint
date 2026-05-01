@@ -191,6 +191,16 @@ package schemas
 	// When set, only hooks from managed/enterprise settings and force-enabled plugins run
 	allowManagedHooksOnly?: bool
 
+	// Allow only managed allowed-domains (v2.1.126+)
+	// When set, sandbox.network.allowedDomains entries from non-managed settings
+	// sources are ignored — only the managed/enterprise allowedDomains list is honored.
+	allowManagedDomainsOnly?: bool
+
+	// Allow only managed allowed-read-paths (v2.1.126+)
+	// When set, sandbox.allowedReadPaths entries from non-managed settings sources
+	// are ignored — only the managed/enterprise allowedReadPaths list is honored.
+	allowManagedReadPathsOnly?: bool
+
 	// WSL inheritance of Windows-side managed settings (v2.1.118+)
 	// Policy/managed settings key — allows WSL on Windows to inherit Windows managed settings
 	wslInheritsWindowsSettings?: bool
