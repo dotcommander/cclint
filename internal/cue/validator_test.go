@@ -863,6 +863,13 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with channelsEnabled",
+			data: map[string]any{
+				"channelsEnabled": true,
+			},
+			wantError: false,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{

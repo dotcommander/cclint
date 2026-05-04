@@ -201,6 +201,11 @@ package schemas
 	// are ignored — only the managed/enterprise allowedReadPaths list is honored.
 	allowManagedReadPathsOnly?: bool
 
+	// Channels enablement for console (API key) auth (v2.1.128+)
+	// Console orgs with managed settings must set this true to enable the
+	// --channels flow under API-key authentication.
+	channelsEnabled?: bool
+
 	// WSL inheritance of Windows-side managed settings (v2.1.118+)
 	// Policy/managed settings key — allows WSL on Windows to inherit Windows managed settings
 	wslInheritsWindowsSettings?: bool
