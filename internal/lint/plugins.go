@@ -40,12 +40,14 @@ var knownPluginFields = map[string]bool{
 	"mcpServers":   true, // Optional: MCP server configurations
 	"outputStyles": true, // Optional: output style configurations
 	"lspServers":   true, // Optional: LSP server configurations
-	"monitors":     true, // Optional: background monitor configurations (v2.1.105)
+	"monitors":     true, // Optional: background monitor configurations (deprecated top-level v2.1.129+ - prefer experimental.monitors)
+	"themes":       true, // Optional: color theme components (deprecated top-level v2.1.129+ - prefer experimental.themes)
+	"experimental": true, // Optional: wrapper for experimental components (themes, monitors) (v2.1.129+)
 }
 
 // pluginPathFields lists plugin fields that contain file paths
 var pluginPathFields = []string{
-	"commands", "agents", "skills", "hooks", "mcpServers", "outputStyles", "lspServers",
+	"commands", "agents", "skills", "hooks", "mcpServers", "outputStyles", "lspServers", "experimental",
 }
 
 // validatePluginSpecific implements plugin-specific validation rules.
@@ -356,6 +358,19 @@ func validatePluginBestPractices(filePath string, contents string, data map[stri
 			Severity: "suggestion",
 			Source:   cue.SourceCClintObserve,
 		})
+	}
+
+	// Suggest moving experimental components under the experimental wrapper (v2.1.129+)
+	for _, field := range []string{"themes", "monitors"} {
+		if _, ok := data[field]; ok {
+			suggestions = append(suggestions, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Top-level '%s' is deprecated - move under 'experimental.%s' (v2.1.129+; top-level still works but `claude plugin validate` warns)", field, field),
+				Severity: "suggestion",
+				Source:   cue.SourceAnthropicDocs,
+				Line:     FindJSONFieldLine(contents, field),
+			})
+		}
 	}
 
 	// Check description length

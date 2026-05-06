@@ -870,6 +870,25 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with skillOverrides",
+			data: map[string]any{
+				"skillOverrides": map[string]any{
+					"legacy-context": "name-only",
+					"deploy":         "off",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid skillOverrides with bad enum value",
+			data: map[string]any{
+				"skillOverrides": map[string]any{
+					"deploy": "hidden", // not in enum
+				},
+			},
+			wantError: true,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{

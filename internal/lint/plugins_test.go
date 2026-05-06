@@ -255,6 +255,40 @@ func TestValidatePluginSpecific(t *testing.T) {
 			contents:      `{"$schema":"https://example.com/plugin-schema.json","name":"test-plugin"}`,
 			wantMinErrors: 0,
 		},
+		{
+			name:   "themes field recognized (v2.1.129)",
+			data:   map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]any{"name": "Test Author"},
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/test/test",
+				"license":     "MIT",
+				"keywords":    []any{"test"},
+				"themes":      []any{"./themes/"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","themes":["./themes/"]}`,
+			wantMinErrors: 0,
+		},
+		{
+			name:   "experimental wrapper recognized (v2.1.129)",
+			data:   map[string]any{
+				"name":         "test-plugin",
+				"description":  "A comprehensive test plugin for validation purposes with detailed description",
+				"version":      "1.0.0",
+				"author":       map[string]any{"name": "Test Author"},
+				"homepage":     "https://example.com",
+				"repository":   "https://github.com/test/test",
+				"license":      "MIT",
+				"keywords":     []any{"test"},
+				"experimental": map[string]any{"themes": "./themes/", "monitors": "./monitors.json"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","experimental":{"themes":"./themes/","monitors":"./monitors.json"}}`,
+			wantMinErrors: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -316,6 +350,45 @@ func TestValidatePluginBestPractices(t *testing.T) {
 				"keywords":    []any{"test"},
 			},
 			wantSuggestionCount: 1,
+		},
+		{
+			name: "top-level themes triggers deprecation suggestion (v2.1.129)",
+			data: map[string]any{
+				"name":        "test",
+				"description": "A comprehensive test plugin with detailed description that exceeds fifty characters",
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/user/repo",
+				"license":     "MIT",
+				"keywords":    []any{"test", "plugin"},
+				"themes":      []any{"./themes/"},
+			},
+			wantSuggestionCount: 1,
+		},
+		{
+			name: "top-level monitors triggers deprecation suggestion (v2.1.129)",
+			data: map[string]any{
+				"name":        "test",
+				"description": "A comprehensive test plugin with detailed description that exceeds fifty characters",
+				"homepage":    "https://example.com",
+				"repository":  "https://github.com/user/repo",
+				"license":     "MIT",
+				"keywords":    []any{"test", "plugin"},
+				"monitors":    []any{"./monitors.json"},
+			},
+			wantSuggestionCount: 1,
+		},
+		{
+			name: "experimental wrapper does not trigger deprecation (v2.1.129)",
+			data: map[string]any{
+				"name":         "test",
+				"description":  "A comprehensive test plugin with detailed description that exceeds fifty characters",
+				"homepage":     "https://example.com",
+				"repository":   "https://github.com/user/repo",
+				"license":      "MIT",
+				"keywords":     []any{"test", "plugin"},
+				"experimental": map[string]any{"themes": "./themes/"},
+			},
+			wantSuggestionCount: 0,
 		},
 	}
 
@@ -534,7 +607,7 @@ func TestKnownPluginFields(t *testing.T) {
 		"$schema",
 		"name", "description", "version", "author", "homepage", "repository",
 		"license", "keywords", "readme", "commands", "agents", "skills",
-		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors",
+		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors", "themes", "experimental",
 	}
 	for _, field := range expected {
 		if !knownPluginFields[field] {

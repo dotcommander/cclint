@@ -206,6 +206,14 @@ package schemas
 	// --channels flow under API-key authentication.
 	channelsEnabled?: bool
 
+	// Per-skill visibility overrides (v2.1.129+)
+	// Map of skill name to visibility level. Lets users hide or collapse a
+	// skill without editing its SKILL.md. Does not apply to plugin skills —
+	// those are managed through `/plugin`.
+	skillOverrides?: {
+		[string]: "on" | "name-only" | "user-invocable-only" | "off"
+	}
+
 	// WSL inheritance of Windows-side managed settings (v2.1.118+)
 	// Policy/managed settings key — allows WSL on Windows to inherit Windows managed settings
 	wslInheritsWindowsSettings?: bool
