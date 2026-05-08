@@ -1524,6 +1524,65 @@ func TestValidateAgent_ToolsAgentRefs(t *testing.T) {
 	}
 }
 
+func TestIsPluginNamespacedRef(t *testing.T) {
+	cases := []struct {
+		ref  string
+		want bool
+	}{
+		{"dc:fetch-agent", true},
+		{"dc:meta", true},
+		{"myplugin:my-skill", true},
+		{"a1:b2", true},
+		{"plain-agent", false},
+		{"agent-name", false},
+		{"", false},
+		{":foo", false},
+		{"foo:", false},
+		{"dc::foo", false},
+		{"foo:bar:baz", false},
+		{"DC:foo", false},
+		{"sonnet", false},
+	}
+	for _, tc := range cases {
+		if got := IsPluginNamespacedRef(tc.ref); got != tc.want {
+			t.Errorf("IsPluginNamespacedRef(%q) = %v, want %v", tc.ref, got, tc.want)
+		}
+	}
+}
+
+func TestValidateCommand_PluginNamespacedTaskRef(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "agents/local-agent.md", Type: discovery.FileTypeAgent, Contents: "x"},
+	}
+	v := NewCrossFileValidator(files)
+
+	contents := `Run Task(dc:fetch-agent, "fetch this url").
+Then Task(local-agent) for the next step.`
+
+	errs := v.ValidateCommand("commands/test.md", contents, nil)
+	for _, e := range errs {
+		if strings.Contains(e.Message, "Task(dc:fetch-agent)") &&
+			strings.Contains(e.Message, "non-existent agent") {
+			t.Errorf("plugin-namespaced Task ref produced dangling error: %s", e.Message)
+		}
+	}
+}
+
+func TestValidateSkill_FrontmatterPluginNamespacedAgent(t *testing.T) {
+	files := []discovery.File{
+		{RelPath: "agents/local-agent.md", Type: discovery.FileTypeAgent, Contents: "x"},
+	}
+	v := NewCrossFileValidator(files)
+
+	frontmatter := map[string]any{"agent": "dc:fetch-agent"}
+	errs := v.ValidateSkill("skills/test/SKILL.md", "", frontmatter)
+	for _, e := range errs {
+		if strings.Contains(e.Message, "Frontmatter agent field references non-existent agent 'dc:fetch-agent'") {
+			t.Errorf("plugin-namespaced frontmatter agent produced dangling error: %s", e.Message)
+		}
+	}
+}
+
 // TestValidateAgent_FrontmatterSkills tests the frontmatter skills array validation
 func TestValidateAgent_FrontmatterSkills(t *testing.T) {
 	files := []discovery.File{

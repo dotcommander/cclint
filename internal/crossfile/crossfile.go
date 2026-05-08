@@ -83,6 +83,20 @@ var BuiltInSkillNames = map[string]bool{
 	"ultrareview":             true, // /ultrareview — comprehensive cloud code review via parallel multi-agent analysis (v2.1.111+)
 }
 
+// pluginNamespaceRefPattern matches a `<plugin>:<component>` namespaced reference,
+// e.g. `dc:fetch-agent` or `myplugin:my-skill`. References of this shape target
+// components shipped by another Claude Code plugin (resolved at runtime against
+// installed plugin caches), not local files in the lint scope. The local resolver
+// has no awareness of installed plugins and must not emit dangling-ref errors for
+// these — the owning plugin is responsible for its own component validation.
+var pluginNamespaceRefPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$`)
+
+// IsPluginNamespacedRef reports whether ref has the `<plugin>:<component>` shape.
+// Such refs are external to the local lint scope and skipped during dangling-ref checks.
+func IsPluginNamespacedRef(ref string) bool {
+	return pluginNamespaceRefPattern.MatchString(ref)
+}
+
 // CrossFileValidator validates references between components
 type CrossFileValidator struct {
 	agents   map[string]discovery.File
@@ -142,6 +156,11 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 			continue
 		}
 		if BuiltInSubagentTypes[agentRef] {
+			continue
+		}
+		// Cross-plugin reference (e.g. Task(dc:fetch-agent, ...)) — owned by
+		// another plugin's lint scope, not resolvable locally.
+		if IsPluginNamespacedRef(agentRef) {
 			continue
 		}
 
@@ -537,6 +556,10 @@ func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatt
 
 	// Skip built-in agent types
 	if BuiltInSubagentTypes[agentName] {
+		return nil
+	}
+	// Cross-plugin reference (e.g. agent: dc:foo-agent) — external to local scope.
+	if IsPluginNamespacedRef(agentName) {
 		return nil
 	}
 
