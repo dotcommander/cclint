@@ -889,6 +889,22 @@ func TestValidateSettings(t *testing.T) {
 			wantError: true,
 		},
 		{
+			name: "valid settings v2.1.133 fields",
+			data: map[string]any{
+				"worktree":               map[string]any{"baseRef": "fresh"},
+				"sandbox":                map[string]any{"bwrapPath": "/usr/bin/bwrap", "socatPath": "/usr/bin/socat"},
+				"parentSettingsBehavior": "merge",
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid worktree baseRef enum",
+			data: map[string]any{
+				"worktree": map[string]any{"baseRef": "stale"},
+			},
+			wantError: true,
+		},
+		{
 			name: "invalid hook - missing command",
 			data: map[string]any{
 				"hooks": map[string]any{

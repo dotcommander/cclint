@@ -138,6 +138,11 @@ package schemas
 	worktree?: {
 		// Sparse checkout paths for large monorepos
 		sparsePaths?: [...string]
+
+		// Base ref for new worktrees (v2.1.133+)
+		// "fresh" → branch from origin/<default>; "head" → branch from local HEAD
+		// Default is "fresh" as of v2.1.133 (was effectively "head" since v2.1.128).
+		baseRef?: "fresh" | "head"
 		...
 	}
 
@@ -147,6 +152,10 @@ package schemas
 	// Sandbox settings (v2.1.83+)
 	sandbox?: {
 		failIfUnavailable?: bool
+
+		// Managed-settings paths to custom bubblewrap / socat binaries (v2.1.133+, Linux/WSL only)
+		bwrapPath?: string
+		socatPath?: string
 
 		// Network-level domain controls (allowedDomains: v2.1.83+; deniedDomains: v2.1.113+)
 		// deniedDomains takes precedence over allowedDomains wildcards
@@ -200,6 +209,11 @@ package schemas
 	// When set, sandbox.allowedReadPaths entries from non-managed settings sources
 	// are ignored — only the managed/enterprise allowedReadPaths list is honored.
 	allowManagedReadPathsOnly?: bool
+
+	// Parent-tier settings merge behavior (v2.1.133+, admin tier)
+	// "first-wins" (default) → SDK managedSettings does not merge into the policy chain.
+	// "merge" → admins opt SDK managedSettings (parent tier) into the merged policy.
+	parentSettingsBehavior?: "first-wins" | "merge"
 
 	// Channels enablement for console (API key) auth (v2.1.128+)
 	// Console orgs with managed settings must set this true to enable the
