@@ -9,6 +9,7 @@ package crossfile
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -117,9 +118,15 @@ func NewCrossFileValidator(files []discovery.File, rootPath ...string) *CrossFil
 		v.rootPath = rootPath[0]
 	}
 
+	// Index files. User-space agents (agents/**/*.md) are processed first so they
+	// always win over plugin-shipped agents of the same bare name.
+	// Two passes: (1) user-space agents/skills/commands, (2) plugin agents (fill gaps only).
 	for _, f := range files {
 		switch f.Type {
 		case discovery.FileTypeAgent:
+			if isPluginAgentRelPath(f.RelPath) {
+				continue // handled in second pass
+			}
 			name := ExtractAgentName(f.RelPath)
 			v.agents[name] = f
 		case discovery.FileTypeSkill:
@@ -130,8 +137,24 @@ func NewCrossFileValidator(files []discovery.File, rootPath ...string) *CrossFil
 			v.commands[name] = f
 		}
 	}
+	// Second pass: plugin agents fill gaps — never overwrite a user-space entry.
+	for _, f := range files {
+		if f.Type == discovery.FileTypeAgent && isPluginAgentRelPath(f.RelPath) {
+			name := ExtractAgentName(f.RelPath)
+			if _, exists := v.agents[name]; !exists {
+				v.agents[name] = f
+			}
+		}
+	}
 
 	return v
+}
+
+// isPluginAgentRelPath reports whether the relative path points to a plugin-shipped
+// agent file (under plugins/cache/ or .claude/plugins/cache/).
+func isPluginAgentRelPath(relPath string) bool {
+	normalized := filepath.ToSlash(relPath)
+	return strings.Contains(normalized, "plugins/cache/")
 }
 
 // ValidateCommand checks command references to agents
@@ -410,6 +433,9 @@ func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter
 		if BuiltInSubagentTypes[agentRef] {
 			continue
 		}
+		if IsPluginNamespacedRef(agentRef) {
+			continue
+		}
 		if _, exists := v.agents[agentRef]; !exists {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -517,6 +543,11 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, fro
 
 			// Skip built-in agents
 			if BuiltInSubagentTypes[agentRef] {
+				continue
+			}
+
+			// Cross-plugin reference (e.g. dc:fetch-agent) — external to local scope.
+			if IsPluginNamespacedRef(agentRef) {
 				continue
 			}
 

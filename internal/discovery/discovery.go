@@ -61,8 +61,16 @@ var DefaultFileTypes = []FileTypeEntry{
 		FallbackPathSubstring: "",
 	},
 	{
-		Type:                  FileTypeAgent,
-		Patterns:              []string{".claude/agents/**/*.md", "agents/**/*.md"},
+		Type: FileTypeAgent,
+		Patterns: []string{
+			".claude/agents/**/*.md",
+			"agents/**/*.md",
+			// Plugin-shipped agents (resolved at runtime by Claude Code plugin system).
+			// Patterns cover both rootPath=~/.claude/ (plugins/cache/...)
+			// and rootPath=~ (.claude/plugins/cache/...).
+			"plugins/cache/*/*/current/agents/**/*.md",
+			".claude/plugins/cache/*/*/current/agents/**/*.md",
+		},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},
