@@ -41,10 +41,12 @@ import (
 // Hook command definition (same as settings.cue)
 #AgentHookCommand: {
 	type:     "command"
-	command:  string
-	timeout?: int   // timeout in seconds
-	once?:    bool  // run only once per session (v2.1.0+)
-	"if"?: string   // conditional filter using permission rule syntax (v2.1.85+)
+	command?: string             // shell form
+	args?:    [...string]        // exec form (v2.1.139+), alternative to command
+	timeout?: int                // timeout in seconds
+	once?:    bool               // run only once per session (v2.1.0+)
+	continueOnBlock?: bool       // PostToolUse only (v2.1.139+)
+	"if"?: string                // conditional filter using permission rule syntax (v2.1.85+)
 }
 
 // Agent hook entry - matcher is optional (e.g., Stop hook doesn't need a matcher)

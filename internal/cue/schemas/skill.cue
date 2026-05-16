@@ -30,10 +30,12 @@ import "strings"
 // Hook command definition
 #SkillHookCommand: {
 	type:     "command"
-	command:  string
-	timeout?: int   // timeout in seconds
-	once?:    bool  // run only once per session
-	"if"?: string   // conditional filter using permission rule syntax (v2.1.85+)
+	command?: string             // shell form
+	args?:    [...string]        // exec form (v2.1.139+), alternative to command
+	timeout?: int                // timeout in seconds
+	once?:    bool               // run only once per session
+	continueOnBlock?: bool       // PostToolUse only (v2.1.139+)
+	"if"?: string                // conditional filter using permission rule syntax (v2.1.85+)
 }
 
 // Skill hook entry

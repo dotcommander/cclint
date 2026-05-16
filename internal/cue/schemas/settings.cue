@@ -18,6 +18,10 @@ package schemas
 	// Required for type: "command"
 	command?: string
 
+	// Exec form (v2.1.139+) — alternative to `command`, type: "command" only.
+	// Spawns the command directly without a shell, so path placeholders never need quoting.
+	args?: [...string]
+
 	// Required for type: "prompt"
 	prompt?: string
 
@@ -39,14 +43,13 @@ package schemas
 	timeout?: *30 | int  // default 30 seconds
 	once?:    bool       // run only once per session (v2.1.0+)
 
+	// PostToolUse only (v2.1.139+): feed the hook's rejection reason back to
+	// Claude and continue the turn instead of failing.
+	continueOnBlock?: bool
+
 	// Optional: conditional filter using permission rule syntax (v2.1.85+)
 	// e.g., "Bash(git *)" to only run when Bash is called with git commands
 	"if"?: string
-
-	// Enforce command field when type is "command"
-	if type == "command" {
-		command: string
-	}
 
 	// Enforce prompt field when type is "prompt"
 	if type == "prompt" {
@@ -143,6 +146,11 @@ package schemas
 		// "fresh" → branch from origin/<default>; "head" → branch from local HEAD
 		// Default is "fresh" as of v2.1.133 (was effectively "head" since v2.1.128).
 		baseRef?: "fresh" | "head"
+
+		// Background-session isolation mode (v2.1.143+)
+		// "none" → background sessions edit the working copy directly without
+		// EnterWorktree (for repos where worktrees are impractical).
+		bgIsolation?: "none"
 		...
 	}
 
@@ -226,6 +234,14 @@ package schemas
 	// those are managed through `/plugin`.
 	skillOverrides?: {
 		[string]: "on" | "name-only" | "user-invocable-only" | "off"
+	}
+
+	// Auto mode classifier rules (v2.1.136+)
+	// Managed-settings list of permission-rule patterns that block unconditionally
+	// in auto mode, regardless of user intent or allow exceptions.
+	autoMode?: {
+		hard_deny?: [...string]
+		...
 	}
 
 	// WSL inheritance of Windows-side managed settings (v2.1.118+)

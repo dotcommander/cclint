@@ -214,14 +214,20 @@ var innerHookValidators = map[string]innerHookValidator{
 }
 
 func validateCommandInnerHook(hookMap map[string]any, ctx hookContext) []cue.ValidationError {
-	cmdVal, exists := hookMap["command"]
-	if !exists {
+	cmdVal, cmdExists := hookMap["command"]
+	_, argsExists := hookMap["args"]
+
+	if !cmdExists && !argsExists {
 		return []cue.ValidationError{{
 			File:     ctx.FilePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' or 'args' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
 		}}
+	}
+
+	if !cmdExists {
+		return nil
 	}
 
 	cmdStr, ok := cmdVal.(string)

@@ -898,14 +898,16 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name: "invalid worktree baseRef enum",
+			name: "valid settings v2.1.136 autoMode field",
 			data: map[string]any{
-				"worktree": map[string]any{"baseRef": "stale"},
+				"autoMode": map[string]any{
+					"hard_deny": []string{"Bash(rm -rf *)", "Bash(curl * | sh)"},
+				},
 			},
-			wantError: true,
+			wantError: false,
 		},
 		{
-			name: "invalid hook - missing command",
+			name: "valid settings v2.1.139 hook args exec form",
 			data: map[string]any{
 				"hooks": map[string]any{
 					"PreToolUse": []map[string]any{
@@ -914,14 +916,74 @@ func TestValidateSettings(t *testing.T) {
 							"hooks": []map[string]any{
 								{
 									"type": "command",
-									// missing "command" field
+									"args": []string{"echo", "hello"},
 								},
 							},
 						},
 					},
 				},
 			},
+			wantError: false,
+		},
+		{
+			name: "valid settings v2.1.139 hook continueOnBlock",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PostToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":            "command",
+									"command":         "echo done",
+									"continueOnBlock": true,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings v2.1.143 worktree bgIsolation",
+			data: map[string]any{
+				"worktree": map[string]any{"bgIsolation": "none"},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid worktree bgIsolation enum",
+			data: map[string]any{
+				"worktree": map[string]any{"bgIsolation": "auto"},
+			},
 			wantError: true,
+		},
+		{
+			name: "invalid worktree baseRef enum",
+			data: map[string]any{
+				"worktree": map[string]any{"baseRef": "stale"},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid hook - missing command (command/args checked by Go layer, not CUE)",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PreToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type": "command",
+									// neither command nor args — caught by validateCommandInnerHook, not CUE schema
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
 		},
 		{
 			name: "invalid hook - wrong type value",
