@@ -15,7 +15,9 @@ import "strings"
 	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
-	"EnterWorktree" | "ExitWorktree" |
+	"Agent" | "TaskCreate" | "TaskUpdate" | "TaskList" |
+	"TaskGet" | "TaskStop" | "EnterPlanMode" |
+	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
 	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
 	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
 

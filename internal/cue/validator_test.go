@@ -278,6 +278,15 @@ func TestValidateAgent(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid tools array with newer runtime tools",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with task control tools",
+				"tools":       []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid with Setup hook",
 			data: map[string]any{
 				"name":        "test-agent",
@@ -451,6 +460,14 @@ func TestValidateCommand(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid allowed-tools array with newer runtime tools",
+			data: map[string]any{
+				"name":          "test-cmd",
+				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid allowed-tools as string",
 			data: map[string]any{
 				"name":          "test-cmd",
@@ -593,6 +610,15 @@ func TestValidateSkill(t *testing.T) {
 				"name":          "test-skill",
 				"description":   "Skill with tool array",
 				"allowed-tools": []string{"Read", "Grep", "Glob"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid allowed-tools array with newer runtime tools",
+			data: map[string]any{
+				"name":          "test-skill",
+				"description":   "Skill with task control tools",
+				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
 			},
 			wantError: false,
 		},
@@ -1379,6 +1405,7 @@ Body content`,
 
 // TestValidateFile tests file validation
 func TestValidateFile(t *testing.T) {
+	t.Parallel()
 	v := NewValidator()
 	if err := v.LoadSchemas("schemas"); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
@@ -1479,6 +1506,7 @@ model: sonnet
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			errs, err := v.ValidateFile(tt.path, tt.content, tt.fileType)
 
 			if tt.fileType == "unknown" {

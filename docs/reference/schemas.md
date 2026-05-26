@@ -50,7 +50,7 @@ internal/cue/schemas/
 | `color` | string | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`, `gray`, `magenta`, `white` | Terminal color |
 | `tools` | `*`, string, array | `*` for all, or tool names | Tool access allowlist (agents use `tools:` not `allowed-tools:`) |
 | `disallowedTools` | `*`, string, array | Tool names | Tool access denylist |
-| `permissionMode` | string | `default`, `acceptEdits`, `dontAsk`, `bypassPermissions`, `plan` | Permission handling |
+| `permissionMode` | string | `default`, `acceptEdits`, `delegate`, `dontAsk`, `bypassPermissions`, `plan` | Permission handling |
 | `skills` | string | comma-separated skill names | Skills to preload into agent context |
 | `hooks` | object | Event → hooks mapping | Agent-level hooks (PreToolUse, PostToolUse, Stop) |
 
@@ -59,7 +59,9 @@ internal/cue/schemas/
 ```
 Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit,
 WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode,
-AskUserQuestion, LSP, Skill, DBClient
+AskUserQuestion, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, TaskStop,
+EnterPlanMode, EnterWorktree, ExitWorktree, KillShell, TaskOutput, LSP, Skill,
+DBClient, SendMessage, Monitor, RemoteTrigger, CronCreate, CronDelete, CronList
 ```
 
 ### Hooks Format

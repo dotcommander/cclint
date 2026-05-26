@@ -184,12 +184,15 @@ When tools are specified as an array, each tool name must be from the known Clau
 	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
 	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
 	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
-	"EnterWorktree" | "ExitWorktree" |
-	"LSP" | "Skill" | "DBClient"
+	"Agent" | "TaskCreate" | "TaskUpdate" | "TaskList" |
+	"TaskGet" | "TaskStop" | "EnterPlanMode" |
+	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
+	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
 ```
 
 **Valid Values:**
-Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit, WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode, AskUserQuestion, EnterWorktree, ExitWorktree, LSP, Skill
+Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit, WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode, AskUserQuestion, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, TaskStop, EnterPlanMode, EnterWorktree, ExitWorktree, KillShell, TaskOutput, LSP, Skill, DBClient, SendMessage, Monitor, RemoteTrigger, CronCreate, CronDelete, CronList
 
 **Source:** cclint observation - Derived from Claude Code tool set documented in system prompts
 
