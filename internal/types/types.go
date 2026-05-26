@@ -11,6 +11,11 @@ type ValidationError struct {
 	Source   string // anthropic-docs, cclint-observation, agentskills-io
 	Line     int
 	Column   int
+	// Abort, when true on a SeverityError, signals pre-validation to
+	// short-circuit further checks for this file (typed replacement for the
+	// prior strings.Contains(Message, "is empty") sniff). This is an
+	// internal control-flow flag and is not emitted to JSON output.
+	Abort bool `json:"-"`
 }
 
 // Rule source constants.

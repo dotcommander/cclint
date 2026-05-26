@@ -6,8 +6,8 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/textutil"
 	"github.com/dotcommander/cclint/internal/scoring"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // LintOutputStyles runs linting on output style files using the generic linter.
@@ -73,6 +73,7 @@ func (l *OutputStyleLinter) PreValidate(filePath, contents string) []cue.Validat
 			Message:  "Output style file is empty",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
+			Abort:    true,
 		})
 	}
 

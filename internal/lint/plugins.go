@@ -102,8 +102,7 @@ func validatePluginName(data map[string]any, filePath, contents string) []cue.Va
 	}
 
 	var errors []cue.ValidationError
-	reservedWords := map[string]bool{"anthropic": true, "claude": true}
-	if reservedWords[strings.ToLower(name)] {
+	if reservedNames[strings.ToLower(name)] {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),

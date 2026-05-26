@@ -68,6 +68,7 @@ func (l *RuleLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 			Message:  "Rule file is empty",
 			Severity: "error",
 			Source:   cue.SourceCClintObserve,
+			Abort:    true,
 		})
 	}
 

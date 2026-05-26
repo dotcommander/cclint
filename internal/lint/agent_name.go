@@ -8,6 +8,12 @@ import (
 	"github.com/dotcommander/cclint/internal/textutil"
 )
 
+// reservedNames lists component names reserved by Anthropic that cannot be
+// used as agent, plugin, or skill identifiers. Adding a new reserved word
+// (e.g. a future product code name) is a single edit here — all three name
+// validators consult the same map.
+var reservedNames = map[string]bool{"anthropic": true, "claude": true}
+
 // validateAgentName checks name format, reserved words, and filename match.
 func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
@@ -23,8 +29,7 @@ func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 	}
 
 	// Reserved word check - FROM ANTHROPIC DOCS
-	reservedWords := map[string]bool{"anthropic": true, "claude": true}
-	if reservedWords[strings.ToLower(name)] {
+	if reservedNames[strings.ToLower(name)] {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),

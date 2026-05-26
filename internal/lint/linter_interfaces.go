@@ -176,9 +176,12 @@ func runPreValidation(result *LintResult, filePath, contents string, linter Comp
 
 	result.Errors = append(result.Errors, preErrors...)
 
-	// Check if any are fatal (should abort further validation)
+	// Check if any are fatal (should abort further validation). The Abort
+	// flag is the typed contract — producers set it on errors that must
+	// short-circuit downstream checks (e.g. empty-file errors that would
+	// generate noise from CUE/cross-file validators).
 	for _, e := range preErrors {
-		if e.Severity == cue.SeverityError && strings.Contains(e.Message, "is empty") {
+		if e.Severity == cue.SeverityError && e.Abort {
 			result.Success = len(result.Errors) == 0
 			return true
 		}

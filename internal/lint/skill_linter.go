@@ -8,8 +8,8 @@ import (
 	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
-	"github.com/dotcommander/cclint/internal/textutil"
 	"github.com/dotcommander/cclint/internal/scoring"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // SkillLinter implements ComponentLinter for skill files.
@@ -64,6 +64,7 @@ func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationErr
 			Message:  "Skill file is empty",
 			Severity: "error",
 			Source:   cue.SourceAnthropicDocs,
+			Abort:    true,
 		})
 	}
 
@@ -259,26 +260,67 @@ func (l *SkillLinter) GetImprovements(contents string, data map[string]any) []te
 	return textutil.GetSkillImprovements(contents, data)
 }
 
+// attachKind selects which LintResult slice (Errors vs Suggestions) an issue
+// is appended to, plus the side effects of the error path (mark Success=false
+// on attach, increment FailedFiles on create).
+type attachKind int
+
+const (
+	attachAsError attachKind = iota
+	attachAsSuggestion
+)
+
+// attachIssueToSummary finds an existing LintResult matching issue.File and
+// appends the issue to its Errors or Suggestions slice. If no match exists
+// and createIfMissing is true, a new LintResult entry is created. Returns
+// true if a new entry was created (the caller updates FailedFiles for the
+// error path).
+//
+// Order preservation: scans summary.Results in index order, breaks on first
+// match — identical semantics to the four prior hand-rolled loops.
+func attachIssueToSummary(summary *LintSummary, issue cue.ValidationError, kind attachKind, createIfMissing bool) (created bool) {
+	for i, result := range summary.Results {
+		if result.File != issue.File {
+			continue
+		}
+		if kind == attachAsError {
+			summary.Results[i].Errors = append(summary.Results[i].Errors, issue)
+			summary.Results[i].Success = false
+		} else {
+			summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, issue)
+		}
+		return false
+	}
+	if !createIfMissing {
+		return false
+	}
+	entry := LintResult{File: issue.File, Type: "skill"}
+	if kind == attachAsError {
+		entry.Success = false
+		entry.Errors = []cue.ValidationError{issue}
+	} else {
+		entry.Success = true // suggestions do not fail the build
+		entry.Suggestions = []cue.ValidationError{issue}
+	}
+	summary.Results = append(summary.Results, entry)
+	return true
+}
+
 // PostProcessBatch implements BatchPostProcessor for orphan detection and ghost triggers.
 func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
 	orphanedSkills := ctx.CrossValidator.FindOrphanedSkills()
 	for _, orphan := range orphanedSkills {
 		summary.TotalSuggestions++
-		// Add to individual file results for display
-		for i, result := range summary.Results {
-			if result.File == orphan.File {
-				summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, orphan)
-				break
-			}
-		}
+		// Orphans only attach to existing file results; no fallback entry.
+		attachIssueToSummary(summary, orphan, attachAsSuggestion, false)
 	}
 
-	// Ghost trigger detection: validate skill/agent refs in trigger map tables
+	// Ghost trigger detection: validate skill/agent refs in trigger map tables.
 	ghostTriggers := ctx.CrossValidator.ValidateTriggerMaps(ctx.RootPath)
 	for _, gt := range ghostTriggers {
 		summary.TotalErrors++
 		summary.FailedFiles++
-		// Reference files are not in normal results, so append a new result entry.
+		// Reference files are not in normal results, so always create a new entry.
 		summary.Results = append(summary.Results, LintResult{
 			File:    gt.File,
 			Type:    "skill",
@@ -287,7 +329,7 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 		})
 	}
 
-	// Trigger conflict detection: same keyword routing to different targets across files
+	// Trigger conflict detection: same keyword routing to different targets across files.
 	triggerConflicts := ctx.CrossValidator.DetectTriggerConflicts(ctx.RootPath)
 	for _, tc := range triggerConflicts {
 		summary.TotalSuggestions++
@@ -304,43 +346,12 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 	for _, issue := range skillRefIssues {
 		if issue.Severity == cue.SeverityError {
 			summary.TotalErrors++
-			// Attach phantom ref errors to the skill file result entry.
-			attached := false
-			for i, result := range summary.Results {
-				if result.File == issue.File {
-					summary.Results[i].Errors = append(summary.Results[i].Errors, issue)
-					summary.Results[i].Success = false
-					attached = true
-					break
-				}
-			}
-			if !attached {
+			if attachIssueToSummary(summary, issue, attachAsError, true) {
 				summary.FailedFiles++
-				summary.Results = append(summary.Results, LintResult{
-					File:    issue.File,
-					Type:    "skill",
-					Success: false,
-					Errors:  []cue.ValidationError{issue},
-				})
 			}
 		} else {
 			summary.TotalSuggestions++
-			attached := false
-			for i, result := range summary.Results {
-				if result.File == issue.File {
-					summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, issue)
-					attached = true
-					break
-				}
-			}
-			if !attached {
-				summary.Results = append(summary.Results, LintResult{
-					File:        issue.File,
-					Type:        "skill",
-					Success:     true,
-					Suggestions: []cue.ValidationError{issue},
-				})
-			}
+			attachIssueToSummary(summary, issue, attachAsSuggestion, true)
 		}
 	}
 }
@@ -349,8 +360,7 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 func validateSkillName(name, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	reservedWords := map[string]bool{"anthropic": true, "claude": true}
-	if reservedWords[strings.ToLower(name)] {
+	if reservedNames[strings.ToLower(name)] {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
