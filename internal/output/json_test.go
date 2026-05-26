@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/scoring"
 )
 
@@ -98,12 +98,13 @@ func TestJSONFormatter_Format(t *testing.T) {
 		{
 			name: "json with errors and warnings",
 			summary: &lint.LintSummary{
-				TotalFiles:      1,
-				SuccessfulFiles: 0,
-				FailedFiles:     1,
-				TotalErrors:     2,
-				TotalWarnings:   1,
-				StartTime:       time.Now(),
+				TotalFiles:       1,
+				SuccessfulFiles:  0,
+				FailedFiles:      1,
+				TotalErrors:      2,
+				TotalWarnings:    1,
+				TotalSuggestions: 1,
+				StartTime:        time.Now(),
 				Results: []lint.LintResult{
 					{
 						File:    "test.md",
@@ -134,6 +135,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 								Line:     20,
 							},
 						},
+						Suggestions: []cue.ValidationError{
+							{
+								File:     "test.md",
+								Message:  "consider adding examples",
+								Severity: "suggestion",
+								Line:     30,
+							},
+						},
 					},
 				},
 			},
@@ -150,8 +159,14 @@ func TestJSONFormatter_Format(t *testing.T) {
 				if report.Summary.TotalWarnings != 1 {
 					t.Errorf("TotalWarnings = %d, want 1", report.Summary.TotalWarnings)
 				}
+				if report.Summary.TotalSuggestions != 1 {
+					t.Errorf("TotalSuggestions = %d, want 1", report.Summary.TotalSuggestions)
+				}
 				if len(report.Results[0].Errors) != 2 {
 					t.Errorf("Errors length = %d, want 2", len(report.Results[0].Errors))
+				}
+				if len(report.Results[0].Suggestions) != 1 {
+					t.Errorf("Suggestions length = %d, want 1", len(report.Results[0].Suggestions))
 				}
 				if report.Results[0].Errors[0].Message != "missing name" {
 					t.Errorf("Error message = %q, want 'missing name'", report.Results[0].Errors[0].Message)
@@ -342,6 +357,7 @@ func TestJSONFormatter_Format(t *testing.T) {
 }
 
 func TestJSONFormatter_WriteToFile(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.json")
 
@@ -386,7 +402,7 @@ func TestJSONFormatter_WriteToFile(t *testing.T) {
 }
 
 func TestJSONFormatter_WriteToFileError(t *testing.T) {
-	// Try to write to invalid path
+	t.Parallel()
 	outputFile := "/invalid/path/that/does/not/exist/output.json"
 
 	summary := &lint.LintSummary{
@@ -437,6 +453,7 @@ func TestJSONFormatter_DurationFormat(t *testing.T) {
 }
 
 func TestNewJSONFormatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		quiet      bool
@@ -452,6 +469,7 @@ func TestNewJSONFormatter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := NewJSONFormatter(tt.quiet, tt.indent, tt.outputFile)
 
 			if formatter == nil {
@@ -470,14 +488,37 @@ func TestNewJSONFormatter(t *testing.T) {
 	}
 }
 
+func TestNewJSONFormatterWithVersion(t *testing.T) {
+	summary := &lint.LintSummary{
+		StartTime: time.Now(),
+		Results:   []lint.LintResult{},
+	}
+
+	output := captureStdout(t, func() {
+		formatter := NewJSONFormatterWithVersion(false, true, "", "v9.9.9-test")
+		if err := formatter.Format(summary); err != nil {
+			t.Fatalf("Format() error = %v", err)
+		}
+	})
+
+	var report JSONReport
+	if err := json.Unmarshal([]byte(output), &report); err != nil {
+		t.Fatalf("Failed to parse JSON: %v", err)
+	}
+	if report.Header.Version != "v9.9.9-test" {
+		t.Errorf("Header.Version = %q, want custom version", report.Header.Version)
+	}
+}
+
 func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
 	summary := &lint.LintSummary{
-		TotalFiles:      2,
-		SuccessfulFiles: 1,
-		FailedFiles:     1,
-		TotalErrors:     2,
-		TotalWarnings:   1,
-		StartTime:       time.Now(),
+		TotalFiles:       2,
+		SuccessfulFiles:  1,
+		FailedFiles:      1,
+		TotalErrors:      2,
+		TotalWarnings:    1,
+		TotalSuggestions: 1,
+		StartTime:        time.Now(),
 		Results: []lint.LintResult{
 			{
 				File:     "test1.md",
@@ -515,6 +556,14 @@ func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
 						Line:     20,
 					},
 				},
+				Suggestions: []cue.ValidationError{
+					{
+						File:     "test2.md",
+						Message:  "suggestion 1",
+						Severity: "suggestion",
+						Line:     25,
+					},
+				},
 				Quality: &scoring.QualityScore{
 					Overall:       55,
 					Tier:          "C",
@@ -543,8 +592,8 @@ func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
 	if report.Header.Tool != "cclint" {
 		t.Errorf("Header.Tool = %q, want 'cclint'", report.Header.Tool)
 	}
-	if report.Header.Version != "1.0.0" {
-		t.Errorf("Header.Version = %q, want '1.0.0'", report.Header.Version)
+	if report.Header.Version != "dev" {
+		t.Errorf("Header.Version = %q, want 'dev'", report.Header.Version)
 	}
 	if report.Header.Timestamp == "" {
 		t.Error("Header.Timestamp should not be empty")
@@ -566,6 +615,9 @@ func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
 	if report.Summary.TotalWarnings != 1 {
 		t.Errorf("Summary.TotalWarnings = %d, want 1", report.Summary.TotalWarnings)
 	}
+	if report.Summary.TotalSuggestions != 1 {
+		t.Errorf("Summary.TotalSuggestions = %d, want 1", report.Summary.TotalSuggestions)
+	}
 
 	// Verify results
 	if len(report.Results) != 2 {
@@ -583,6 +635,9 @@ func TestJSONFormatter_AllFieldsPopulated(t *testing.T) {
 	}
 	if report.Results[1].Errors[0].Column != 10 {
 		t.Errorf("Results[1].Errors[0].Column = %d, want 10", report.Results[1].Errors[0].Column)
+	}
+	if len(report.Results[1].Suggestions) != 1 {
+		t.Errorf("Results[1].Suggestions length = %d, want 1", len(report.Results[1].Suggestions))
 	}
 	if report.Results[1].Quality.Overall != 55 {
 		t.Errorf("Results[1].Quality.Overall = %d, want 55", report.Results[1].Quality.Overall)

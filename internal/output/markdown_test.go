@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 )
 
 func TestMarkdownFormatter_Format(t *testing.T) {
@@ -49,6 +49,7 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 				"| Failed | 0 |",
 				"| Errors | 0 |",
 				"| Warnings | 0 |",
+				"| Suggestions | 0 |",
 				"## Detailed Results",
 				"## Conclusion",
 				"✓ All files passed validation!",
@@ -135,6 +136,37 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 				"#### Warnings",
 				"- **test.md** - consider adding description (line 3)",
 				"- **test.md** - could improve formatting `[cclint]`",
+			},
+		},
+		{
+			name: "output with suggestions",
+			summary: &lint.LintSummary{
+				TotalFiles:       1,
+				SuccessfulFiles:  1,
+				FailedFiles:      0,
+				TotalSuggestions: 1,
+				StartTime:        time.Now(),
+				Results: []lint.LintResult{
+					{
+						File:    "test.md",
+						Type:    "skill",
+						Success: true,
+						Suggestions: []cue.ValidationError{
+							{
+								File:     "test.md",
+								Message:  "consider adding examples",
+								Severity: "suggestion",
+								Line:     12,
+							},
+						},
+					},
+				},
+			},
+			wantContains: []string{
+				"| Suggestions | 1 |",
+				"### test.md",
+				"#### Suggestions",
+				"- **test.md** - consider adding examples (line 12)",
 			},
 		},
 		{
@@ -327,6 +359,7 @@ func TestMarkdownFormatter_Format(t *testing.T) {
 }
 
 func TestMarkdownFormatter_WriteToFile(t *testing.T) {
+	t.Parallel()
 	tempDir := t.TempDir()
 	outputFile := filepath.Join(tempDir, "output.md")
 
@@ -370,7 +403,7 @@ func TestMarkdownFormatter_WriteToFile(t *testing.T) {
 }
 
 func TestMarkdownFormatter_WriteToFileError(t *testing.T) {
-	// Try to write to invalid path
+	t.Parallel()
 	outputFile := "/invalid/path/that/does/not/exist/output.md"
 
 	summary := &lint.LintSummary{
@@ -391,7 +424,9 @@ func TestMarkdownFormatter_WriteToFileError(t *testing.T) {
 }
 
 func TestMarkdownFormatter_HelperFunctions(t *testing.T) {
+	t.Parallel()
 	t.Run("getStatusEmoji", func(t *testing.T) {
+		t.Parallel()
 		tests := []struct {
 			success bool
 			want    string
@@ -409,6 +444,7 @@ func TestMarkdownFormatter_HelperFunctions(t *testing.T) {
 	})
 
 	t.Run("createAnchor", func(t *testing.T) {
+		t.Parallel()
 		tests := []struct {
 			input string
 			want  string
@@ -428,6 +464,7 @@ func TestMarkdownFormatter_HelperFunctions(t *testing.T) {
 	})
 
 	t.Run("formatSourceTag", func(t *testing.T) {
+		t.Parallel()
 		tests := []struct {
 			input string
 			want  string
@@ -566,6 +603,42 @@ func TestMarkdownFormatter_TableOfContents(t *testing.T) {
 			t.Error("TOC should include test2.md with proper anchor")
 		}
 	})
+
+	t.Run("non-verbose TOC skips hidden successful files", func(t *testing.T) {
+		summary := &lint.LintSummary{
+			TotalFiles:      2,
+			SuccessfulFiles: 1,
+			FailedFiles:     1,
+			StartTime:       time.Now(),
+			Results: []lint.LintResult{
+				{
+					File:    "./success.md",
+					Type:    "agent",
+					Success: true,
+				},
+				{
+					File:    "./failed.md",
+					Type:    "command",
+					Success: false,
+					Errors: []cue.ValidationError{
+						{File: "failed.md", Message: "error", Severity: "error", Line: 1},
+					},
+				},
+			},
+		}
+
+		output := captureStdout(t, func() {
+			formatter := NewMarkdownFormatter(false, false, "")
+			_ = formatter.Format(summary)
+		})
+
+		if strings.Contains(output, "- [success.md](#successmd)") {
+			t.Error("TOC should not include hidden successful files in non-verbose mode")
+		}
+		if !strings.Contains(output, "- [failed.md](#failedmd)") {
+			t.Error("TOC should include rendered failed files")
+		}
+	})
 }
 
 func TestMarkdownFormatter_SourceTags(t *testing.T) {
@@ -633,6 +706,7 @@ func TestMarkdownFormatter_SourceTags(t *testing.T) {
 }
 
 func TestNewMarkdownFormatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name       string
 		quiet      bool
@@ -648,6 +722,7 @@ func TestNewMarkdownFormatter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := NewMarkdownFormatter(tt.quiet, tt.verbose, tt.outputFile)
 
 			if formatter == nil {

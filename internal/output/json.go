@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 )
 
 // JSONFormatter formats output as JSON
@@ -15,14 +15,24 @@ type JSONFormatter struct {
 	quiet      bool
 	indent     bool
 	outputFile string
+	version    string
 }
 
 // NewJSONFormatter creates a new JSONFormatter
 func NewJSONFormatter(quiet bool, indent bool, outputFile string) *JSONFormatter {
+	return NewJSONFormatterWithVersion(quiet, indent, outputFile, "dev")
+}
+
+// NewJSONFormatterWithVersion creates a new JSONFormatter with report metadata.
+func NewJSONFormatterWithVersion(quiet bool, indent bool, outputFile, version string) *JSONFormatter {
+	if version == "" {
+		version = "dev"
+	}
 	return &JSONFormatter{
 		quiet:      quiet,
 		indent:     indent,
 		outputFile: outputFile,
+		version:    version,
 	}
 }
 
@@ -31,16 +41,17 @@ func (f *JSONFormatter) Format(summary *lint.LintSummary) error {
 	report := JSONReport{
 		Header: JSONHeader{
 			Tool:      "cclint",
-			Version:   "1.0.0",
+			Version:   f.version,
 			Timestamp: time.Now().Format(time.RFC3339),
 		},
 		Summary: JSONSummary{
-			TotalFiles:      summary.TotalFiles,
-			SuccessfulFiles: summary.SuccessfulFiles,
-			FailedFiles:     summary.FailedFiles,
-			TotalErrors:     summary.TotalErrors,
-			TotalWarnings:   summary.TotalWarnings,
-			Duration:        time.Since(summary.StartTime).Round(time.Millisecond).String(),
+			TotalFiles:       summary.TotalFiles,
+			SuccessfulFiles:  summary.SuccessfulFiles,
+			FailedFiles:      summary.FailedFiles,
+			TotalErrors:      summary.TotalErrors,
+			TotalWarnings:    summary.TotalWarnings,
+			TotalSuggestions: summary.TotalSuggestions,
+			Duration:         time.Since(summary.StartTime).Round(time.Millisecond).String(),
 		},
 		Results: convertResults(summary.Results),
 	}
@@ -60,12 +71,13 @@ func convertResults(results []lint.LintResult) []JSONResult {
 // convertResult maps a single lint result to its JSON representation.
 func convertResult(r lint.LintResult) JSONResult {
 	jr := JSONResult{
-		File:     r.File,
-		Type:     r.Type,
-		Success:  r.Success,
-		Duration: r.Duration,
-		Errors:   convertValidationErrors(r.Errors),
-		Warnings: convertValidationErrors(r.Warnings),
+		File:        r.File,
+		Type:        r.Type,
+		Success:     r.Success,
+		Duration:    r.Duration,
+		Errors:      convertValidationErrors(r.Errors),
+		Warnings:    convertValidationErrors(r.Warnings),
+		Suggestions: convertValidationErrors(r.Suggestions),
 	}
 	if r.Quality != nil {
 		jr.Quality = &JSONQualityScore{
@@ -140,23 +152,25 @@ type JSONHeader struct {
 
 // JSONSummary contains summary statistics
 type JSONSummary struct {
-	TotalFiles      int    `json:"total_files"`
-	SuccessfulFiles int    `json:"successful_files"`
-	FailedFiles     int    `json:"failed_files"`
-	TotalErrors     int    `json:"total_errors"`
-	TotalWarnings   int    `json:"total_warnings"`
-	Duration        string `json:"duration"`
+	TotalFiles       int    `json:"total_files"`
+	SuccessfulFiles  int    `json:"successful_files"`
+	FailedFiles      int    `json:"failed_files"`
+	TotalErrors      int    `json:"total_errors"`
+	TotalWarnings    int    `json:"total_warnings"`
+	TotalSuggestions int    `json:"total_suggestions"`
+	Duration         string `json:"duration"`
 }
 
 // JSONResult represents a single file's linting result
 type JSONResult struct {
-	File     string                `json:"file"`
-	Type     string                `json:"type"`
-	Success  bool                  `json:"success"`
-	Duration int64                 `json:"duration_ms,omitempty"`
-	Errors   []JSONValidationError `json:"errors,omitempty"`
-	Warnings []JSONValidationError `json:"warnings,omitempty"`
-	Quality  *JSONQualityScore     `json:"quality,omitempty"`
+	File        string                `json:"file"`
+	Type        string                `json:"type"`
+	Success     bool                  `json:"success"`
+	Duration    int64                 `json:"duration_ms,omitempty"`
+	Errors      []JSONValidationError `json:"errors,omitempty"`
+	Warnings    []JSONValidationError `json:"warnings,omitempty"`
+	Suggestions []JSONValidationError `json:"suggestions,omitempty"`
+	Quality     *JSONQualityScore     `json:"quality,omitempty"`
 }
 
 // JSONQualityScore represents the quality score for a component

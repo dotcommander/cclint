@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 )
 
 // MarkdownFormatter formats output as Markdown
@@ -55,6 +55,7 @@ func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary 
 	builder.WriteString(fmt.Sprintf("| Failed | %d |\n", summary.FailedFiles))
 	builder.WriteString(fmt.Sprintf("| Errors | %d |\n", summary.TotalErrors))
 	builder.WriteString(fmt.Sprintf("| Warnings | %d |\n", summary.TotalWarnings))
+	builder.WriteString(fmt.Sprintf("| Suggestions | %d |\n", summary.TotalSuggestions))
 	builder.WriteString("\n")
 }
 
@@ -76,6 +77,9 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 	}
 	builder.WriteString("### Files\n\n")
 	for _, result := range summary.Results {
+		if !f.shouldRenderResult(result) {
+			continue
+		}
 		fileName := strings.TrimPrefix(result.File, "./")
 		builder.WriteString(fmt.Sprintf("- [%s](#%s)\n", fileName, createAnchor(fileName)))
 	}
@@ -84,7 +88,7 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 
 func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *lint.LintSummary) {
 	for _, result := range summary.Results {
-		if !f.verbose && result.Success {
+		if !f.shouldRenderResult(result) {
 			continue
 		}
 
@@ -95,11 +99,19 @@ func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *
 
 		f.writeIssues(builder, result.Errors, "Errors")
 		f.writeIssues(builder, result.Warnings, "Warnings")
+		f.writeIssues(builder, result.Suggestions, "Suggestions")
 
 		if !f.verbose {
 			builder.WriteString("---\n\n")
 		}
 	}
+}
+
+func (f *MarkdownFormatter) shouldRenderResult(result lint.LintResult) bool {
+	if f.verbose {
+		return true
+	}
+	return !result.Success || len(result.Errors) > 0 || len(result.Warnings) > 0 || len(result.Suggestions) > 0
 }
 
 func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.ValidationError, title string) {

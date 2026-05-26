@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/config"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/output"
 )
 
@@ -48,7 +48,7 @@ func (f *DefaultFormatterFactory) CreateFormatter(format string) (Formatter, err
 	case "console":
 		return output.NewConsoleFormatter(f.cfg.Quiet, f.cfg.Verbose, f.cfg.ShowScores, f.cfg.ShowImprovements), nil
 	case "json":
-		return output.NewJSONFormatter(f.cfg.Quiet, true, f.cfg.Output), nil
+		return output.NewJSONFormatterWithVersion(f.cfg.Quiet, true, f.cfg.Output, f.cfg.Version), nil
 	case "markdown":
 		return output.NewMarkdownFormatter(f.cfg.Quiet, f.cfg.Verbose, f.cfg.Output), nil
 	default:
