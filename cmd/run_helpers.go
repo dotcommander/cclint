@@ -20,6 +20,8 @@ func loadCLIConfig() (*config.Config, error) {
 }
 
 func applyCLIOverrides(cfg *config.Config) {
+	cfg.Version = Version
+
 	if rootPath != "" {
 		cfg.Root = rootPath
 	}

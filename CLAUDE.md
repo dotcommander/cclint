@@ -211,7 +211,7 @@ Component hooks (agents/skills) only: `PreToolUse`, `PostToolUse`, `Stop`
 
 ### CUE #KnownTool Union (shared across agent/command/skill schemas)
 
-`Read`, `Write`, `Edit`, `MultiEdit`, `Bash`, `Grep`, `Glob`, `LS`, `Task`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `BashOutput`, `KillBash`, `ExitPlanMode`, `AskUserQuestion`, `EnterWorktree`, `ExitWorktree`, `LSP`, `Skill`, `DBClient`, `SendMessage`, `Monitor`, `RemoteTrigger`, `CronCreate`, `CronDelete`, `CronList`
+`Read`, `Write`, `Edit`, `MultiEdit`, `Bash`, `Grep`, `Glob`, `LS`, `Task`, `NotebookEdit`, `WebFetch`, `WebSearch`, `TodoWrite`, `BashOutput`, `KillBash`, `ExitPlanMode`, `AskUserQuestion`, `Agent`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `TaskStop`, `EnterPlanMode`, `EnterWorktree`, `ExitWorktree`, `KillShell`, `TaskOutput`, `LSP`, `Skill`, `DBClient`, `SendMessage`, `Monitor`, `RemoteTrigger`, `CronCreate`, `CronDelete`, `CronList`
 
 Note: CUE `#KnownTool` and Go `KnownTools` map are maintained separately and may diverge.
 

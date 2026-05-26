@@ -12,6 +12,7 @@ import (
 // Config represents the cclint configuration
 type Config struct {
 	Root             string       `mapstructure:"root"`
+	Version          string       `mapstructure:"-"`
 	Exclude          []string     `mapstructure:"exclude"`
 	FollowSymlinks   bool         `mapstructure:"followSymlinks"`
 	Format           string       `mapstructure:"format"`
