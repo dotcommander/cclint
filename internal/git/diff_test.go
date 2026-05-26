@@ -9,6 +9,7 @@ import (
 )
 
 func TestIsRelevantFile(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		path     string
@@ -43,6 +44,7 @@ func TestIsRelevantFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isRelevantFile(tt.path)
 			if result != tt.expected {
 				t.Errorf("isRelevantFile(%q) = %v, want %v", tt.path, result, tt.expected)
@@ -52,6 +54,7 @@ func TestIsRelevantFile(t *testing.T) {
 }
 
 func TestFilterRelevantFiles(t *testing.T) {
+	t.Parallel()
 	// Create temp directory
 	tmpDir := t.TempDir()
 
@@ -118,6 +121,7 @@ main.go`
 }
 
 func TestIsGitRepo(t *testing.T) {
+	t.Parallel()
 	// Test with current directory (should be a git repo)
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -150,6 +154,7 @@ func TestIsGitRepo(t *testing.T) {
 }
 
 func TestGetStagedFiles(t *testing.T) {
+	t.Parallel()
 	// Skip if not in git repo
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -177,6 +182,7 @@ func TestGetStagedFiles(t *testing.T) {
 }
 
 func TestGetChangedFiles(t *testing.T) {
+	t.Parallel()
 	// Skip if not in git repo
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -203,6 +209,7 @@ func TestGetChangedFiles(t *testing.T) {
 }
 
 func TestGitIntegration(t *testing.T) {
+	t.Parallel()
 	// Create a temporary git repository for testing
 	tmpDir := t.TempDir()
 
@@ -215,8 +222,12 @@ func TestGitIntegration(t *testing.T) {
 	}
 
 	// Configure git user (required for commits)
-	_ = exec.Command("git", "config", "user.email", "test@test.com").Run()
-	_ = exec.Command("git", "config", "user.name", "Test User").Run()
+	configCmd := exec.Command("git", "config", "user.email", "test@test.com")
+	configCmd.Dir = tmpDir
+	_ = configCmd.Run()
+	configCmd = exec.Command("git", "config", "user.name", "Test User")
+	configCmd.Dir = tmpDir
+	_ = configCmd.Run()
 
 	// Create test files
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.md")
@@ -256,7 +267,7 @@ func TestGitIntegration(t *testing.T) {
 }
 
 func TestGetStagedFiles_NonGitRepo(t *testing.T) {
-	// Test with non-git directory
+	t.Parallel()
 	tmpDir := t.TempDir()
 	files, err := GetStagedFiles(tmpDir)
 	if err != nil {
@@ -268,7 +279,7 @@ func TestGetStagedFiles_NonGitRepo(t *testing.T) {
 }
 
 func TestGetChangedFiles_NonGitRepo(t *testing.T) {
-	// Test with non-git directory
+	t.Parallel()
 	tmpDir := t.TempDir()
 	files, err := GetChangedFiles(tmpDir)
 	if err != nil {
@@ -280,6 +291,7 @@ func TestGetChangedFiles_NonGitRepo(t *testing.T) {
 }
 
 func TestGetChangedFiles_NoCommits(t *testing.T) {
+	t.Parallel()
 	// Create a temporary git repository with no commits
 	tmpDir := t.TempDir()
 
@@ -320,9 +332,16 @@ func TestGetChangedFiles_NoCommits(t *testing.T) {
 	if err := os.WriteFile(readmePath, []byte("# README"), 0644); err != nil {
 		t.Fatalf("failed to create README: %v", err)
 	}
+	untrackedSkillPath := filepath.Join(tmpDir, "skills", "loose-skill", "SKILL.md")
+	if err := os.MkdirAll(filepath.Dir(untrackedSkillPath), 0755); err != nil {
+		t.Fatalf("failed to create skill directory: %v", err)
+	}
+	if err := os.WriteFile(untrackedSkillPath, []byte("# Untracked Skill"), 0644); err != nil {
+		t.Fatalf("failed to create untracked skill: %v", err)
+	}
 
 	// Add files to git (but don't commit)
-	addCmd := exec.Command("git", "add", ".")
+	addCmd := exec.Command("git", "add", "agents", "commands", "README.md")
 	addCmd.Dir = tmpDir
 	if err := addCmd.Run(); err != nil {
 		t.Fatalf("git add failed: %v", err)
@@ -334,20 +353,24 @@ func TestGetChangedFiles_NoCommits(t *testing.T) {
 		t.Fatalf("GetChangedFiles failed: %v", err)
 	}
 
-	// Should return tracked files, filtered to relevant ones (agent and command, not README)
-	if len(files) != 2 {
-		t.Errorf("expected 2 files, got %d", len(files))
+	// Should return tracked and untracked relevant files, not README.
+	if len(files) != 3 {
+		t.Errorf("expected 3 files, got %d", len(files))
 	}
 
 	// Verify returned files are relevant
 	foundAgent := false
 	foundCmd := false
+	foundSkill := false
 	for _, file := range files {
 		if strings.Contains(file, "test-agent.md") {
 			foundAgent = true
 		}
 		if strings.Contains(file, "test-cmd.md") {
 			foundCmd = true
+		}
+		if strings.Contains(file, "loose-skill") {
+			foundSkill = true
 		}
 		if strings.Contains(file, "README.md") {
 			t.Errorf("README.md should be filtered out, but was included")
@@ -360,9 +383,13 @@ func TestGetChangedFiles_NoCommits(t *testing.T) {
 	if !foundCmd {
 		t.Error("expected test-cmd.md in changed files")
 	}
+	if !foundSkill {
+		t.Error("expected untracked SKILL.md in changed files")
+	}
 }
 
 func TestGetChangedFiles_WithCommits(t *testing.T) {
+	t.Parallel()
 	// Create a temporary git repository with commits
 	tmpDir := t.TempDir()
 
@@ -400,7 +427,7 @@ func TestGetChangedFiles_WithCommits(t *testing.T) {
 		t.Fatalf("git commit failed: %v", err)
 	}
 
-	// Create new files (not committed)
+	// Create new staged files.
 	agentPath := filepath.Join(tmpDir, "agents", "test-agent.md")
 	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
 		t.Fatalf("failed to create directory: %v", err)
@@ -421,23 +448,59 @@ func TestGetChangedFiles_WithCommits(t *testing.T) {
 		t.Fatalf("git add failed: %v", err)
 	}
 
+	// Create an untracked component file. --diff promises all uncommitted
+	// changes, so this must be included even though git diff HEAD omits it.
+	untrackedPath := filepath.Join(tmpDir, "commands", "untracked-cmd.md")
+	if err := os.MkdirAll(filepath.Dir(untrackedPath), 0755); err != nil {
+		t.Fatalf("failed to create command directory: %v", err)
+	}
+	if err := os.WriteFile(untrackedPath, []byte("# Untracked Command"), 0644); err != nil {
+		t.Fatalf("failed to create untracked command: %v", err)
+	}
+
 	// Get changed files (should use git diff HEAD)
 	files, err := GetChangedFiles(tmpDir)
 	if err != nil {
 		t.Fatalf("GetChangedFiles failed: %v", err)
 	}
 
-	// Should only include agent file, not README
-	if len(files) != 1 {
-		t.Errorf("expected 1 file, got %d", len(files))
+	// Should include staged and untracked component files, not README.
+	if len(files) != 2 {
+		t.Errorf("expected 2 files, got %d", len(files))
 	}
 
-	if len(files) > 0 && !strings.Contains(files[0], "test-agent.md") {
-		t.Errorf("expected test-agent.md in changed files, got %s", files[0])
+	foundAgent := false
+	foundUntrackedCommand := false
+	for _, file := range files {
+		if strings.Contains(file, "test-agent.md") {
+			foundAgent = true
+		}
+		if strings.Contains(file, "untracked-cmd.md") {
+			foundUntrackedCommand = true
+		}
+		if strings.Contains(file, "README.md") {
+			t.Errorf("README.md should be filtered out, but was included")
+		}
+	}
+	if !foundAgent {
+		t.Error("expected test-agent.md in changed files")
+	}
+	if !foundUntrackedCommand {
+		t.Error("expected untracked-cmd.md in changed files")
+	}
+}
+
+func TestCombineGitOutputs(t *testing.T) {
+	t.Parallel()
+	got := combineGitOutputs("agents/a.md\ncommands/b.md\n", "commands/b.md\nskills/c/SKILL.md\n")
+	want := "agents/a.md\ncommands/b.md\nskills/c/SKILL.md"
+	if got != want {
+		t.Fatalf("combineGitOutputs() = %q, want %q", got, want)
 	}
 }
 
 func TestIsRelevantFile_EdgeCases(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		path     string
@@ -468,6 +531,7 @@ func TestIsRelevantFile_EdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := isRelevantFile(tt.path)
 			if result != tt.expected {
 				t.Errorf("isRelevantFile(%q) = %v, want %v", tt.path, result, tt.expected)
@@ -477,6 +541,7 @@ func TestIsRelevantFile_EdgeCases(t *testing.T) {
 }
 
 func TestFilterRelevantFiles_EmptyInput(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Test with empty git output
@@ -491,6 +556,7 @@ func TestFilterRelevantFiles_EmptyInput(t *testing.T) {
 }
 
 func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Git output includes a deleted file
@@ -522,6 +588,7 @@ func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
 }
 
 func TestFilterRelevantFiles_WhitespaceHandling(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create test file
