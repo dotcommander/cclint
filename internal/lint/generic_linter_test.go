@@ -444,3 +444,62 @@ func TestValidateAllowedToolsShared(t *testing.T) {
 	// Verify function exists and returns without panic
 	_ = errors
 }
+
+// TestRunPreValidationAbortFlag verifies the abort short-circuit is driven by
+// the typed Abort flag, not by message-text matching. Rewording the message
+// must not break the abort path.
+func TestRunPreValidationAbortFlag(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		preErrs   []cue.ValidationError
+		wantAbort bool
+	}{
+		{
+			name: "abort fires on typed flag with reworded message",
+			preErrs: []cue.ValidationError{{
+				File:     "x.md",
+				Message:  "totally different prose that does not mention emptiness",
+				Severity: cue.SeverityError,
+				Abort:    true,
+			}},
+			wantAbort: true,
+		},
+		{
+			name: "no abort when flag absent even if legacy phrase present",
+			preErrs: []cue.ValidationError{{
+				File:     "x.md",
+				Message:  "Skill file is empty",
+				Severity: cue.SeverityError,
+				Abort:    false,
+			}},
+			wantAbort: false,
+		},
+		{
+			name: "no abort when severity is warning even with flag",
+			preErrs: []cue.ValidationError{{
+				File:     "x.md",
+				Message:  "anything",
+				Severity: cue.SeverityWarning,
+				Abort:    true,
+			}},
+			wantAbort: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			linter := &mockLinter{
+				typeStr:      "test",
+				fileType:     discovery.FileTypeAgent,
+				preValidErrs: tt.preErrs,
+			}
+			result := &LintResult{}
+			got := runPreValidation(result, "x.md", "", linter)
+			if got != tt.wantAbort {
+				t.Errorf("runPreValidation abort = %v, want %v", got, tt.wantAbort)
+			}
+		})
+	}
+}
