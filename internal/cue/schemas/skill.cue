@@ -23,7 +23,9 @@ import "strings"
 	"TaskGet" | "TaskStop" | "EnterPlanMode" |
 	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
 	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
-	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList" |
+	"Workflow" |                                                      // (v2.1.154+)
+	"ScheduleWakeup" | "PushNotification" | "REPL"                   // (v2.1.156+)
 
 // ============================================================================
 // Skill Hook Definitions
@@ -69,6 +71,7 @@ import "strings"
 	"disable-model-invocation"?: bool                         // prevent Claude from auto-loading this skill
 	"user-invocable"?: bool                                   // show in slash command menu (default true)
 	"allowed-tools"?: "*" | string | [...#KnownTool]          // skills use 'allowed-tools:', NOT 'tools:'
+	"disallowed-tools"?: "*" | string | [...#KnownTool]       // remove tools from model while skill is active (v2.1.152+)
 	model?: #Model                                            // model to use when skill is active
 	effort?: string                                           // reasoning effort level (v2.1.80+)
 	context?: "fork"                                          // run skill in forked sub-agent context

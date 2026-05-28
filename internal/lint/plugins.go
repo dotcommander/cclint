@@ -23,26 +23,27 @@ func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool, e
 
 // knownPluginFields lists valid plugin.json fields per Anthropic docs
 var knownPluginFields = map[string]bool{
-	"$schema":      true, // Optional: JSON Schema reference (v2.1.120+)
-	"name":         true, // Required: plugin name
-	"description":  true, // Required: plugin description
-	"version":      true, // Recommended: semver version
-	"author":       true, // Required: author object with name
-	"homepage":     true, // Optional: project URL
-	"repository":   true, // Optional: source code URL
-	"license":      true, // Optional: SPDX license identifier
-	"keywords":     true, // Optional: discoverability tags
-	"readme":       true, // Optional: path to README
-	"commands":     true, // Optional: command definitions
-	"agents":       true, // Optional: agent definitions
-	"skills":       true, // Optional: skill definitions
-	"hooks":        true, // Optional: hook configurations
-	"mcpServers":   true, // Optional: MCP server configurations
-	"outputStyles": true, // Optional: output style configurations
-	"lspServers":   true, // Optional: LSP server configurations
-	"monitors":     true, // Optional: background monitor configurations (deprecated top-level v2.1.129+ - prefer experimental.monitors)
-	"themes":       true, // Optional: color theme components (deprecated top-level v2.1.129+ - prefer experimental.themes)
-	"experimental": true, // Optional: wrapper for experimental components (themes, monitors) (v2.1.129+)
+	"$schema":        true, // Optional: JSON Schema reference (v2.1.120+)
+	"name":           true, // Required: plugin name
+	"description":    true, // Required: plugin description
+	"version":        true, // Recommended: semver version
+	"author":         true, // Required: author object with name
+	"homepage":       true, // Optional: project URL
+	"repository":     true, // Optional: source code URL
+	"license":        true, // Optional: SPDX license identifier
+	"keywords":       true, // Optional: discoverability tags
+	"readme":         true, // Optional: path to README
+	"commands":       true, // Optional: command definitions
+	"agents":         true, // Optional: agent definitions
+	"skills":         true, // Optional: skill definitions
+	"hooks":          true, // Optional: hook configurations
+	"mcpServers":     true, // Optional: MCP server configurations
+	"outputStyles":   true, // Optional: output style configurations
+	"lspServers":     true, // Optional: LSP server configurations
+	"monitors":       true, // Optional: background monitor configurations (deprecated top-level v2.1.129+ - prefer experimental.monitors)
+	"themes":         true, // Optional: color theme components (deprecated top-level v2.1.129+ - prefer experimental.themes)
+	"experimental":   true, // Optional: wrapper for experimental components (themes, monitors) (v2.1.129+)
+	"defaultEnabled": true, // Optional: set false to disable plugin by default (v2.1.154+)
 }
 
 // pluginPathFields lists plugin fields that contain file paths

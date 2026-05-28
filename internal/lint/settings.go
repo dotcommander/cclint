@@ -24,6 +24,7 @@ var validHookEvents = map[string]bool{
 	"PostToolUse":        true,
 	"PostToolUseFailure": true,
 	"Notification":       true,
+	"MessageDisplay":     true, // transforms/hides assistant message text (v2.1.152+)
 	"UserPromptSubmit":   true,
 	"Stop":               true,
 	"SubagentStart":      true,

@@ -408,6 +408,34 @@ func TestValidateAllowedToolsUnknownTool(t *testing.T) {
 			},
 			wantWarnings: 0,
 		},
+		{
+			name: "v2.1.154 Workflow tool valid",
+			data: map[string]any{
+				"allowed-tools": "Workflow",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "v2.1.156 ScheduleWakeup tool valid",
+			data: map[string]any{
+				"allowed-tools": "ScheduleWakeup",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "v2.1.156 PushNotification tool valid",
+			data: map[string]any{
+				"allowed-tools": "PushNotification",
+			},
+			wantWarnings: 0,
+		},
+		{
+			name: "v2.1.156 REPL tool valid",
+			data: map[string]any{
+				"allowed-tools": "REPL",
+			},
+			wantWarnings: 0,
+		},
 	}
 
 	for _, tt := range tests {

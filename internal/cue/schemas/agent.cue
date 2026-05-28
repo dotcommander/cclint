@@ -28,7 +28,9 @@ import (
 	"TaskGet" | "TaskStop" | "EnterPlanMode" |
 	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
 	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
-	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList" |
+	"Workflow" |                                                      // (v2.1.154+)
+	"ScheduleWakeup" | "PushNotification" | "REPL"                   // (v2.1.156+)
 
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"

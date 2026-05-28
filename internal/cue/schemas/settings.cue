@@ -71,7 +71,7 @@ package schemas
 // Marketplace source configuration (v2.1.45+)
 #MarketplaceSource: {
 	source: "github" | "git" | "git-subdir" | "url" | "npm" | "file" | "directory" | "hostPattern" | "settings"
-	// Type-specific fields (repo, url, path, package, hostPattern, ref, headers)
+	// Type-specific fields (repo, url, path, package, hostPattern, ref, headers, skipLfs)
 	...
 }
 
@@ -251,6 +251,19 @@ package schemas
 	// PR URL template (v2.1.119+)
 	// Override github.com with a custom code-review URL for the footer PR badge
 	prUrlTemplate?: string
+
+	// Allow all claude.ai MCP connectors (v2.1.149+)
+	// Enterprise managed setting that loads claude.ai cloud MCP connectors alongside managed-mcp.json
+	allowAllClaudeAiMcps?: bool
+
+	// Plugin suggestion marketplace allowlist (v2.1.152+)
+	// Managed setting allowlisting org marketplaces whose plugins may be suggested via context-aware tips
+	pluginSuggestionMarketplaces?: [...#MarketplaceSource]
+
+	// Managed-settings MCP server allow/deny policies (referenced through v2.1.154)
+	// Entry shape inferred as server name/pattern strings (single invalid entry mentioned in changelog)
+	allowedMcpServers?: [...string]
+	deniedMcpServers?: [...string]
 
 	// TUI rendering mode (v2.1.110+)
 	// Controls rendering mode for the CLI; "/tui fullscreen" switches to flicker-free fullscreen rendering.

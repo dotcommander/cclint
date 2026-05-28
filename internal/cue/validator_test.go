@@ -645,6 +645,33 @@ func TestValidateSkill(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid disallowed-tools as array (v2.1.152)",
+			data: map[string]any{
+				"name":             "test-skill",
+				"description":      "Skill with disallowed tools",
+				"disallowed-tools": []string{"Bash"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid disallowed-tools as string (v2.1.152)",
+			data: map[string]any{
+				"name":             "test-skill",
+				"description":      "Skill with disallowed tools string",
+				"disallowed-tools": "Bash,Write",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid allowed-tools with Workflow (v2.1.154)",
+			data: map[string]any{
+				"name":          "test-skill",
+				"description":   "Skill with Workflow tool",
+				"allowed-tools": []string{"Workflow"},
+			},
+			wantError: false,
+		},
+		{
 			name: "description at max length",
 			data: map[string]any{
 				"name":        "test-skill",

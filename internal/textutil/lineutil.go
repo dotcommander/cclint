@@ -342,9 +342,10 @@ var KnownTools = map[string]bool{
 	"EnterPlanMode": true, "ExitPlanMode": true,
 	"EnterWorktree": true, "ExitWorktree": true,
 	"KillShell": true, "TaskOutput": true, "SendMessage": true, "Monitor": true,
-	"RemoteTrigger": true,
-	// Scheduling
+	"RemoteTrigger": true, "Workflow": true,
+	// Scheduling / background
 	"CronCreate": true, "CronDelete": true, "CronList": true,
+	"ScheduleWakeup": true, "PushNotification": true, "REPL": true,
 	// Wildcards
 	"*": true,
 }

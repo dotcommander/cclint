@@ -27,6 +27,7 @@ func TestValidateHooksValidEvents(t *testing.T) {
 		hooks          map[string]any
 		wantErrorCount int
 	}{
+		{"valid MessageDisplay hook", hook("MessageDisplay", cmd("echo display")), 0},
 		{"valid StopFailure hook", hook("StopFailure", cmd("echo stop failed")), 0},
 		{"valid SubagentStart hook", hook("SubagentStart", cmd("echo subagent started")), 0},
 		{"valid PostToolUseFailure hook", hook("PostToolUseFailure", cmd("echo tool failed")), 0},

@@ -256,8 +256,8 @@ func TestValidatePluginSpecific(t *testing.T) {
 			wantMinErrors: 0,
 		},
 		{
-			name:   "themes field recognized (v2.1.129)",
-			data:   map[string]any{
+			name: "themes field recognized (v2.1.129)",
+			data: map[string]any{
 				"name":        "test-plugin",
 				"description": "A comprehensive test plugin for validation purposes with detailed description",
 				"version":     "1.0.0",
@@ -273,8 +273,8 @@ func TestValidatePluginSpecific(t *testing.T) {
 			wantMinErrors: 0,
 		},
 		{
-			name:   "experimental wrapper recognized (v2.1.129)",
-			data:   map[string]any{
+			name: "experimental wrapper recognized (v2.1.129)",
+			data: map[string]any{
 				"name":         "test-plugin",
 				"description":  "A comprehensive test plugin for validation purposes with detailed description",
 				"version":      "1.0.0",
@@ -287,6 +287,23 @@ func TestValidatePluginSpecific(t *testing.T) {
 			},
 			filePath:      "plugin.json",
 			contents:      `{"name":"test-plugin","experimental":{"themes":"./themes/","monitors":"./monitors.json"}}`,
+			wantMinErrors: 0,
+		},
+		{
+			name: "defaultEnabled field recognized (v2.1.154)",
+			data: map[string]any{
+				"name":           "test-plugin",
+				"description":    "A comprehensive test plugin for validation purposes with detailed description",
+				"version":        "1.0.0",
+				"author":         map[string]any{"name": "Test Author"},
+				"homepage":       "https://example.com",
+				"repository":     "https://github.com/test/test",
+				"license":        "MIT",
+				"keywords":       []any{"test"},
+				"defaultEnabled": false,
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","defaultEnabled":false}`,
 			wantMinErrors: 0,
 		},
 	}
@@ -608,6 +625,7 @@ func TestKnownPluginFields(t *testing.T) {
 		"name", "description", "version", "author", "homepage", "repository",
 		"license", "keywords", "readme", "commands", "agents", "skills",
 		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors", "themes", "experimental",
+		"defaultEnabled",
 	}
 	for _, field := range expected {
 		if !knownPluginFields[field] {

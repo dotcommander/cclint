@@ -19,7 +19,9 @@ import "strings"
 	"TaskGet" | "TaskStop" | "EnterPlanMode" |
 	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
 	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
-	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList"
+	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList" |
+	"Workflow" |                                                      // (v2.1.154+)
+	"ScheduleWakeup" | "PushNotification" | "REPL"                   // (v2.1.156+)
 
 // ============================================================================
 // Command Hook Definitions
@@ -58,6 +60,7 @@ import "strings"
 	name?: string & =~("^[a-z0-9-]+$") & strings.MaxRunes(64)  // lowercase, numbers, hyphens only, max 64 chars
 	description?: string & strings.MaxRunes(1024)              // command description, max 1024 chars
 	"allowed-tools"?: "*" | string | [...#KnownTool]           // commands use 'allowed-tools:', NOT 'tools:'
+	"disallowed-tools"?: "*" | string | [...#KnownTool]        // remove tools from model while command is active (v2.1.152+)
 	"argument-hint"?: string                                   // argument hint for help
 	model?: #Model
 	effort?: string                                            // reasoning effort level (v2.1.80+)
