@@ -61,7 +61,8 @@ Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit,
 WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode,
 AskUserQuestion, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, TaskStop,
 EnterPlanMode, EnterWorktree, ExitWorktree, KillShell, TaskOutput, LSP, Skill,
-DBClient, SendMessage, Monitor, RemoteTrigger, CronCreate, CronDelete, CronList
+DBClient, SendMessage, Monitor, RemoteTrigger, CronCreate, CronDelete, CronList,
+Workflow, ScheduleWakeup, PushNotification, REPL
 ```
 
 ### Hooks Format
@@ -135,6 +136,7 @@ hooks:
 | `argument-hint` | string | - | Argument hint text for help |
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit` | Model preference |
 | `disable-model-invocation` | bool | - | Prevent SlashCommand tool from calling |
+| `disallowed-tools` | `*`, string, array | Tool names | Tools removed from model while command is active (v2.1.152+) |
 | `hooks` | object | Event → hooks mapping | Command-level hooks |
 
 ### Hooks Format
@@ -188,6 +190,7 @@ hooks:
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit`, or full model name | Model preference |
 | `context` | string | `fork` | Run in forked sub-agent context |
 | `agent` | string | Agent name | Agent type for execution |
+| `disallowed-tools` | `*`, string, array | Tool names | Tools removed from model while skill is active (v2.1.152+) |
 | `hooks` | object | Event → hooks mapping | Skill-level hooks (PreToolUse, PostToolUse, Stop) |
 
 ### Optional AgentSkills.io Fields
@@ -256,6 +259,10 @@ hooks:
 | `allowManagedReadPathsOnly` | bool | When set, `sandbox.allowedReadPaths` from non-managed sources are ignored - v2.1.126+ |
 | `wslInheritsWindowsSettings` | bool | WSL on Windows inherits Windows-side managed settings (policy key) - v2.1.118+ |
 | `prUrlTemplate` | string | Custom code-review URL for the footer PR badge instead of github.com - v2.1.119+ |
+| `allowAllClaudeAiMcps` | bool | Enterprise managed setting loading claude.ai cloud MCP connectors alongside managed-mcp.json - v2.1.149+ |
+| `pluginSuggestionMarketplaces` | `[...#MarketplaceSource]` | Managed setting allowlisting org marketplaces whose plugins may be suggested via context-aware tips - v2.1.152+ |
+| `allowedMcpServers` | `[...string]` | Managed-settings MCP server allowlist (entry shape inferred) |
+| `deniedMcpServers` | `[...string]` | Managed-settings MCP server denylist (entry shape inferred) |
 
 ### Hooks Format
 
@@ -282,7 +289,7 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
 }
 ```
 
-**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`
+**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`, `MessageDisplay`
 
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
