@@ -17,20 +17,12 @@ var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan
 
 // validateUnknownFields checks for unsupported frontmatter fields.
 func validateUnknownFields(data map[string]any, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-	validList := sortedMapKeys(knownAgentFields)
-	for key := range data {
-		if !knownAgentFields[key] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: %s", key, validList),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     textutil.FindFrontmatterFieldLine(contents, key),
-			})
-		}
-	}
-	return errors
+	return checkUnknownFields(data, filePath, contents, unknownFieldCheck{
+		known:    knownAgentFields,
+		label:    "frontmatter field",
+		suffix:   ". Valid fields: " + sortedMapKeys(knownAgentFields),
+		findLine: textutil.FindFrontmatterFieldLine,
+	})
 }
 
 // validateRequiredFields validates name and description requirements.

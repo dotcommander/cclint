@@ -124,19 +124,12 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 
 // checkUnknownSkillFields checks for unknown frontmatter fields in skill files.
 func checkUnknownSkillFields(data map[string]any, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-	for key := range data {
-		if !knownSkillFields[key] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. See https://agentskills.io/specification for valid fields", key),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     textutil.FindFrontmatterFieldLine(contents, key),
-			})
-		}
-	}
-	return errors
+	return checkUnknownFields(data, filePath, contents, unknownFieldCheck{
+		known:    knownSkillFields,
+		label:    "frontmatter field",
+		suffix:   ". See https://agentskills.io/specification for valid fields",
+		findLine: textutil.FindFrontmatterFieldLine,
+	})
 }
 
 // validateSkillContextField validates the context field in skill frontmatter.

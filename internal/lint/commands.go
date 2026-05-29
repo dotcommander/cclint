@@ -42,18 +42,12 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields - helps catch fabricated/deprecated fields
-	validList := sortedMapKeys(knownCommandFields)
-	for key := range data {
-		if !knownCommandFields[key] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: %s", key, validList),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     textutil.FindFrontmatterFieldLine(contents, key),
-			})
-		}
-	}
+	errors = append(errors, checkUnknownFields(data, filePath, contents, unknownFieldCheck{
+		known:    knownCommandFields,
+		label:    "frontmatter field",
+		suffix:   ". Valid fields: " + sortedMapKeys(knownCommandFields),
+		findLine: textutil.FindFrontmatterFieldLine,
+	})...)
 
 	// Note: name is optional in frontmatter - it's derived from filename (per Anthropic docs)
 	// Check name format if present - format rule from Anthropic docs

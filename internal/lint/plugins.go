@@ -75,19 +75,12 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 }
 
 func validateUnknownPluginFields(data map[string]any, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-	for key := range data {
-		if !knownPluginFields[key] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown plugin field '%s'", key),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     FindJSONFieldLine(contents, key),
-			})
-		}
-	}
-	return errors
+	return checkUnknownFields(data, filePath, contents, unknownFieldCheck{
+		known:    knownPluginFields,
+		label:    "plugin field",
+		suffix:   "",
+		findLine: FindJSONFieldLine,
+	})
 }
 
 func validatePluginName(data map[string]any, filePath, contents string) []cue.ValidationError {

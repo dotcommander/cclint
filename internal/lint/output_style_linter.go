@@ -97,18 +97,12 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 	var errors []cue.ValidationError
 
 	// Check for unknown frontmatter fields
-	validList := sortedMapKeys(knownOutputStyleFields)
-	for key := range data {
-		if !knownOutputStyleFields[key] {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("Unknown frontmatter field '%s'. Valid fields: %s", key, validList),
-				Severity: "suggestion",
-				Source:   cue.SourceCClintObserve,
-				Line:     textutil.FindFrontmatterFieldLine(contents, key),
-			})
-		}
-	}
+	errors = append(errors, checkUnknownFields(data, filePath, contents, unknownFieldCheck{
+		known:    knownOutputStyleFields,
+		label:    "frontmatter field",
+		suffix:   ". Valid fields: " + sortedMapKeys(knownOutputStyleFields),
+		findLine: textutil.FindFrontmatterFieldLine,
+	})...)
 
 	// Required: name field
 	if name, ok := data["name"].(string); !ok || strings.TrimSpace(name) == "" {
