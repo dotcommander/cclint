@@ -40,6 +40,13 @@ package schemas
 	// Optional: run command asynchronously (type: "command" only)
 	async?: bool
 
+	// Async rewake controls (v2.1.156, type: "command" only).
+	// When an async hook exits with code 2 it can wake the model back up and
+	// block the turn; asyncRewake opts the async hook into that behavior.
+	asyncRewake?:   bool   // wake the model on async exit code 2
+	rewakeMessage?: string // custom prefix for the system-reminder injected on rewake
+	rewakeSummary?: string // short summary shown to the user when the async hook rewakes
+
 	timeout?: *30 | int  // default 30 seconds
 	once?:    bool       // run only once per session (v2.1.0+)
 
@@ -136,6 +143,12 @@ package schemas
 
 	// Auto-memory storage directory override (v2.1.74+)
 	autoMemoryDirectory?: string
+
+	// Auto-memory toggle (v2.1.156) — enable auto-memory for this project
+	autoMemoryEnabled?: bool
+
+	// Auto-dream toggle (v2.1.156) — enable background memory consolidation
+	autoDreamEnabled?: bool
 
 	// Worktree settings (v2.1.76+)
 	worktree?: {
@@ -237,10 +250,16 @@ package schemas
 	}
 
 	// Auto mode classifier rules (v2.1.136+)
-	// Managed-settings list of permission-rule patterns that block unconditionally
-	// in auto mode, regardless of user intent or allow exceptions.
+	// Managed-settings permission-rule pattern lists steering the auto-mode classifier.
+	// hard_deny blocks unconditionally regardless of user intent or allow exceptions.
+	// allow / soft_deny / deny tune the classifier's default disposition; environment
+	// carries free-form context about the user's setup to help the classifier decide.
 	autoMode?: {
-		hard_deny?: [...string]
+		allow?:       [...string]
+		soft_deny?:   [...string]
+		hard_deny?:   [...string]
+		deny?:        [...string]
+		environment?: [...string]
 		...
 	}
 

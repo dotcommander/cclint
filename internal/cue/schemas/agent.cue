@@ -92,6 +92,8 @@ import (
 	isolation?: "worktree"                                    // subagent isolation mode (v2.1.49+)
 	background?: bool                                         // always run as background task (v2.1.49+)
 	initialPrompt?: string                                    // auto-submit first turn (v2.1.83+)
+	requiredMcpServers?: [...string]                          // agent only runs when these MCP servers are connected (v2.1.156)
+	criticalSystemReminder_EXPERIMENTAL?: string             // experimental: reminder re-injected as a system message (v2.1.156)
 
 	// Allow additional fields
 	...

@@ -48,23 +48,25 @@ func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool, ex
 // knownAgentFields lists valid frontmatter fields per Anthropic docs
 // Source: https://code.claude.com/docs/en/sub-agents
 var knownAgentFields = map[string]bool{
-	"name":            true, // Required: unique identifier
-	"description":     true, // Required: what the agent does
-	"model":           true, // Optional: sonnet, opus, haiku, inherit
-	"color":           true, // Optional: display color in UI (set via /agents wizard)
-	"tools":           true, // Optional: tool access allowlist
-	"disallowedTools": true, // Optional: tool access denylist
-	"permissionMode":  true, // Optional: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
-	"maxTurns":        true, // Optional: max conversation turns (positive integer)
-	"skills":          true, // Optional: skills to preload into context
-	"hooks":           true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
-	"memory":          true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
-	"mcpServers":      true, // Optional: MCP server names available to agent
-	"isolation":       true, // Optional: subagent isolation mode (worktree) (v2.1.49+)
-	"background":      true, // Optional: always run as background task (v2.1.49+)
-	"effort":          true, // Optional: reasoning effort level (v2.1.78+)
-	"initialPrompt":   true, // Optional: auto-submit first turn (v2.1.83+)
-	"triggers":        true,
+	"name":                                true, // Required: unique identifier
+	"description":                         true, // Required: what the agent does
+	"model":                               true, // Optional: sonnet, opus, haiku, inherit
+	"color":                               true, // Optional: display color in UI (set via /agents wizard)
+	"tools":                               true, // Optional: tool access allowlist
+	"disallowedTools":                     true, // Optional: tool access denylist
+	"permissionMode":                      true, // Optional: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
+	"maxTurns":                            true, // Optional: max conversation turns (positive integer)
+	"skills":                              true, // Optional: skills to preload into context
+	"hooks":                               true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
+	"memory":                              true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
+	"mcpServers":                          true, // Optional: MCP server names available to agent
+	"isolation":                           true, // Optional: subagent isolation mode (worktree) (v2.1.49+)
+	"background":                          true, // Optional: always run as background task (v2.1.49+)
+	"effort":                              true, // Optional: reasoning effort level (v2.1.78+)
+	"initialPrompt":                       true, // Optional: auto-submit first turn (v2.1.83+)
+	"triggers":                            true,
+	"requiredMcpServers":                  true, // Optional: agent only runs when these MCP servers are connected (v2.1.156)
+	"criticalSystemReminder_EXPERIMENTAL": true, // Optional (experimental): reminder re-injected as a system message (v2.1.156)
 }
 
 // validateAgentSpecific implements agent-specific validation rules.
