@@ -240,4 +240,10 @@ func (o *Orchestrator) runMemoryChecks() {
 	for _, w := range sizeWarnings {
 		fmt.Fprintf(os.Stderr, "warning: %s\n", w.Message)
 	}
+
+	// Check /dc:reflect KB output (walks <root>/kb/ directly — not in discovery)
+	reflectWarnings := CheckReflectOutput(o.cfg.Root)
+	for _, w := range reflectWarnings {
+		fmt.Fprintf(os.Stderr, "warning: %s: %s\n", w.File, w.Message)
+	}
 }
