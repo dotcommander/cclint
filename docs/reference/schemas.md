@@ -263,6 +263,7 @@ hooks:
 | `pluginSuggestionMarketplaces` | `[...#MarketplaceSource]` | Managed setting allowlisting org marketplaces whose plugins may be suggested via context-aware tips - v2.1.152+ |
 | `allowedMcpServers` | `[...string]` | Managed-settings MCP server allowlist (entry shape inferred) |
 | `deniedMcpServers` | `[...string]` | Managed-settings MCP server denylist (entry shape inferred) |
+| `agent` | string | Default subagent for dispatched sessions; overridable via `--agent <name>` - v2.1.157+ |
 
 ### Hooks Format
 

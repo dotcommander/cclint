@@ -292,6 +292,10 @@ package schemas
 	// Disable auto-scroll in fullscreen mode (default: true)
 	autoScrollEnabled?: bool
 
+	// Default subagent for dispatched sessions (v2.1.157+)
+	// --agent <name> overrides this at invocation time.
+	agent?: string
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
