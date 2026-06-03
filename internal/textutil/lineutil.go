@@ -126,45 +126,6 @@ const (
 	SeverityLow    = "low"
 )
 
-// DetermineSeverity determines issue severity based on the message
-func DetermineSeverity(message string) string {
-	// High severity - structural/critical issues
-	highPatterns := []string{
-		"Required field",
-		"missing or empty",
-		"Name must",
-		"Invalid color",
-		"fat agent",
-		"fat command",
-		"Error parsing",
-		"Validation error",
-	}
-	for _, p := range highPatterns {
-		if strings.Contains(message, p) {
-			return SeverityHigh
-		}
-	}
-
-	// Medium severity - best practice violations
-	mediumPatterns := []string{
-		"Best practice",
-		"lines",
-		"Foundation",
-		"Workflow",
-		"Anti-Pattern",
-		"methodology",
-		"Skill()",
-	}
-	for _, p := range mediumPatterns {
-		if strings.Contains(message, p) {
-			return SeverityMedium
-		}
-	}
-
-	// Low severity - suggestions
-	return SeverityLow
-}
-
 // ImprovementRecommendation represents a specific fix with point value
 type ImprovementRecommendation struct {
 	Description string
@@ -378,7 +339,7 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 				warnings = append(warnings, types.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Unknown tool '%s' in %s. Check spelling or verify it's a valid tool.", tool, field),
-					Severity: "warning",
+					Severity: types.SeverityWarning,
 					Source:   types.SourceCClintObserve,
 					Line:     FindFrontmatterFieldLine(contents, field),
 				})
@@ -387,7 +348,7 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 				warnings = append(warnings, types.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Deprecated tool '%s' in %s. %s", tool, field, msg),
-					Severity: "warning",
+					Severity: types.SeverityWarning,
 					Source:   types.SourceCClintObserve,
 					Line:     FindFrontmatterFieldLine(contents, field),
 				})
@@ -423,7 +384,7 @@ func ValidateToolFieldName(data map[string]any, filePath string, contents string
 			errors = append(errors, types.ValidationError{
 				File:     filePath,
 				Message:  "Agents must use 'tools:', not 'allowed-tools:'. Rename the field.",
-				Severity: "error",
+				Severity: types.SeverityError,
 				Source:   types.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, "allowed-tools"),
 			})
@@ -434,7 +395,7 @@ func ValidateToolFieldName(data map[string]any, filePath string, contents string
 			errors = append(errors, types.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("%ss must use 'allowed-tools:', not 'tools:'. Rename the field.", cases.Title(language.English).String(componentType)),
-				Severity: "error",
+				Severity: types.SeverityError,
 				Source:   types.SourceCClintObserve,
 				Line:     FindFrontmatterFieldLine(contents, "tools"),
 			})
@@ -555,7 +516,7 @@ func DetectSecrets(contents string, filePath string) []types.ValidationError {
 		warnings = append(warnings, types.ValidationError{
 			File:     filePath,
 			Message:  sp.message,
-			Severity: "warning",
+			Severity: types.SeverityWarning,
 			Source:   types.SourceCClintObserve,
 			Line:     lineNum,
 		})

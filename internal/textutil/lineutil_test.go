@@ -130,32 +130,6 @@ func TestCountLines(t *testing.T) {
 	}
 }
 
-func TestDetermineSeverity(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		want    string
-	}{
-		{"required field", "Required field 'name' is missing", "high"},
-		{"name must", "Name must be lowercase", "high"},
-		{"fat agent", "This is a fat agent", "high"},
-		{"best practice", "Best practice violation", "medium"},
-		{"lines mention", "Over 200 lines limit", "medium"},
-		{"foundation", "Missing Foundation section", "medium"},
-		{"consider", "Consider adding examples", "low"},
-		{"default", "Random message", "low"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := DetermineSeverity(tt.message)
-			if got != tt.want {
-				t.Errorf("DetermineSeverity(%q) = %q, want %q", tt.message, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestValidateAllowedTools(t *testing.T) {
 	tests := []struct {
 		name         string
