@@ -276,7 +276,7 @@ func lintComponent(ctx *SingleFileLinterContext, linter ComponentLinter) LintRes
 		result.Suggestions = append(result.Suggestions, cue.ValidationError{
 			File:     ctx.File.RelPath,
 			Message:  message,
-			Severity: "info",
+			Severity: cue.SeverityInfo,
 			Source:   cue.SourceCClintObserve,
 		})
 	}
@@ -300,15 +300,7 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 	for _, file := range files {
 		result := lintBatchFile(ctx, file, linter)
 
-		// Update summary counts
-		if result.Success {
-			summary.SuccessfulFiles++
-		} else {
-			summary.FailedFiles++
-		}
-		summary.TotalErrors += len(result.Errors)
-		summary.TotalWarnings += len(result.Warnings)
-		summary.TotalSuggestions += len(result.Suggestions)
+		applyResultToSummary(summary, result)
 
 		summary.Results = append(summary.Results, result)
 		ctx.LogProcessed(file.RelPath, len(result.Errors))
@@ -343,7 +335,7 @@ func ValidateSemver(version, filePath string, line int) *cue.ValidationError {
 		return &cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Version '%s' should follow semver format (e.g., '1.0.0')", version),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceCClintObserve,
 			Line:     line,
 		}

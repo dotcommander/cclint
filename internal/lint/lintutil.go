@@ -203,7 +203,7 @@ func CheckSizeLimit(contents string, limit int, tolerance float64, componentType
 		return &cue.ValidationError{
 			File:     filePath,
 			Message:  message,
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     1,
 		}

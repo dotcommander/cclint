@@ -61,7 +61,7 @@ func (l *OutputStyleLinter) PreValidate(filePath, contents string) []cue.Validat
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Output style files must have .md extension",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -71,7 +71,7 @@ func (l *OutputStyleLinter) PreValidate(filePath, contents string) []cue.Validat
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Output style file is empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Abort:    true,
 		})
@@ -109,7 +109,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'name' is missing or empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
@@ -122,7 +122,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'description' is missing or empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -134,7 +134,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("keep-coding-instructions must be a boolean (got '%v')", kci),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "keep-coding-instructions"),
 			})
@@ -147,7 +147,7 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Output style body is empty - add markdown content for system prompt customization",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -163,7 +163,7 @@ func validateOutputStyleName(name, filePath, contents string) []cue.ValidationEr
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Name must contain only lowercase letters, numbers, and hyphens (kebab-case)",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
@@ -173,7 +173,7 @@ func validateOutputStyleName(name, filePath, contents string) []cue.ValidationEr
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name '%s' cannot start or end with a hyphen", name),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})

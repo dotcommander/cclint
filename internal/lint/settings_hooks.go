@@ -25,7 +25,7 @@ func validateHooksWithEvents(hooks any, filePath string, allowedEvents map[strin
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "hooks must be an object mapping event names to hook configurations",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -44,7 +44,7 @@ func validateHookEvent(eventName string, eventConfig any, filePath string, allow
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Unknown hook event '%s'. Valid events: %s", eventName, eventLabel),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -54,7 +54,7 @@ func validateHookEvent(eventName string, eventConfig any, filePath string, allow
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s': hook configuration must be an array", eventName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -76,7 +76,7 @@ func validateHookMatcher(hookMatcher any, eventName string, idx int, filePath st
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d: must be an object with 'matcher' and 'hooks' fields", eventName, idx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -90,7 +90,7 @@ func validateHookMatcher(hookMatcher any, eventName string, idx int, filePath st
 		return append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'hooks'", eventName, idx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -100,7 +100,7 @@ func validateHookMatcher(hookMatcher any, eventName string, idx int, filePath st
 		return append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d: 'hooks' field must be an array", eventName, idx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -113,15 +113,19 @@ func validateHookMatcher(hookMatcher any, eventName string, idx int, filePath st
 }
 
 // validateHookMatcherField validates the matcher field of a hook matcher entry.
+// 'matcher' is required only for tool-scoped events; lifecycle events omit it.
 func validateHookMatcherField(hookMatcherMap map[string]any, eventName string, idx int, filePath string) []cue.ValidationError {
 	matcherVal, matcherExists := hookMatcherMap["matcher"]
 	if !matcherExists {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'matcher'", eventName, idx),
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
-		}}
+		if matcherRequiredEvents[eventName] {
+			return []cue.ValidationError{{
+				File:     filePath,
+				Message:  fmt.Sprintf("Event '%s' hook %d: missing required field 'matcher'", eventName, idx),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			}}
+		}
+		return nil
 	}
 
 	matcherMap, isMap := matcherVal.(map[string]any)
@@ -150,7 +154,7 @@ func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, f
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: must be an object", eventName, hookIdx, innerIdx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -160,7 +164,7 @@ func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, f
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: missing required field 'type'", eventName, hookIdx, innerIdx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -170,7 +174,7 @@ func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, f
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: 'type' must be a string", eventName, hookIdx, innerIdx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -179,7 +183,7 @@ func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, f
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt, agent, http", eventName, hookIdx, innerIdx, hookTypeStr),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -221,7 +225,7 @@ func validateCommandInnerHook(hookMap map[string]any, ctx hookContext) []cue.Val
 		return []cue.ValidationError{{
 			File:     ctx.FilePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'command' requires 'command' or 'args' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -244,7 +248,7 @@ func validatePromptInnerHook(hookMap map[string]any, ctx hookContext) []cue.Vali
 		errors = append(errors, cue.ValidationError{
 			File:     ctx.FilePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: event '%s' does not support prompt hooks. Prompt hooks only supported for: Stop, SubagentStop, UserPromptSubmit, PreToolUse, PermissionRequest", ctx.EventName, ctx.HookIdx, ctx.InnerIdx, ctx.EventName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -252,7 +256,7 @@ func validatePromptInnerHook(hookMap map[string]any, ctx hookContext) []cue.Vali
 		errors = append(errors, cue.ValidationError{
 			File:     ctx.FilePath,
 			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'prompt' requires 'prompt' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -267,7 +271,7 @@ func validateHTTPInnerHook(hookMap map[string]any, ctx hookContext) []cue.Valida
 	return []cue.ValidationError{{
 		File:     ctx.FilePath,
 		Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: type 'http' requires 'url' field", ctx.EventName, ctx.HookIdx, ctx.InnerIdx),
-		Severity: "error",
+		Severity: cue.SeverityError,
 		Source:   cue.SourceAnthropicDocs,
 	}}
 }

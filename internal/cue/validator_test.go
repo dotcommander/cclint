@@ -1785,3 +1785,46 @@ func TestValidateAgent_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestExtractErrorsFromCUE_PerFieldErrors verifies that multiple field-level
+// CUE failures surface as distinct ValidationError entries, not one umbrella.
+func TestExtractErrorsFromCUE_PerFieldErrors(t *testing.T) {
+	t.Parallel()
+	v := NewValidator()
+	if err := v.LoadSchemas("schemas"); err != nil {
+		t.Fatalf("Failed to load schemas: %v", err)
+	}
+
+	// Two independent field violations via concrete validation:
+	//   name is missing → incomplete value for required string+pattern field.
+	//   description is missing → incomplete value for required non-empty string field.
+	//   Omitting both required fields causes Validate(Concrete(true)) to emit
+	//   one cuerrors.Errors entry per missing field (confirmed by probe).
+	invalidData := map[string]any{
+		"model": "sonnet",
+	}
+
+	errs, err := v.ValidateAgent(invalidData)
+	if err != nil {
+		t.Fatalf("ValidateAgent returned error: %v", err)
+	}
+
+	if len(errs) < 2 {
+		t.Fatalf("expected at least 2 distinct ValidationError entries, got %d: %+v", len(errs), errs)
+	}
+
+	// No umbrella string; messages must be distinct and non-empty.
+	seen := make(map[string]bool)
+	for _, e := range errs {
+		if e.Message == "" {
+			t.Error("ValidationError has empty message")
+		}
+		if strings.Contains(e.Message, "Schema validation failed") {
+			t.Errorf("umbrella message leaked: %q", e.Message)
+		}
+		seen[e.Message] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("expected 2 distinct messages, got %d distinct: %+v", len(seen), errs)
+	}
+}

@@ -19,7 +19,7 @@ func validateRules(rules any, filePath string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "rules must be an array of glob pattern strings",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -31,7 +31,7 @@ func validateRules(rules any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("rules[%d]: each entry must be a non-empty string", i),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -42,7 +42,7 @@ func validateRules(rules any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("rules[%d]: invalid glob pattern %q: %v", i, str, err),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -53,7 +53,7 @@ func validateRules(rules any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("rules[%d]: absolute path %q is not portable; use relative glob patterns", i, str),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -78,7 +78,7 @@ func validateMatcherToolName(toolNamePattern string, location string, filePath s
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("%s: unrecognized tool name '%s' in toolName pattern '%s'", location, baseTool, toolNamePattern),
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		})
 	}
@@ -101,7 +101,7 @@ func validateToolNameGlob(toolNamePattern, location, filePath string) []cue.Vali
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("%s: unclosed parenthesis in toolName pattern '%s'", location, toolNamePattern),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -111,7 +111,7 @@ func validateToolNameGlob(toolNamePattern, location, filePath string) []cue.Vali
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("%s: empty glob pattern in parentheses for toolName '%s'", location, toolNamePattern),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -120,7 +120,7 @@ func validateToolNameGlob(toolNamePattern, location, filePath string) []cue.Vali
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("%s: invalid glob in toolName '%s': %v", location, toolNamePattern, err),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}

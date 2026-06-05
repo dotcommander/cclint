@@ -36,6 +36,20 @@ type LintSummary struct {
 	Results          []LintResult
 }
 
+// applyResultToSummary accumulates a single LintResult's counters into summary.
+// All three accumulation sites (lintBatch, lintSingleFileRequest, LintFiles) delegate here
+// so adding a new LintResult counter requires editing only this function.
+func applyResultToSummary(summary *LintSummary, result LintResult) {
+	if result.Success {
+		summary.SuccessfulFiles++
+	} else {
+		summary.FailedFiles++
+	}
+	summary.TotalErrors += len(result.Errors)
+	summary.TotalWarnings += len(result.Warnings)
+	summary.TotalSuggestions += len(result.Suggestions)
+}
+
 // LintAgents runs linting on agent files using the generic linter.
 func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
 	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)

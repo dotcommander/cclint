@@ -159,10 +159,10 @@ Subsection body text`
 
 func TestValidateContextSections(t *testing.T) {
 	tests := []struct {
-		name             string
-		sections         []any
-		wantErrorCount   int
-		wantSeverities   []string
+		name           string
+		sections       []any
+		wantErrorCount int
+		wantSeverities []string
 	}{
 		{
 			name: "all sections valid",
@@ -243,10 +243,10 @@ func TestValidateContextSections(t *testing.T) {
 
 func TestCheckBinaryIncludes(t *testing.T) {
 	tests := []struct {
-		name             string
-		contents         string
-		wantErrorCount   int
-		wantSeverities   []string
+		name           string
+		contents       string
+		wantErrorCount int
+		wantSeverities []string
 	}{
 		{
 			name:           "no includes",
@@ -312,11 +312,11 @@ func TestCheckBinaryIncludes(t *testing.T) {
 
 func TestValidateContextSpecific(t *testing.T) {
 	tests := []struct {
-		name             string
-		data             map[string]any
-		contents         string
-		wantErrorCount   int
-		wantSeverities   []string
+		name           string
+		data           map[string]any
+		contents       string
+		wantErrorCount int
+		wantSeverities []string
 	}{
 		{
 			name: "clean - valid sections no binary",

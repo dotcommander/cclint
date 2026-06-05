@@ -50,11 +50,18 @@ var validHookEvents = map[string]bool{
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.
-// Components only support PreToolUse, PostToolUse, and Stop per Claude Code docs.
+// Components arm tool events plus lifecycle/session events (e.g. handoff-guard,
+// afk-loop, loop-until-done wire PreCompact + UserPromptSubmit + Stop hooks).
 var validComponentHookEvents = map[string]bool{
-	"PreToolUse":  true,
-	"PostToolUse": true,
-	"Stop":        true,
+	"PreToolUse":       true,
+	"PostToolUse":      true,
+	"Stop":             true,
+	"SubagentStop":     true,
+	"UserPromptSubmit": true,
+	"PreCompact":       true,
+	"PostCompact":      true,
+	"SessionStart":     true,
+	"SessionEnd":       true,
 }
 
 // Hook events that support prompt hooks
@@ -73,6 +80,16 @@ var validHookTypes = map[string]bool{
 	"agent":    true,
 	"http":     true,
 	"mcp_tool": true, // v2.1.118+: invoke MCP tools directly
+}
+
+// matcherRequiredEvents are tool-scoped events whose hook entries must carry a
+// 'matcher'. Lifecycle/session events (Stop, PreCompact, UserPromptSubmit, ...)
+// have no tool to match and legitimately omit it.
+var matcherRequiredEvents = map[string]bool{
+	"PreToolUse":         true,
+	"PostToolUse":        true,
+	"PostToolUseFailure": true,
+	"PermissionRequest":  true,
 }
 
 // eventLabel builds a sorted, comma-separated label from a hook event map.
@@ -110,7 +127,7 @@ func validateSettingsSpecific(data map[string]any, filePath string) []cue.Valida
 		if num, ok := val.(float64); ok && num < 1 {
 			errors = append(errors, cue.ValidationError{
 				Message:  "cleanupPeriodDays must be >= 1; 0 silently disables transcript persistence",
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}

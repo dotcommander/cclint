@@ -57,7 +57,7 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB filename '" + d.Name() + "' must be a 4-10 word lowercase-hyphenated slug (e.g. 'race-condition-in-channel-close.md')",
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -72,7 +72,7 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry is missing an H1 heading ('# ...')",
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -80,7 +80,7 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry is missing a source attribution (a line containing '(source:')",
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -90,14 +90,14 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry has only " + strconv.Itoa(n) + " non-empty lines (< " + strconv.Itoa(ReflectMinBodyLines) + ") — candidate to fold into another entry",
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		} else if n > ReflectMaxBodyLines {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry has " + strconv.Itoa(n) + " non-empty lines (> " + strconv.Itoa(ReflectMaxBodyLines) + ") — candidate to split",
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

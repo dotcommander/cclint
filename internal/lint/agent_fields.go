@@ -15,6 +15,22 @@ import (
 // Full model IDs: claude-* (e.g. claude-opus-4-5, claude-sonnet-4-6).
 var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan)(\[\w+\])?$|^claude-[a-z0-9-]+$`)
 
+// validColors is the set of UI colors accepted by the CUE #Color enum.
+var validColors = map[string]bool{
+	"red": true, "blue": true, "green": true, "yellow": true,
+	"purple": true, "orange": true, "pink": true, "cyan": true,
+	"gray": true, "magenta": true, "white": true,
+}
+
+// validScopes is the set of memory scopes accepted by the CUE #MemoryScope enum.
+var validScopes = map[string]bool{"user": true, "project": true, "local": true}
+
+// validModes is the set of permissionMode values accepted by the CUE #Agent schema.
+var validModes = map[string]bool{
+	"default": true, "acceptEdits": true, "delegate": true,
+	"dontAsk": true, "bypassPermissions": true, "plan": true,
+}
+
 // validateUnknownFields checks for unsupported frontmatter fields.
 func validateUnknownFields(data map[string]any, filePath, contents string) []cue.ValidationError {
 	return checkUnknownFields(data, filePath, contents, unknownFieldCheck{
@@ -33,7 +49,7 @@ func validateRequiredFields(data map[string]any, filePath, contents string) []cu
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'name' is missing or empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
@@ -45,7 +61,7 @@ func validateRequiredFields(data map[string]any, filePath, contents string) []cu
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Required field 'description' is missing or empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -53,7 +69,7 @@ func validateRequiredFields(data map[string]any, filePath, contents string) []cu
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Consider adding 'Use PROACTIVELY when...' pattern in description for agent discoverability",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -69,11 +85,6 @@ func validateAgentColor(data map[string]any, filePath string) []cue.ValidationEr
 		return nil
 	}
 
-	validColors := map[string]bool{
-		"red": true, "blue": true, "green": true, "yellow": true,
-		"purple": true, "orange": true, "pink": true, "cyan": true,
-		"gray": true, "magenta": true, "white": true,
-	}
 	if validColors[color] {
 		return nil
 	}
@@ -81,7 +92,7 @@ func validateAgentColor(data map[string]any, filePath string) []cue.ValidationEr
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("Invalid color '%s'. Valid colors are: red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white", color),
-		Severity: "suggestion",
+		Severity: cue.SeveritySuggestion,
 		Source:   cue.SourceCClintObserve,
 	}}
 }
@@ -93,7 +104,6 @@ func validateAgentMemory(data map[string]any, filePath, contents string) []cue.V
 		return nil
 	}
 
-	validScopes := map[string]bool{"user": true, "project": true, "local": true}
 	if validScopes[memory] {
 		return nil
 	}
@@ -101,7 +111,7 @@ func validateAgentMemory(data map[string]any, filePath, contents string) []cue.V
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("Invalid memory scope '%s'. Valid scopes: user, project, local", memory),
-		Severity: "error",
+		Severity: cue.SeverityError,
 		Source:   cue.SourceAnthropicDocs,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "memory"),
 	}}
@@ -121,7 +131,7 @@ func validateAgentModel(data map[string]any, filePath, contents string) []cue.Va
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m]), or full model ID (claude-*)", model),
-		Severity: "warning",
+		Severity: cue.SeverityWarning,
 		Source:   cue.SourceCClintObserve,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "model"),
 	}}
@@ -143,7 +153,7 @@ func validateAgentMCPServers(mcpServers any, filePath, contents string) []cue.Va
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "mcpServers must be an array of server name strings",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "mcpServers"),
 		}}
@@ -156,7 +166,7 @@ func validateAgentMCPServers(mcpServers any, filePath, contents string) []cue.Va
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("mcpServers[%d] must be a non-empty string", i),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "mcpServers"),
 			})
@@ -172,10 +182,6 @@ func validateAgentPermissionMode(data map[string]any, filePath, contents string)
 		return nil
 	}
 
-	validModes := map[string]bool{
-		"default": true, "acceptEdits": true, "delegate": true,
-		"dontAsk": true, "bypassPermissions": true, "plan": true,
-	}
 	if validModes[permMode] {
 		return nil
 	}
@@ -183,7 +189,7 @@ func validateAgentPermissionMode(data map[string]any, filePath, contents string)
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan", permMode),
-		Severity: "error",
+		Severity: cue.SeverityError,
 		Source:   cue.SourceAnthropicDocs,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "permissionMode"),
 	}}
@@ -204,7 +210,7 @@ func validateAgentMaxTurns(data map[string]any, filePath, contents string) []cue
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Invalid maxTurns value %d; must be a positive integer", v),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "maxTurns"),
 		}}
@@ -215,7 +221,7 @@ func validateAgentMaxTurns(data map[string]any, filePath, contents string) []cue
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", v),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "maxTurns"),
 		}}
@@ -223,7 +229,7 @@ func validateAgentMaxTurns(data map[string]any, filePath, contents string) []cue
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Invalid maxTurns value %v; must be a positive integer", maxTurns),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "maxTurns"),
 		}}
@@ -245,7 +251,7 @@ func validateAgentAutonomousPattern(data map[string]any, filePath, contents stri
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  "Agent uses maxTurns with permissionMode 'dontAsk' - this is a common pattern for autonomous sub-agents.",
-		Severity: "info",
+		Severity: cue.SeverityInfo,
 		Source:   cue.SourceCClintObserve,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "maxTurns"),
 	}}

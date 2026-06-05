@@ -189,12 +189,12 @@ func TestLoadBaseline(t *testing.T) {
 	}
 
 	tests := []struct {
-		name             string
-		useBaseline      bool
-		createBaseline   bool
-		baselineExists   bool
-		wantNil          bool
-		wantError        bool
+		name           string
+		useBaseline    bool
+		createBaseline bool
+		baselineExists bool
+		wantNil        bool
+		wantError      bool
 	}{
 		{
 			name:           "baseline mode disabled",
@@ -625,8 +625,8 @@ func TestRun_WithBaselineFiltering(t *testing.T) {
 						File:    "test.md",
 						Success: false,
 						Errors: []cue.ValidationError{
-							{File: "test.md", Message: "Known error", Severity: "error", Source: "test"},    // Should be filtered
-							{File: "test.md", Message: "New error", Severity: "error", Source: "test"},      // Should remain
+							{File: "test.md", Message: "Known error", Severity: "error", Source: "test"}, // Should be filtered
+							{File: "test.md", Message: "New error", Severity: "error", Source: "test"},   // Should remain
 						},
 					},
 				},
@@ -1020,4 +1020,3 @@ func TestRunMemoryChecks_QuietMode(t *testing.T) {
 	// Should return early without errors
 	orch.runMemoryChecks()
 }
-

@@ -75,8 +75,8 @@ func TestContextLinterValidateCUE(t *testing.T) {
 // TestLintSingleSkillIntegrated tests lintSingleSkill integration
 func TestLintSingleSkillIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
-		Quiet:   true,
-		Verbose: false,
+		Quiet:     true,
+		Verbose:   false,
 		Validator: cue.NewValidator(),
 		File: discovery.File{
 			RelPath: "skills/test-skill/SKILL.md",
@@ -100,11 +100,11 @@ Test content.
 // TestLintSingleSettingsIntegrated tests lintSingleSettings integration
 func TestLintSingleSettingsIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
-		Quiet:   true,
-		Verbose: false,
+		Quiet:     true,
+		Verbose:   false,
 		Validator: cue.NewValidator(),
 		File: discovery.File{
-			RelPath: ".claude/settings.json",
+			RelPath:  ".claude/settings.json",
 			Contents: `{"theme": "dark"}`,
 		},
 	}
@@ -118,8 +118,8 @@ func TestLintSingleSettingsIntegrated(t *testing.T) {
 // TestLintSingleContextIntegrated tests lintSingleContext integration
 func TestLintSingleContextIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
-		Quiet:   true,
-		Verbose: false,
+		Quiet:     true,
+		Verbose:   false,
 		Validator: cue.NewValidator(),
 		File: discovery.File{
 			RelPath: "CLAUDE.md",
@@ -141,8 +141,8 @@ Instructions.
 // TestLintSinglePluginIntegrated tests lintSinglePlugin integration
 func TestLintSinglePluginIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
-		Quiet:   true,
-		Verbose: false,
+		Quiet:     true,
+		Verbose:   false,
 		Validator: cue.NewValidator(),
 		File: discovery.File{
 			RelPath: ".claude-plugin/plugin.json",

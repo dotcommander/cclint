@@ -126,7 +126,7 @@ func addCycleToSummary(summary *LintSummary, agentName, cycleDesc string) {
 			summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
 				File:     summary.Results[i].File,
 				Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceCClintObserve,
 			})
 			summary.TotalErrors++

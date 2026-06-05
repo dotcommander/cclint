@@ -40,7 +40,7 @@ func checkUnquotedVariables(cmd, location, filePath string) []cue.ValidationErro
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("%s: Unquoted variable expansion detected. Use \"$VAR\" to prevent word splitting", location),
-		Severity: "warning",
+		Severity: cue.SeverityWarning,
 		Source:   cue.SourceCClintObserve,
 	}}
 }
@@ -53,7 +53,7 @@ func checkPathTraversal(cmd, location, filePath string) []cue.ValidationError {
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("%s: Path traversal '..' detected in hook command - potential security risk", location),
-		Severity: "warning",
+		Severity: cue.SeverityWarning,
 		Source:   cue.SourceCClintObserve,
 	}}
 }
@@ -67,7 +67,7 @@ func checkHardcodedPaths(cmd, location, filePath string) []cue.ValidationError {
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  fmt.Sprintf("%s: Hardcoded absolute path detected. Consider using $CLAUDE_PROJECT_DIR for portability", location),
-		Severity: "warning",
+		Severity: cue.SeverityWarning,
 		Source:   cue.SourceCClintObserve,
 	}}
 }
@@ -93,7 +93,7 @@ func checkSensitiveFileAccess(cmd, location, filePath string) []cue.ValidationEr
 			warnings = append(warnings, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("%s: %s", location, sp.message),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -120,7 +120,7 @@ func checkDangerousPatterns(cmd, location, filePath string) []cue.ValidationErro
 			warnings = append(warnings, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("%s: %s", location, dp.message),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

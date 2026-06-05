@@ -265,8 +265,8 @@ func TestDetectImportCycles_Integration(t *testing.T) {
 			wantInMsg:  "Circular @import detected",
 		},
 		{
-			name: "no files",
-			files: map[string]string{},
+			name:       "no files",
+			files:      map[string]string{},
 			wantErrors: 0,
 		},
 	}

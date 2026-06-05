@@ -192,7 +192,7 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Task(%s) references non-existent agent. Create agents/%s.md", agentRef, agentRef),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -263,7 +263,7 @@ func (v *CrossFileValidator) checkFakeFlags(filePath, contents string, taskMatch
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Flag '--%s' documented but not found in agent '%s' or its skills - may be fake", flag, primaryAgent),
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -356,7 +356,7 @@ func (v *CrossFileValidator) checkUnusedAllowedTools(filePath, contents string, 
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  message,
-			Severity: "info",
+			Severity: cue.SeverityInfo,
 			Source:   cue.SourceCClintObserve,
 		})
 	}
@@ -379,7 +379,7 @@ func (v *CrossFileValidator) checkSkillReferences(filePath string, contents stri
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("References non-existent skill '%s'. Create skills/%s/SKILL.md", skillRef, skillRef),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -400,7 +400,7 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, fro
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Skill: %s references non-existent skill. Create skills/%s/SKILL.md", skillRef, skillRef),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -440,7 +440,7 @@ func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("tools field Task(%s) references non-existent agent. Create agents/%s.md", agentRef, agentRef),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -510,7 +510,7 @@ func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmat
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Frontmatter skills references non-existent skill '%s'. Create skills/%s/SKILL.md", skillName, skillName),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}
@@ -560,7 +560,7 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, fro
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Skill references '%s' but agent doesn't exist. Create agents/%s.md", agentRef, agentRef),
-					Severity: "error",
+					Severity: cue.SeverityError,
 					Source:   cue.SourceCClintObserve,
 				})
 			}
@@ -598,7 +598,7 @@ func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatt
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Frontmatter agent field references non-existent agent '%s'. Create agents/%s.md", agentName, agentName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -710,7 +710,7 @@ func (v *CrossFileValidator) findSkillOrphans(referencedSkills map[string]bool) 
 			orphans = append(orphans, cue.ValidationError{
 				File:     skillFile.RelPath,
 				Message:  fmt.Sprintf("Skill '%s' has no incoming references - consider adding crossrefs from commands/agents/skills", skillName),
-				Severity: "info",
+				Severity: cue.SeverityInfo,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

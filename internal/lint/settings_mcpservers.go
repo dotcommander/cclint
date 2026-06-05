@@ -16,7 +16,7 @@ func validateMCPServers(mcpServers any, filePath string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "mcpServers must be an object mapping server names to configurations",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -27,7 +27,7 @@ func validateMCPServers(mcpServers any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  "mcpServers: server name must not be empty",
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -38,7 +38,7 @@ func validateMCPServers(mcpServers any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("mcpServers '%s': server configuration must be an object", serverName),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -60,21 +60,21 @@ func validateMCPServerEntry(serverName string, serverMap map[string]any, filePat
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("mcpServers '%s': missing required field 'command'", serverName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	} else if cmdStr, ok := cmdVal.(string); !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("mcpServers '%s': 'command' must be a string", serverName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	} else if cmdStr == "" {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("mcpServers '%s': 'command' must not be empty", serverName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -95,7 +95,7 @@ func validateMCPServerEntry(serverName string, serverMap map[string]any, filePat
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("mcpServers '%s': 'cwd' must be a string", serverName),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}
@@ -111,7 +111,7 @@ func validateMCPServerArgs(serverName string, argsVal any, filePath string) []cu
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("mcpServers '%s': 'args' must be an array of strings", serverName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -121,7 +121,7 @@ func validateMCPServerArgs(serverName string, argsVal any, filePath string) []cu
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("mcpServers '%s': args[%d] must be a string", serverName, i),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}
@@ -136,7 +136,7 @@ func validateMCPServerEnv(serverName string, envVal any, filePath string) []cue.
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("mcpServers '%s': 'env' must be an object with string values", serverName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
 	}
@@ -146,7 +146,7 @@ func validateMCPServerEnv(serverName string, envVal any, filePath string) []cue.
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("mcpServers '%s': env '%s' value must be a string", serverName, envKey),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}

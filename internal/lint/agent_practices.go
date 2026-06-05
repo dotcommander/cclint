@@ -74,7 +74,7 @@ func checkAgentBloatSections(contents, filePath string) []cue.ValidationError {
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
 				Message:  bp.message,
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -90,7 +90,7 @@ func checkAgentInlineMethodology(contents, filePath string) []cue.ValidationErro
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
 				Message:  ip.message,
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -108,7 +108,7 @@ func checkAgentMissingFields(data map[string]any, contents, filePath string) []c
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Agent lacks 'model' specification. Consider adding 'model: sonnet' or appropriate model for optimal performance.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     fmEndLine,
 		})
@@ -121,7 +121,7 @@ func checkAgentMissingFields(data map[string]any, contents, filePath string) []c
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "No skill reference found. If methodology is reusable, consider extracting to a skill.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     textutil.FindSectionLine(contents, "Foundation"),
 		})
@@ -132,7 +132,7 @@ func checkAgentMissingFields(data map[string]any, contents, filePath string) []c
 		suggestions = append(suggestions, cue.ValidationError{
 			File:     filePath,
 			Message:  "Agent has editing tools but no permissionMode. Consider 'permissionMode: acceptEdits' for seamless file edits.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "tools"),
 		})

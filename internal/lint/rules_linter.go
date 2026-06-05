@@ -56,7 +56,7 @@ func (l *RuleLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Rule files must have .md extension",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -66,7 +66,7 @@ func (l *RuleLinter) PreValidate(filePath, contents string) []cue.ValidationErro
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Rule file is empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceCClintObserve,
 			Abort:    true,
 		})
@@ -92,7 +92,7 @@ func validateSymlinkTarget(filePath string) []cue.ValidationError {
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Symlink target does not exist or is inaccessible: %v", err),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -100,7 +100,7 @@ func validateSymlinkTarget(filePath string) []cue.ValidationError {
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Symlink target not found: %s", target),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -164,7 +164,7 @@ func validatePathsGlob(paths any, filePath, contents string) []cue.ValidationErr
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "paths: field must be a string",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "paths"),
 		})
@@ -185,7 +185,7 @@ func validatePathsGlob(paths any, filePath, contents string) []cue.ValidationErr
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Invalid glob pattern %q: %v", pattern, err),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "paths"),
 			})
@@ -303,7 +303,7 @@ func validateImports(contents, filePath string) []cue.ValidationError {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Import target does not exist: @%s", match[1]),
-					Severity: "warning",
+					Severity: cue.SeverityWarning,
 					Source:   cue.SourceCClintObserve,
 					Line:     lineNum + 1,
 				})

@@ -56,7 +56,7 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  "Name must be lowercase alphanumeric with hyphens only",
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 		}
@@ -94,7 +94,7 @@ func checkCommandToolAllowlist(data map[string]any, filePath string, contents st
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  `command declares wildcard "*" in allowed-tools — commands should only use Task, Agent, Skill, AskUserQuestion`,
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceCClintObserve,
 			Line:     line,
 		}}
@@ -111,7 +111,7 @@ func checkCommandToolAllowlist(data map[string]any, filePath string, contents st
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("command declares tool %q in allowed-tools — commands should prefer delegation tools (Task, Agent, Skill, AskUserQuestion)", tool),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 				Line:     line,
 			})
@@ -152,7 +152,7 @@ func checkSkillWithoutTaskDelegation(filePath string, contents string, data map[
 	return []cue.ValidationError{{
 		File:     filePath,
 		Message:  "command dispatches to Skill() without Task() delegation — commands must delegate through agents",
-		Severity: "error",
+		Severity: cue.SeverityError,
 		Source:   cue.SourceCClintObserve,
 	}}
 }
@@ -202,7 +202,7 @@ func checkImplementationPatterns(contents, filePath string) []cue.ValidationErro
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Command contains implementation steps. Consider delegating to a specialist agent instead.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -214,7 +214,7 @@ func checkAllowedToolsWithTask(contents, filePath string) []cue.ValidationError 
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Command uses Task() but lacks 'allowed-tools' permission. Add 'allowed-tools: Task' to frontmatter.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -243,7 +243,7 @@ func checkBloatSections(contents, filePath string, hasTaskDelegation bool) []cue
 			suggestions = append(suggestions, cue.ValidationError{
 				File:     filePath,
 				Message:  section.message,
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}
@@ -257,7 +257,7 @@ func checkExcessiveExamples(contents, filePath string) []cue.ValidationError {
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Command has %d code examples. Best practice: max 2 examples.", exampleCount),
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -271,7 +271,7 @@ func checkSuccessCriteriaFormat(contents, filePath string) []cue.ValidationError
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Success criteria should use checkbox format '- [ ]' not prose",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -283,7 +283,7 @@ func checkFatCommandUsage(contents, filePath string, lines int, hasTaskDelegatio
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Fat command without Task delegation lacks '## Usage' section. Consider delegating to a specialist agent.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -305,11 +305,10 @@ var dangerousCommandPatterns = []struct {
 	{regexp.MustCompile(`\bchmod\s+(-[a-zA-Z]*\s+)?777\s+/(\s|$)`), "'chmod 777 /' on root filesystem"},
 }
 
-// validateCommandPreprocessing checks !command preprocessing directives in command body.
-// Claude Code commands can use !command syntax to execute a shell command and inject output.
-func validateCommandPreprocessing(filePath string, contents string) []cue.ValidationError {
-	var issues []cue.ValidationError
-
+// withBodyLines iterates over lines in contents, skipping frontmatter and fenced code blocks.
+// fn receives the 1-based line number and trimmed line text for each body line.
+// Single source of truth for frontmatter/code-block state; all callers are straight consumers.
+func withBodyLines(contents string, fn func(lineNum int, trimmed string)) {
 	lines := strings.Split(contents, "\n")
 	inFrontmatter := false
 	frontmatterDone := false
@@ -318,40 +317,41 @@ func validateCommandPreprocessing(filePath string, contents string) []cue.Valida
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
-		// Update parsing state (frontmatter, code blocks)
-		inFrontmatter, frontmatterDone, inCodeBlock = updateParsingState(
-			trimmed, inFrontmatter, frontmatterDone, inCodeBlock,
-		)
+		// Track frontmatter boundaries
+		if trimmed == frontmatterDelimiter {
+			if !inFrontmatter && !frontmatterDone {
+				inFrontmatter = true
+				continue
+			}
+			inFrontmatter = false
+			frontmatterDone = true
+			continue
+		}
+
+		// Track fenced code blocks
+		if strings.HasPrefix(trimmed, "```") {
+			inCodeBlock = !inCodeBlock
+		}
 
 		// Skip lines inside frontmatter or code blocks
 		if inFrontmatter || inCodeBlock {
 			continue
 		}
 
-		// Check for preprocessing directives
-		issues = appendPreprocessingIssues(issues, trimmed, filePath, i+1)
+		fn(i+1, trimmed)
 	}
-
-	return issues
 }
 
-// updateParsingState updates the parsing state based on the current line.
-// Returns the new state values.
-func updateParsingState(trimmed string, inFrontmatter, frontmatterDone, inCodeBlock bool) (newInFrontmatter, newFrontmatterDone, newInCodeBlock bool) {
-	// Track frontmatter boundaries
-	if trimmed == frontmatterDelimiter {
-		if !inFrontmatter && !frontmatterDone {
-			return true, false, inCodeBlock
-		}
-		return false, true, inCodeBlock
-	}
+// validateCommandPreprocessing checks !command preprocessing directives in command body.
+// Claude Code commands can use !command syntax to execute a shell command and inject output.
+func validateCommandPreprocessing(filePath string, contents string) []cue.ValidationError {
+	var issues []cue.ValidationError
 
-	// Track code blocks
-	if strings.HasPrefix(trimmed, "```") {
-		return inFrontmatter, frontmatterDone, !inCodeBlock
-	}
+	withBodyLines(contents, func(lineNum int, trimmed string) {
+		issues = appendPreprocessingIssues(issues, trimmed, filePath, lineNum)
+	})
 
-	return inFrontmatter, frontmatterDone, inCodeBlock
+	return issues
 }
 
 // appendPreprocessingIssues checks for preprocessing directives and adds issues.
@@ -369,7 +369,7 @@ func appendPreprocessingIssues(issues []cue.ValidationError, trimmed, filePath s
 		return append(issues, cue.ValidationError{
 			File:     filePath,
 			Message:  "Empty preprocessing directive '!' with no command",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceCClintObserve,
 			Line:     lineNum,
 		})
@@ -386,7 +386,7 @@ func appendDangerousPatternIssue(issues []cue.ValidationError, command, filePath
 			issues = append(issues, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Dangerous preprocessing command: %s", dp.message),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceCClintObserve,
 				Line:     lineNum,
 			})
@@ -427,7 +427,7 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 		issues = append(issues, cue.ValidationError{
 			File:     filePath,
 			Message:  "Command uses substitution variables ($ARGUMENTS or $N) but lacks 'argument-hint' in frontmatter. Add argument-hint to describe expected arguments.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 			Line:     textutil.GetFrontmatterEndLine(contents),
 		})
@@ -441,7 +441,7 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 				issues = append(issues, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Positional argument $%d used without $1. Arguments should start at $1.", n),
-					Severity: "warning",
+					Severity: cue.SeverityWarning,
 					Source:   cue.SourceCClintObserve,
 					Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
 				})
@@ -451,7 +451,7 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 				issues = append(issues, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Positional argument gap: $%d used without $%d. Arguments should be sequential.", n, positionalNums[idx-1]+1),
-					Severity: "warning",
+					Severity: cue.SeverityWarning,
 					Source:   cue.SourceCClintObserve,
 					Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
 				})
@@ -465,7 +465,7 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 			issues = append(issues, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("High positional argument $%d detected. Commands with 10+ arguments are likely unintended. Consider using $ARGUMENTS instead.", maxArg),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 				Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", maxArg)),
 			})
@@ -507,28 +507,11 @@ func collectPositionalArgs(matches [][]string) []int {
 // findSubstitutionLine finds the first line number (1-based) containing a substitution pattern.
 // Skips frontmatter and code blocks for accurate reporting.
 func findSubstitutionLine(contents string, pattern string) int {
-	lines := strings.Split(contents, "\n")
-	inFrontmatter := false
-	frontmatterDone := false
-
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == frontmatterDelimiter {
-			if !inFrontmatter && !frontmatterDone {
-				inFrontmatter = true
-				continue
-			} else if inFrontmatter {
-				inFrontmatter = false
-				frontmatterDone = true
-				continue
-			}
+	result := 0
+	withBodyLines(contents, func(lineNum int, trimmed string) {
+		if result == 0 && strings.Contains(trimmed, pattern) {
+			result = lineNum
 		}
-		if inFrontmatter {
-			continue
-		}
-		if strings.Contains(line, pattern) {
-			return i + 1
-		}
-	}
-	return 0
+	})
+	return result
 }

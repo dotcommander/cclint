@@ -335,14 +335,7 @@ func lintSingleFileRequest(req SingleFileRequest) (*LintSummary, error) {
 	result.Success = len(result.Errors) == 0
 
 	// Update summary
-	if result.Success {
-		summary.SuccessfulFiles = 1
-	} else {
-		summary.FailedFiles = 1
-	}
-	summary.TotalErrors = len(result.Errors)
-	summary.TotalWarnings = len(result.Warnings)
-	summary.TotalSuggestions = len(result.Suggestions)
+	applyResultToSummary(summary, result)
 	summary.Results = []LintResult{result}
 	summary.Duration = time.Since(summary.StartTime).Milliseconds()
 
@@ -486,7 +479,7 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 				Errors: []cue.ValidationError{{
 					File:     fh.Path,
 					Message:  err.Error(),
-					Severity: "error",
+					Severity: cue.SeverityError,
 				}},
 			})
 			summary.TotalFiles++
@@ -500,13 +493,9 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 			firstRoot = result.ProjectRoot
 		}
 
-		// Merge results
+		// Merge results — lintSingleFileRequest always produces exactly one result
 		summary.TotalFiles += result.TotalFiles
-		summary.SuccessfulFiles += result.SuccessfulFiles
-		summary.FailedFiles += result.FailedFiles
-		summary.TotalErrors += result.TotalErrors
-		summary.TotalWarnings += result.TotalWarnings
-		summary.TotalSuggestions += result.TotalSuggestions
+		applyResultToSummary(summary, result.Results[0])
 		summary.Results = append(summary.Results, result.Results...)
 	}
 

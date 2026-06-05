@@ -199,7 +199,7 @@ func DetectImportCycles(files map[string]string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     cycle[0],
 			Message:  fmt.Sprintf("Circular @import detected: %s", FormatImportCycle(cycle)),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceCClintObserve,
 		})
 	}

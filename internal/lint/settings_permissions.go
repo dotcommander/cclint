@@ -18,7 +18,7 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "permissions must be an object with optional 'allow' and 'deny' arrays",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -29,7 +29,7 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("permissions: unknown key '%s'. Only 'allow' and 'deny' are supported", key),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -50,7 +50,7 @@ func validatePermissionEntries(entries any, listName string, filePath string) []
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("permissions.%s must be an array of tool permission strings", listName),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -62,7 +62,7 @@ func validatePermissionEntries(entries any, listName string, filePath string) []
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("permissions.%s[%d]: each entry must be a non-empty string", listName, i),
-				Severity: "error",
+				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
 			continue
@@ -74,7 +74,7 @@ func validatePermissionEntries(entries any, listName string, filePath string) []
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("permissions.%s[%d]: unrecognized tool name '%s' in '%s'", listName, i, toolName, str),
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

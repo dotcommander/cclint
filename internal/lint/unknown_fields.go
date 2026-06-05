@@ -27,7 +27,7 @@ func checkUnknownFields(data map[string]any, filePath, contents string, c unknow
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Unknown %s '%s'%s", c.label, key, c.suffix),
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 				Line:     c.findLine(contents, key),
 			})

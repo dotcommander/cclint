@@ -169,9 +169,19 @@ func TestValidateComponentHooks(t *testing.T) {
 			wantErrorCount: 0,
 		},
 		{
-			name:           "rejects SessionStart",
+			name:           "accepts PreCompact",
+			hooks:          map[string]any{"PreCompact": validHook},
+			wantErrorCount: 0,
+		},
+		{
+			name:           "accepts UserPromptSubmit",
+			hooks:          map[string]any{"UserPromptSubmit": validHook},
+			wantErrorCount: 0,
+		},
+		{
+			name:           "accepts SessionStart",
 			hooks:          map[string]any{"SessionStart": validHook},
-			wantErrorCount: 1,
+			wantErrorCount: 0,
 		},
 		{
 			name:           "rejects Setup",
@@ -200,6 +210,48 @@ func TestValidateComponentHooks(t *testing.T) {
 			errors := ValidateComponentHooks(tt.hooks, "agent.md")
 			if len(errors) != tt.wantErrorCount {
 				t.Errorf("ValidateComponentHooks() error count = %d, want %d", len(errors), tt.wantErrorCount)
+				for _, err := range errors {
+					t.Logf("  - %s: %s", err.Severity, err.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestMatcherOptionalForLifecycleEvents(t *testing.T) {
+	noMatcherHook := []any{
+		map[string]any{
+			"hooks": []any{
+				map[string]any{
+					"type":    "command",
+					"command": "echo hi",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name           string
+		hooks          any
+		wantErrorCount int
+	}{
+		{
+			name:           "Stop hook without matcher is allowed",
+			hooks:          map[string]any{"Stop": noMatcherHook},
+			wantErrorCount: 0,
+		},
+		{
+			name:           "PreToolUse hook still requires matcher",
+			hooks:          map[string]any{"PreToolUse": noMatcherHook},
+			wantErrorCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errors := validateHooks(tt.hooks, "settings.json")
+			if len(errors) != tt.wantErrorCount {
+				t.Errorf("validateHooks() error count = %d, want %d", len(errors), tt.wantErrorCount)
 				for _, err := range errors {
 					t.Logf("  - %s: %s", err.Severity, err.Message)
 				}

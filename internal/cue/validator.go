@@ -12,6 +12,7 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	cuerrors "cuelang.org/go/cue/errors"
 )
 
 //go:embed schemas/*.cue
@@ -168,22 +169,41 @@ func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[strin
 	return nil, nil
 }
 
-// extractErrorsFromCUE extracts user-friendly validation errors from CUE errors
+// extractErrorsFromCUE flattens a CUE error into one ValidationError per
+// underlying field issue, preserving each issue's path/position/message.
 func (v *Validator) extractErrorsFromCUE(err error, schemaType string) []ValidationError {
-	var errors []ValidationError
+	var validationErrors []ValidationError
 
-	// CUE errors contain detailed information about what failed
-	// For now, provide a simpler error message
-	errors = append(errors, ValidationError{
-		File:     "",
-		Message:  fmt.Sprintf("Schema validation failed: %v", err),
-		Severity: "error",
-		Source:   SourceAnthropicDocs,
-		Line:     0,
-		Column:   0,
-	})
+	for _, cueErr := range cuerrors.Errors(err) {
+		pos := cueErr.Position()
+		msg := cueErr.Error()
+		if path := cueErr.Path(); len(path) > 0 {
+			msg = fmt.Sprintf("%s: %s", strings.Join(path, "."), msg)
+		}
+		validationErrors = append(validationErrors, ValidationError{
+			File:     "",
+			Message:  msg,
+			Severity: types.SeverityError,
+			Source:   SourceAnthropicDocs,
+			Line:     pos.Line(),
+			Column:   pos.Column(),
+		})
+	}
 
-	return errors
+	// cuerrors.Errors can return nil for some wrapped errors; never drop
+	// the diagnostic entirely.
+	if len(validationErrors) == 0 {
+		validationErrors = append(validationErrors, ValidationError{
+			File:     "",
+			Message:  err.Error(),
+			Severity: types.SeverityError,
+			Source:   SourceAnthropicDocs,
+			Line:     0,
+			Column:   0,
+		})
+	}
+
+	return validationErrors
 }
 
 // Frontmatter represents parsed frontmatter
@@ -213,7 +233,7 @@ func (v *Validator) ValidateFile(path string, content string, fileType string) (
 		return []ValidationError{{
 			File:     path,
 			Message:  err.Error(),
-			Severity: "error",
+			Severity: types.SeverityError,
 		}}, nil
 	}
 

@@ -22,7 +22,7 @@ func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Name must contain only lowercase letters, numbers, and hyphens",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
@@ -33,7 +33,7 @@ func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
@@ -45,7 +45,7 @@ func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Name %q doesn't match filename %q", name, filename),
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		})
 	}

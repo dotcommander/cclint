@@ -34,7 +34,7 @@ func CheckClaudeLocalGitignore(rootPath string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     "CLAUDE.local.md",
 			Message:  "CLAUDE.local.md exists but no .gitignore found - this file should not be committed to version control",
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceAnthropicDocs,
 		})
 		return errors
@@ -45,7 +45,7 @@ func CheckClaudeLocalGitignore(rootPath string) []cue.ValidationError {
 		errors = append(errors, cue.ValidationError{
 			File:     "CLAUDE.local.md",
 			Message:  "CLAUDE.local.md exists but is not in .gitignore - add 'CLAUDE.local.md' to .gitignore to prevent committing personal preferences",
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -143,7 +143,7 @@ func CheckCombinedMemorySize(rootPath string, files []discovery.File) []cue.Vali
 		errors = append(errors, cue.ValidationError{
 			File:     ".claude/",
 			Message:  formatSizeWarning(alwaysLoadedSize, conditionalSize, thresholdBytes),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceCClintObserve,
 		})
 	}
