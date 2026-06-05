@@ -49,6 +49,7 @@ repomix-output.md
 
 # Analysis output
 analysis-results/
+claude-agents-report.html
 
 # Work artifacts (scratch, audits, specs — not for commit)
 .work/
