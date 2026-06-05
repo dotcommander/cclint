@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/dotcommander/cclint/internal/textutil"
 	"github.com/dotcommander/cclint/internal/types"
@@ -36,6 +37,7 @@ const (
 
 // Validator handles CUE validation
 type Validator struct {
+	mu      sync.Mutex
 	ctx     *cue.Context
 	schemas map[string]cue.Value
 }
@@ -50,6 +52,9 @@ func NewValidator() *Validator {
 
 // LoadSchemas loads all CUE schema files from the embedded filesystem
 func (v *Validator) LoadSchemas(schemaDir string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
 	// List all files in the embedded schemas directory
 	entries, err := schemaFS.ReadDir("schemas")
 	if err != nil {
@@ -87,53 +92,49 @@ func (v *Validator) LoadSchemas(schemaDir string) error {
 
 // ValidateAgent validates agent data against the agent schema
 func (v *Validator) ValidateAgent(data map[string]any) ([]ValidationError, error) {
-	schema, ok := v.schemas["agent"]
-	if !ok {
-		// Fallback to Go validation if CUE schema not loaded
-		return nil, nil
-	}
-	return v.validateAgainstSchema(schema, data, "agent")
+	return v.validateSchema("agent", data)
 }
 
 // ValidateCommand validates command data against the command schema
 func (v *Validator) ValidateCommand(data map[string]any) ([]ValidationError, error) {
-	schema, ok := v.schemas["command"]
-	if !ok {
-		return nil, nil
-	}
-	return v.validateAgainstSchema(schema, data, "command")
+	return v.validateSchema("command", data)
 }
 
 // ValidateSettings validates settings data against the settings schema
 func (v *Validator) ValidateSettings(data map[string]any) ([]ValidationError, error) {
-	schema, ok := v.schemas["settings"]
-	if !ok {
-		return nil, nil
-	}
-	return v.validateAgainstSchema(schema, data, "settings")
+	return v.validateSchema("settings", data)
 }
 
 // ValidateSkill validates skill data against the skill schema
 func (v *Validator) ValidateSkill(data map[string]any) ([]ValidationError, error) {
-	schema, ok := v.schemas["skill"]
-	if !ok {
-		// Fallback to Go validation if CUE schema not loaded
-		return nil, nil
-	}
-	return v.validateAgainstSchema(schema, data, "skill")
+	return v.validateSchema("skill", data)
 }
 
 // ValidateClaudeMD validates CLAUDE.md data against the schema
 func (v *Validator) ValidateClaudeMD(data map[string]any) ([]ValidationError, error) {
-	schema, ok := v.schemas["claude_md"]
+	return v.validateSchema("claude_md", data)
+}
+
+func (v *Validator) validateSchema(schemaType string, data map[string]any) ([]ValidationError, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	schema, ok := v.schemas[schemaType]
 	if !ok {
 		return nil, nil
 	}
-	return v.validateAgainstSchema(schema, data, "claude_md")
+	return v.validateAgainstSchemaLocked(schema, data, schemaType)
 }
 
 // validateAgainstSchema validates data against a CUE schema
 func (v *Validator) validateAgainstSchema(schema cue.Value, data map[string]any, schemaType string) ([]ValidationError, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	return v.validateAgainstSchemaLocked(schema, data, schemaType)
+}
+
+func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[string]any, schemaType string) ([]ValidationError, error) {
 	// Create a CUE value from the data
 	dataValue := v.ctx.Encode(data)
 	if encErr := dataValue.Err(); encErr != nil {

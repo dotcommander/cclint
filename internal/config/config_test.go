@@ -249,6 +249,37 @@ func TestLoadConfigRootPathOverride(t *testing.T) {
 	assert.Equal(t, "/override/root", config.Root)
 }
 
+// TestLoadConfigFromRootPath tests that an explicit rootPath controls config discovery.
+func TestLoadConfigFromRootPath(t *testing.T) {
+	resetViper()
+	rootDir := setupTestDir(t)
+	otherDir := setupTestDir(t)
+
+	configData := map[string]any{
+		"exclude": []string{".claude/agents/**"},
+		"quiet":   true,
+	}
+
+	configPath := filepath.Join(rootDir, ".cclintrc.json")
+	jsonData, err := json.MarshalIndent(configData, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(configPath, jsonData, 0644))
+
+	oldWd, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(otherDir))
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWd)
+	})
+
+	config, err := LoadConfig(rootDir)
+	require.NoError(t, err)
+
+	assert.Equal(t, rootDir, config.Root)
+	assert.Equal(t, []string{".claude/agents/**"}, config.Exclude)
+	assert.True(t, config.Quiet)
+}
+
 // TestLoadConfigEnvironmentVariables tests environment variable overrides
 func TestLoadConfigEnvironmentVariables(t *testing.T) {
 	resetViper()
@@ -317,8 +348,8 @@ func TestLoadConfigConfigFilePriority(t *testing.T) {
 // TestValidateConfigInvalidFormat tests format validation
 func TestValidateConfigInvalidFormat(t *testing.T) {
 	config := &Config{
-		Format: "invalid",
-		FailOn: "error",
+		Format:      "invalid",
+		FailOn:      "error",
 		Concurrency: 10,
 	}
 
@@ -330,8 +361,8 @@ func TestValidateConfigInvalidFormat(t *testing.T) {
 // TestValidateConfigInvalidFailOn tests failOn validation
 func TestValidateConfigInvalidFailOn(t *testing.T) {
 	config := &Config{
-		Format: "console",
-		FailOn: "invalid",
+		Format:      "console",
+		FailOn:      "invalid",
 		Concurrency: 10,
 	}
 
@@ -343,8 +374,8 @@ func TestValidateConfigInvalidFailOn(t *testing.T) {
 // TestValidateConfigInvalidConcurrency tests concurrency validation
 func TestValidateConfigInvalidConcurrency(t *testing.T) {
 	config := &Config{
-		Format: "console",
-		FailOn: "error",
+		Format:      "console",
+		FailOn:      "error",
 		Concurrency: 0,
 	}
 
@@ -375,26 +406,26 @@ func TestValidateConfigValid(t *testing.T) {
 		{
 			name: "console format without output",
 			config: &Config{
-				Format: "console",
-				FailOn: "error",
+				Format:      "console",
+				FailOn:      "error",
 				Concurrency: 10,
 			},
 		},
 		{
 			name: "json format with output",
 			config: &Config{
-				Format: "json",
-				Output: "report.json",
-				FailOn: "warning",
+				Format:      "json",
+				Output:      "report.json",
+				FailOn:      "warning",
 				Concurrency: 5,
 			},
 		},
 		{
 			name: "markdown format with output",
 			config: &Config{
-				Format: "markdown",
-				Output: "report.md",
-				FailOn: "suggestion",
+				Format:      "markdown",
+				Output:      "report.md",
+				FailOn:      "suggestion",
 				Concurrency: 20,
 			},
 		},
@@ -475,8 +506,8 @@ func TestSaveConfigCreatesDirectory(t *testing.T) {
 	tmpDir := setupTestDir(t)
 
 	config := &Config{
-		Format: "console",
-		FailOn: "error",
+		Format:      "console",
+		FailOn:      "error",
 		Concurrency: 10,
 	}
 
@@ -491,8 +522,8 @@ func TestSaveConfigCreatesDirectory(t *testing.T) {
 // TestSaveConfigInvalidPath tests error handling for invalid paths
 func TestSaveConfigInvalidPath(t *testing.T) {
 	config := &Config{
-		Format: "console",
-		FailOn: "error",
+		Format:      "console",
+		FailOn:      "error",
 		Concurrency: 10,
 	}
 
@@ -654,7 +685,7 @@ func TestLoadConfigWithNullExtensions(t *testing.T) {
 
 	configData := map[string]any{
 		"schemas": map[string]any{
-			"enabled": true,
+			"enabled":    true,
 			"extensions": nil,
 		},
 	}

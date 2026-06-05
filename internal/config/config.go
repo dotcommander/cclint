@@ -42,38 +42,29 @@ type SchemaConfig struct {
 
 // LoadConfig loads configuration from various sources
 func LoadConfig(rootPath string) (*Config, error) {
-	// Set default values
 	homeDir, _ := os.UserHomeDir()
-	viper.SetDefault("root", defaultRoot(homeDir))
-	viper.SetDefault("format", "console")
-	viper.SetDefault("failOn", "error")
-	viper.SetDefault("followSymlinks", false)
-	viper.SetDefault("quiet", false)
-	viper.SetDefault("verbose", false)
-	viper.SetDefault("showScores", false)
-	viper.SetDefault("showImprovements", false)
-	viper.SetDefault("no-cycle-check", false)
-	viper.SetDefault("concurrency", 10)
-	viper.SetDefault("parallel", true)
-	viper.SetDefault("rules.strict", true)
-	viper.SetDefault("schemas.enabled", true)
+	vp := viper.New()
+	setDefaults(vp, homeDir)
 
 	// Config file locations
 	configPaths := []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"}
 	for _, path := range configPaths {
-		viper.SetConfigFile(path)
-		if err := viper.ReadInConfig(); err == nil {
+		if rootPath != "" {
+			path = filepath.Join(rootPath, path)
+		}
+		vp.SetConfigFile(path)
+		if err := vp.ReadInConfig(); err == nil {
 			break
 		}
 	}
 
 	// Environment variables
-	viper.SetEnvPrefix("CCLINT")
-	viper.AutomaticEnv()
+	vp.SetEnvPrefix("CCLINT")
+	vp.AutomaticEnv()
 
 	// Create config instance
 	var config Config
-	if err := viper.Unmarshal(&config); err != nil {
+	if err := vp.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
 
@@ -88,6 +79,22 @@ func LoadConfig(rootPath string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+func setDefaults(vp *viper.Viper, homeDir string) {
+	vp.SetDefault("root", defaultRoot(homeDir))
+	vp.SetDefault("format", "console")
+	vp.SetDefault("failOn", "error")
+	vp.SetDefault("followSymlinks", false)
+	vp.SetDefault("quiet", false)
+	vp.SetDefault("verbose", false)
+	vp.SetDefault("showScores", false)
+	vp.SetDefault("showImprovements", false)
+	vp.SetDefault("no-cycle-check", false)
+	vp.SetDefault("concurrency", 10)
+	vp.SetDefault("parallel", true)
+	vp.SetDefault("rules.strict", true)
+	vp.SetDefault("schemas.enabled", true)
 }
 
 // validateConfig validates the configuration
