@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/textutil"
 	"golang.org/x/term"
 )
@@ -61,54 +61,56 @@ func (f *ConsoleFormatter) printHeader(summary *lint.LintSummary) {
 
 // printFileResults prints results for each file
 func (f *ConsoleFormatter) printFileResults(summary *lint.LintSummary) {
+	issues := BuildFlatIssues(summary)
 	for i := range summary.Results {
-		if !f.shouldShowFile(&summary.Results[i]) {
+		fileIssues := issuesForResult(issues, i)
+		if !f.shouldShowFile(&summary.Results[i], fileIssues) {
 			continue
 		}
 
-		f.printFileHeader(&summary.Results[i])
-		f.printFileIssues(&summary.Results[i])
+		f.printFileHeader(&summary.Results[i], fileIssues)
+		f.printFileIssues(fileIssues)
 		f.printScoreDetails(&summary.Results[i])
 		f.printImprovements(&summary.Results[i])
 	}
 }
 
 // shouldShowFile determines if a file result should be displayed.
-func (f *ConsoleFormatter) shouldShowFile(result *lint.LintResult) bool {
-	hasIssues := len(result.Errors) > 0 || len(result.Warnings) > 0
+func (f *ConsoleFormatter) shouldShowFile(result *lint.LintResult, fileIssues []FlatIssue) bool {
+	hasIssues := countBySeverity(fileIssues, SeverityError) > 0 || countBySeverity(fileIssues, SeverityWarning) > 0
 	return hasIssues || f.verbose
 }
 
 // printFileHeader prints the file header with status icon and quality score.
-func (f *ConsoleFormatter) printFileHeader(result *lint.LintResult) {
-	status := f.getFileStatus(result)
-	fileStyle := f.getFileStyle(result)
+func (f *ConsoleFormatter) printFileHeader(result *lint.LintResult, fileIssues []FlatIssue) {
+	status := f.getFileStatus(fileIssues)
+	fileStyle := f.getFileStyle(fileIssues)
 	scoreStr := f.formatScoreString(result)
 
 	fmt.Printf("%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
 }
 
 // getFileStatus returns the status icon for a file result.
-func (f *ConsoleFormatter) getFileStatus(result *lint.LintResult) string {
-	if len(result.Errors) > 0 {
+func (f *ConsoleFormatter) getFileStatus(fileIssues []FlatIssue) string {
+	if countBySeverity(fileIssues, SeverityError) > 0 {
 		return "✗"
 	}
-	if f.verbose && len(result.Suggestions) > 0 {
+	if f.verbose && countBySeverity(fileIssues, SeveritySuggestion) > 0 {
 		return "💡"
 	}
 	return "✓"
 }
 
 // getFileStyle returns the lipgloss style for a file based on its status.
-func (f *ConsoleFormatter) getFileStyle(result *lint.LintResult) lipgloss.Style {
+func (f *ConsoleFormatter) getFileStyle(fileIssues []FlatIssue) lipgloss.Style {
 	if !f.colorize {
 		return lipgloss.NewStyle()
 	}
 
 	switch {
-	case len(result.Errors) > 0:
+	case countBySeverity(fileIssues, SeverityError) > 0:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
-	case f.verbose && len(result.Suggestions) > 0:
+	case f.verbose && countBySeverity(fileIssues, SeveritySuggestion) > 0:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("7")) // gray
 	default:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
@@ -144,17 +146,12 @@ func (f *ConsoleFormatter) getScoreStyle(tier string) lipgloss.Style {
 }
 
 // printFileIssues prints all errors, warnings, and suggestions for a file.
-func (f *ConsoleFormatter) printFileIssues(result *lint.LintResult) {
-	for _, err := range result.Errors {
-		f.printValidationError(err, "error")
-	}
-	for _, warning := range result.Warnings {
-		f.printValidationError(warning, "warning")
-	}
-	if f.verbose {
-		for _, suggestion := range result.Suggestions {
-			f.printValidationError(suggestion, "suggestion")
+func (f *ConsoleFormatter) printFileIssues(fileIssues []FlatIssue) {
+	for _, is := range fileIssues {
+		if is.Severity == SeveritySuggestion && !f.verbose {
+			continue
 		}
+		f.printValidationError(is.Err, string(is.Severity))
 	}
 }
 

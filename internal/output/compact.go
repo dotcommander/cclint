@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"golang.org/x/term"
 )
 
@@ -179,12 +179,12 @@ func getStatusInfo(s *lint.LintSummary, maxCountLen int, greenStyle, redStyle li
 
 // statusLineParams groups parameters for printing a status line.
 type statusLineParams struct {
-	icon      string
-	name      string
-	padding   string
-	text      string
-	style     lipgloss.Style
-	dimStyle  lipgloss.Style
+	icon     string
+	name     string
+	padding  string
+	text     string
+	style    lipgloss.Style
+	dimStyle lipgloss.Style
 }
 
 // printStatusLine prints a single status line with appropriate styling.
@@ -202,20 +202,20 @@ func (f *CompactFormatter) printStatusLine(p statusLineParams) {
 
 // collectErrorsAndSuggestions aggregates errors and suggestions from a summary.
 func (f *CompactFormatter) collectErrorsAndSuggestions(s *lint.LintSummary, allErrors, allSuggestions []errorEntry) ([]errorEntry, []errorEntry) {
-	for _, result := range s.Results {
-		for _, err := range result.Errors {
+	for _, is := range BuildFlatIssues(s) {
+		switch is.Severity {
+		case SeverityError:
 			allErrors = append(allErrors, errorEntry{
-				componentType: s.ComponentType,
-				file:          result.File,
-				err:           err,
+				componentType: is.ComponentType,
+				file:          is.File,
+				err:           is.Err,
 			})
-		}
-		if f.verbose {
-			for _, sugg := range result.Suggestions {
+		case SeveritySuggestion:
+			if f.verbose {
 				allSuggestions = append(allSuggestions, errorEntry{
-					componentType: s.ComponentType,
-					file:          result.File,
-					err:           sugg,
+					componentType: is.ComponentType,
+					file:          is.File,
+					err:           is.Err,
 				})
 			}
 		}

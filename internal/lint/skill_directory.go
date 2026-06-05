@@ -70,7 +70,7 @@ func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationErro
 				issues = append(issues, cue.ValidationError{
 					File:     skillPath,
 					Message:  fmt.Sprintf("Script '%s' missing shebang (e.g., #!/usr/bin/env python3)", relPath),
-					Severity: "suggestion",
+					Severity: cue.SeveritySuggestion,
 					Source:   cue.SourceAgentSkillsIO,
 				})
 			}
@@ -84,7 +84,7 @@ func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationErro
 				issues = append(issues, cue.ValidationError{
 					File:     skillPath,
 					Message:  fmt.Sprintf("Script '%s' is not executable (chmod +x)", relPath),
-					Severity: "suggestion",
+					Severity: cue.SeveritySuggestion,
 					Source:   cue.SourceAgentSkillsIO,
 				})
 			}
@@ -119,7 +119,7 @@ func validateRelativePaths(contents, skillPath string) []cue.ValidationError {
 			issues = append(issues, cue.ValidationError{
 				File:     skillPath,
 				Message:  fmt.Sprintf("Use relative path instead of absolute: '%s'", linkPath),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceAgentSkillsIO,
 				Line:     line,
 			})
@@ -221,7 +221,7 @@ func checkNestedReferences(linkPath, skillDir, skillPath string, linkPattern *re
 			issues = append(issues, cue.ValidationError{
 				File:     skillPath,
 				Message:  fmt.Sprintf("Reference chain detected: SKILL.md → %s → %s (keep references 1 level deep)", linkPath, nestedPath),
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceAgentSkillsIO,
 			})
 			break // Only report once per referenced file

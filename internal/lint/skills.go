@@ -71,7 +71,7 @@ func validateBasicSkillFields(fmData map[string]any, filePath, contents string) 
 		warnings = append(warnings, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("argument-hint is %d chars - keep under 80 for readability in autocomplete", len(ah)),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "argument-hint"),
 		})
@@ -119,7 +119,7 @@ func validateAgentSkillsOSpecFields(fmData map[string]any, filePath, contents st
 				warnings = append(warnings, cue.ValidationError{
 					File:     filePath,
 					Message:  "allowed-tools format should be space-delimited tool names (e.g., 'Bash(git:*) Read Write')",
-					Severity: "warning",
+					Severity: cue.SeverityWarning,
 					Source:   cue.SourceAgentSkillsIO,
 					Line:     textutil.FindFrontmatterFieldLine(contents, "allowed-tools"),
 				})
@@ -153,7 +153,7 @@ func checkSkillAntiPatternsSection(filePath, contents string) []cue.ValidationEr
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Consider adding '## Anti-Patterns' section to document common mistakes.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -177,7 +177,7 @@ func checkSkillExamplesSection(filePath, contents string) []cue.ValidationError 
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  "Consider adding '## Examples' section to illustrate skill usage.",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceCClintObserve,
 		}}
 	}
@@ -191,7 +191,7 @@ func validateSkillLicenseField(fmData map[string]any, filePath, contents string)
 			return []cue.ValidationError{{
 				File:     filePath,
 				Message:  "license field is empty - provide SPDX identifier (e.g., 'MIT', 'Apache-2.0') or license file reference",
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceAgentSkillsIO,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "license"),
 			}}
@@ -208,7 +208,7 @@ func validateSkillCompatibilityField(fmData map[string]any, filePath, contents s
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("compatibility field is %d chars (max 500 per agentskills.io spec)", len(compat)),
-				Severity: "warning",
+				Severity: cue.SeverityWarning,
 				Source:   cue.SourceAgentSkillsIO,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "compatibility"),
 			})
@@ -225,7 +225,7 @@ func validateSkillMetadataField(fmData map[string]any, filePath, contents string
 			return []cue.ValidationError{{
 				File:     filePath,
 				Message:  "metadata field should be key-value mapping (e.g., metadata:\\n  author: example-org\\n  version: \"1.0\")",
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceAgentSkillsIO,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "metadata"),
 			}}
@@ -240,7 +240,7 @@ func validateSkillMetadataField(fmData map[string]any, filePath, contents string
 				return []cue.ValidationError{{
 					File:     filePath,
 					Message:  fmt.Sprintf("metadata.%s should be primitive value (string, number, or boolean)", key),
-					Severity: "suggestion",
+					Severity: cue.SeveritySuggestion,
 					Source:   cue.SourceAgentSkillsIO,
 					Line:     textutil.FindFrontmatterFieldLine(contents, "metadata"),
 				}}
@@ -267,7 +267,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 			out = append(out, cue.ValidationError{
 				File:     filePath,
 				Message:  "Skill description should use third person (e.g., 'Analyzes...' not 'I analyze...')",
-				Severity: "suggestion",
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceAnthropicDocs,
 				Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 			})
@@ -279,7 +279,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		out = append(out, cue.ValidationError{
 			File:     filePath,
 			Message:  "Skill description should describe what it does, not address the user",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -289,7 +289,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		out = append(out, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Description is only %d chars. Aim for 50+ to help with skill discovery.", len(description)),
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -299,7 +299,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		out = append(out, cue.ValidationError{
 			File:     filePath,
 			Message:  fmt.Sprintf("Description is %d chars, exceeding the 1536-character limit. Skill descriptions over 1536 chars are truncated by Claude Code (v2.1.105).", len(description)),
-			Severity: "warning",
+			Severity: cue.SeverityWarning,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})
@@ -316,7 +316,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		out = append(out, cue.ValidationError{
 			File:     filePath,
 			Message:  "Consider adding trigger phrases like 'Use when...' or 'Use for...' to help skill discovery",
-			Severity: "suggestion",
+			Severity: cue.SeveritySuggestion,
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
 		})

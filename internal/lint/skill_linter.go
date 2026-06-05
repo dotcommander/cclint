@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -52,7 +51,7 @@ func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationErr
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Skill file must be named SKILL.md",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
 	}
@@ -62,7 +61,7 @@ func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationErr
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
 			Message:  "Skill file is empty",
-			Severity: "error",
+			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 			Abort:    true,
 		})
@@ -122,112 +121,6 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 	return errors
 }
 
-// checkUnknownSkillFields checks for unknown frontmatter fields in skill files.
-func checkUnknownSkillFields(data map[string]any, filePath, contents string) []cue.ValidationError {
-	return checkUnknownFields(data, filePath, contents, unknownFieldCheck{
-		known:    knownSkillFields,
-		label:    "frontmatter field",
-		suffix:   ". See https://agentskills.io/specification for valid fields",
-		findLine: textutil.FindFrontmatterFieldLine,
-	})
-}
-
-// validateSkillContextField validates the context field in skill frontmatter.
-func validateSkillContextField(data map[string]any, filePath, contents string) []cue.ValidationError {
-	if ctxVal, ok := data["context"]; ok {
-		ctxStr, isStr := ctxVal.(string)
-		if !isStr || ctxStr != "fork" {
-			return []cue.ValidationError{{
-				File:     filePath,
-				Message:  fmt.Sprintf("context field must be 'fork' (got '%v')", ctxVal),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "context"),
-			}}
-		}
-	}
-	return nil
-}
-
-// validateSkillBooleanFields validates boolean fields in skill frontmatter.
-func validateSkillBooleanFields(data map[string]any, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-
-	// Validate user-invocable field: must be boolean
-	if uiVal, ok := data["user-invocable"]; ok {
-		if _, isBool := uiVal.(bool); !isBool {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("user-invocable field must be a boolean (got '%v')", uiVal),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "user-invocable"),
-			})
-		}
-	}
-
-	// Validate disable-model-invocation field: must be boolean
-	if dmiVal, ok := data["disable-model-invocation"]; ok {
-		if _, isBool := dmiVal.(bool); !isBool {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("disable-model-invocation field must be a boolean (got '%v')", dmiVal),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "disable-model-invocation"),
-			})
-		}
-	}
-
-	return errors
-}
-
-// validateSkillArgumentHint validates the argument-hint field in skill frontmatter.
-func validateSkillArgumentHint(data map[string]any, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-	if ahVal, ok := data["argument-hint"]; ok {
-		ahStr, isStr := ahVal.(string)
-		if !isStr {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("argument-hint field must be a string (got '%v')", ahVal),
-				Severity: "error",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "argument-hint"),
-			})
-		} else if strings.TrimSpace(ahStr) == "" {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  "argument-hint field is empty - provide a hint for autocomplete (e.g., 'PR number or URL')",
-				Severity: "warning",
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "argument-hint"),
-			})
-		}
-	}
-	return errors
-}
-
-// checkSkillFrontmatter checks if the skill has frontmatter and suggests adding it.
-func checkSkillFrontmatter(filePath, contents string) []cue.ValidationError {
-	if strings.HasPrefix(contents, "---") {
-		return nil
-	}
-
-	skillName := extractSkillName(contents, filePath)
-	suggestion := "Add YAML frontmatter with name and description (description is critical for skill discovery)"
-	if skillName != "" {
-		suggestion = fmt.Sprintf("Add frontmatter: ---\nname: %s\ndescription: Brief summary of what this skill does\n--- (description critical for discovery)", skillName)
-	}
-
-	return []cue.ValidationError{{
-		File:     filePath,
-		Message:  suggestion,
-		Severity: "suggestion",
-		Source:   cue.SourceAnthropicDocs,
-	}}
-}
-
 // ValidateBestPractices implements BestPracticeValidator interface
 func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
 	return validateSkillBestPractices(filePath, contents, data)
@@ -253,178 +146,10 @@ func (l *SkillLinter) GetImprovements(contents string, data map[string]any) []te
 	return textutil.GetSkillImprovements(contents, data)
 }
 
-// attachKind selects which LintResult slice (Errors vs Suggestions) an issue
-// is appended to, plus the side effects of the error path (mark Success=false
-// on attach, increment FailedFiles on create).
-type attachKind int
-
-const (
-	attachAsError attachKind = iota
-	attachAsSuggestion
-)
-
-// attachIssueToSummary finds an existing LintResult matching issue.File and
-// appends the issue to its Errors or Suggestions slice. If no match exists
-// and createIfMissing is true, a new LintResult entry is created. Returns
-// true if a new entry was created (the caller updates FailedFiles for the
-// error path).
-//
-// Order preservation: scans summary.Results in index order, breaks on first
-// match — identical semantics to the four prior hand-rolled loops.
-func attachIssueToSummary(summary *LintSummary, issue cue.ValidationError, kind attachKind, createIfMissing bool) (created bool) {
-	for i, result := range summary.Results {
-		if result.File != issue.File {
-			continue
-		}
-		if kind == attachAsError {
-			summary.Results[i].Errors = append(summary.Results[i].Errors, issue)
-			summary.Results[i].Success = false
-		} else {
-			summary.Results[i].Suggestions = append(summary.Results[i].Suggestions, issue)
-		}
-		return false
-	}
-	if !createIfMissing {
-		return false
-	}
-	entry := LintResult{File: issue.File, Type: "skill"}
-	if kind == attachAsError {
-		entry.Success = false
-		entry.Errors = []cue.ValidationError{issue}
-	} else {
-		entry.Success = true // suggestions do not fail the build
-		entry.Suggestions = []cue.ValidationError{issue}
-	}
-	summary.Results = append(summary.Results, entry)
-	return true
-}
-
-// PostProcessBatch implements BatchPostProcessor for orphan detection and ghost triggers.
+// PostProcessBatch implements BatchPostProcessor — thin orchestrator over four named helpers.
 func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
-	orphanedSkills := ctx.CrossValidator.FindOrphanedSkills()
-	for _, orphan := range orphanedSkills {
-		summary.TotalSuggestions++
-		// Orphans only attach to existing file results; no fallback entry.
-		attachIssueToSummary(summary, orphan, attachAsSuggestion, false)
-	}
-
-	// Ghost trigger detection: validate skill/agent refs in trigger map tables.
-	ghostTriggers := ctx.CrossValidator.ValidateTriggerMaps(ctx.RootPath)
-	for _, gt := range ghostTriggers {
-		summary.TotalErrors++
-		summary.FailedFiles++
-		// Reference files are not in normal results, so always create a new entry.
-		summary.Results = append(summary.Results, LintResult{
-			File:    gt.File,
-			Type:    "skill",
-			Success: false,
-			Errors:  []cue.ValidationError{gt},
-		})
-	}
-
-	// Trigger conflict detection: same keyword routing to different targets across files.
-	triggerConflicts := ctx.CrossValidator.DetectTriggerConflicts(ctx.RootPath)
-	for _, tc := range triggerConflicts {
-		summary.TotalSuggestions++
-		summary.Results = append(summary.Results, LintResult{
-			File:        tc.File,
-			Type:        "skill",
-			Success:     true, // warnings do not fail the build
-			Suggestions: []cue.ValidationError{tc},
-		})
-	}
-
-	// Skill reference file validation: phantom refs (error) and orphaned refs (info).
-	skillRefIssues := ctx.CrossValidator.ValidateSkillReferences(ctx.RootPath)
-	for _, issue := range skillRefIssues {
-		if issue.Severity == cue.SeverityError {
-			summary.TotalErrors++
-			if attachIssueToSummary(summary, issue, attachAsError, true) {
-				summary.FailedFiles++
-			}
-		} else {
-			summary.TotalSuggestions++
-			attachIssueToSummary(summary, issue, attachAsSuggestion, true)
-		}
-	}
-}
-
-// validateSkillName checks reserved words, hyphen placement, consecutive hyphens, and directory match.
-func validateSkillName(name, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-
-	if reservedNames[strings.ToLower(name)] {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Name '%s' is a reserved word and cannot be used", name),
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
-		})
-	}
-
-	// Rule 048: Name cannot start or end with hyphen (agentskills.io spec)
-	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Skill name '%s' cannot start or end with a hyphen", name),
-			Severity: "error",
-			Source:   cue.SourceAgentSkillsIO,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
-		})
-	}
-
-	// Rule 049: Name cannot contain consecutive hyphens (agentskills.io spec)
-	if strings.Contains(name, "--") {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Skill name '%s' contains consecutive hyphens (--) which are not allowed", name),
-			Severity: "error",
-			Source:   cue.SourceAgentSkillsIO,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
-		})
-	}
-
-	// Rule 050: Name must match parent directory name (agentskills.io spec)
-	parentDir := filepath.Base(filepath.Dir(filePath))
-	isSpecialDir := parentDir == "." || parentDir == "skills" || parentDir == ".claude"
-	if !isSpecialDir && name != parentDir {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Skill name '%s' must match parent directory name '%s' (agentskills.io spec: name field)", name, parentDir),
-			Severity: "error",
-			Source:   cue.SourceAgentSkillsIO,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
-		})
-	}
-
-	return errors
-}
-
-// validateSkillAgentField validates the agent frontmatter field and its relationship with context.
-func validateSkillAgentField(agentVal any, data map[string]any, filePath, contents string) []cue.ValidationError {
-	agentStr, isStr := agentVal.(string)
-	if !isStr || strings.TrimSpace(agentStr) == "" {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  "agent field must be a non-empty string",
-			Severity: "error",
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "agent"),
-		}}
-	}
-
-	// Warn if agent is set but context is not "fork"
-	ctxStr, _ := data["context"].(string)
-	if ctxStr != "fork" {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  "agent field is set but context is not 'fork' - consider adding 'context: fork' for sub-agent execution",
-			Severity: "warning",
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "agent"),
-		}}
-	}
-
-	return nil
+	applyOrphanedSkills(ctx, summary)
+	applyGhostTriggers(ctx, summary)
+	applyTriggerConflicts(ctx, summary)
+	applySkillRefIssues(ctx, summary)
 }

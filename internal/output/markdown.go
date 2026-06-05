@@ -76,8 +76,10 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 		return
 	}
 	builder.WriteString("### Files\n\n")
-	for _, result := range summary.Results {
-		if !f.shouldRenderResult(result) {
+	issues := BuildFlatIssues(summary)
+	for i := range summary.Results {
+		result := summary.Results[i]
+		if !f.shouldRenderResult(result, issuesForResult(issues, i)) {
 			continue
 		}
 		fileName := strings.TrimPrefix(result.File, "./")
@@ -87,8 +89,11 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 }
 
 func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *lint.LintSummary) {
-	for _, result := range summary.Results {
-		if !f.shouldRenderResult(result) {
+	issues := BuildFlatIssues(summary)
+	for i := range summary.Results {
+		result := summary.Results[i]
+		fileIssues := issuesForResult(issues, i)
+		if !f.shouldRenderResult(result, fileIssues) {
 			continue
 		}
 
@@ -97,9 +102,9 @@ func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *
 		builder.WriteString(fmt.Sprintf("Status: %s\n\n", getStatusEmoji(result.Success)))
 		builder.WriteString(fmt.Sprintf("Type: `%s`\n\n", result.Type))
 
-		f.writeIssues(builder, result.Errors, "Errors")
-		f.writeIssues(builder, result.Warnings, "Warnings")
-		f.writeIssues(builder, result.Suggestions, "Suggestions")
+		f.writeIssues(builder, severityErrors(fileIssues, SeverityError), "Errors")
+		f.writeIssues(builder, severityErrors(fileIssues, SeverityWarning), "Warnings")
+		f.writeIssues(builder, severityErrors(fileIssues, SeveritySuggestion), "Suggestions")
 
 		if !f.verbose {
 			builder.WriteString("---\n\n")
@@ -107,11 +112,11 @@ func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *
 	}
 }
 
-func (f *MarkdownFormatter) shouldRenderResult(result lint.LintResult) bool {
+func (f *MarkdownFormatter) shouldRenderResult(result lint.LintResult, fileIssues []FlatIssue) bool {
 	if f.verbose {
 		return true
 	}
-	return !result.Success || len(result.Errors) > 0 || len(result.Warnings) > 0 || len(result.Suggestions) > 0
+	return !result.Success || len(fileIssues) > 0
 }
 
 func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.ValidationError, title string) {
