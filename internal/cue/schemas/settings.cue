@@ -296,6 +296,24 @@ package schemas
 	// --agent <name> overrides this at invocation time.
 	agent?: string
 
+	// Fallback models tried in order when the primary model is overloaded
+	// or unavailable (v2.1.166+). Each element is a model name or alias;
+	// "default" expands to the default model. Effective list capped at 3.
+	// CLI --fallback-model takes precedence.
+	fallbackModel?: [...string]
+
+	// Minimum Claude Code version required to start (v2.1.163+, semver).
+	// Only enforced from managed (policy) settings.
+	requiredMinimumVersion?: string
+
+	// Maximum Claude Code version allowed to start (v2.1.163+, semver).
+	// Only enforced from managed (policy) settings.
+	requiredMaximumVersion?: string
+
+	// Hide bundled skills, workflows, and built-in slash commands (v2.1.169+).
+	// Env equivalent: CLAUDE_CODE_DISABLE_BUNDLED_SKILLS.
+	disableBundledSkills?: bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
