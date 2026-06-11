@@ -10,10 +10,10 @@ import (
 )
 
 // validModelPattern matches known Claude Code model values.
-// Bare names: haiku, sonnet, opus, inherit, opusplan.
-// Optional version suffix in brackets: sonnet[1m], haiku[2].
-// Full model IDs: claude-* (e.g. claude-opus-4-5, claude-sonnet-4-6).
-var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|inherit|opusplan)(\[\w+\])?$|^claude-[a-z0-9-]+$`)
+// Bare names: haiku, sonnet, opus, fable, best, inherit, opusplan.
+// Optional version suffix in brackets: sonnet[1m], fable[1m], haiku[2].
+// Full model IDs: claude-* with optional suffix (e.g. claude-opus-4-5, claude-fable-5[1m]).
+var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|fable|best|inherit|opusplan)(\[\w+\])?$|^claude-[a-z0-9-]+(\[\w+\])?$`)
 
 // validColors is the set of UI colors accepted by the CUE #Color enum.
 var validColors = map[string]bool{
@@ -130,7 +130,7 @@ func validateAgentModel(data map[string]any, filePath, contents string) []cue.Va
 
 	return []cue.ValidationError{{
 		File:     filePath,
-		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, inherit, opusplan (with optional version suffix like sonnet[1m]), or full model ID (claude-*)", model),
+		Message:  fmt.Sprintf("Unknown model %q. Valid models: haiku, sonnet, opus, fable, best, inherit, opusplan (with optional version suffix like sonnet[1m]), or full model ID (claude-*)", model),
 		Severity: cue.SeverityWarning,
 		Source:   cue.SourceCClintObserve,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "model"),

@@ -11,8 +11,8 @@ import "strings"
 // ============================================================================
 
 // Valid model options for Claude Code
-#Model: "sonnet" | "opus" | "haiku" | "sonnet[1m]" | "opusplan" | "inherit" |
-	=~"^claude-[a-z0-9-]+$"  // allow full model names like claude-sonnet-4-20250514
+#Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
+	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-sonnet-4-20250514, claude-fable-5[1m]
 
 // Known Claude Code tools for validation
 #KnownTool: "Read" | "Write" | "Edit" | "MultiEdit" | "Bash" |

@@ -51,7 +51,7 @@ package schemas
 	description?: string
 
 	// Optional model specification
-	model?: "sonnet" | "opus" | "haiku" | "sonnet[1m]" | "opusplan" | "inherit"
+	model?: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit"
 
 	// Optional tool permissions
 	"allowed-tools"?: string | [...string]
