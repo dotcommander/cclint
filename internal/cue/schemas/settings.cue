@@ -395,6 +395,46 @@ package schemas
 	enableWorkflows?:      bool
 	disableWorkflows?:     bool
 
+	// --- Additional UI/UX/session top-level keys, grep-verified against the v2.1.177 binary. ---
+
+	// TUI / display toggles.
+	terminalProgressBarEnabled?:   bool
+	showMessageTimestamps?:        bool
+	showTurnDuration?:             bool
+	terminalTitleFromRename?:      bool
+	prefersReducedMotion?:         bool
+	showClearContextOnPlanAccept?: bool
+	switchModelsOnFlag?:           bool
+	defaultShell?:                 "bash" | "powershell"
+
+	// Fast mode / auto mode / workflow keyword toggles.
+	fastMode?:                      bool
+	fastModePerSessionOptIn?:       bool
+	autoSubmit?:                    bool
+	useAutoModeDuringPlan?:         bool
+	ultracode?:                     bool // workflow keyword trigger (renamed from the "workflow" keyword in v2.1.160)
+	workflowKeywordTriggerEnabled?: bool
+
+	// Notifications / away summary.
+	awaySummaryEnabled?:     bool
+	agentPushNotifEnabled?:  bool
+	inputNeededNotifEnabled?: bool
+
+	// Voice, break reminders, quiet hours (open structs with an `enabled` bool + more).
+	voice?:                 {...}
+	voiceEnabled?:          bool
+	breakReminder?:         {...}
+	breakThresholdMinutes?: number
+	quietHours?:            {...}
+
+	// Path scope.
+	symlinkDirectories?: [...string]
+	sparsePaths?:        [...string]
+
+	// Skill-listing budget tuning.
+	skillListingBudgetFraction?: number
+	skillListingMaxDescChars?:   number
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
