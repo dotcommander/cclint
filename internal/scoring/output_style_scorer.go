@@ -40,46 +40,29 @@ func (s *OutputStyleScorer) scoreStructural(content string, frontmatter map[stri
 	var details []Metric
 	structural := 0
 
-	// Has frontmatter at all (10 points)
-	hasFrontmatter := strings.HasPrefix(strings.TrimSpace(content), "---")
-	if hasFrontmatter {
-		structural += 10
+	add := func(name string, passed bool, points int) {
+		if passed {
+			structural += points
+		}
+		details = append(details, Metric{
+			Category:  "structural",
+			Name:      name,
+			Points:    boolToInt(passed) * points,
+			MaxPoints: points,
+			Passed:    passed,
+		})
 	}
-	details = append(details, Metric{
-		Category:  "structural",
-		Name:      "Has frontmatter",
-		Points:    boolToInt(hasFrontmatter) * 10,
-		MaxPoints: 10,
-		Passed:    hasFrontmatter,
-	})
+
+	// Has frontmatter at all (10 points)
+	add("Has frontmatter", strings.HasPrefix(strings.TrimSpace(content), "---"), 10)
 
 	// Has name (15 points)
-	hasName := false
-	if name, ok := frontmatter["name"].(string); ok && name != "" {
-		structural += 15
-		hasName = true
-	}
-	details = append(details, Metric{
-		Category:  "structural",
-		Name:      "Has name",
-		Points:    boolToInt(hasName) * 15,
-		MaxPoints: 15,
-		Passed:    hasName,
-	})
+	name, _ := frontmatter["name"].(string)
+	add("Has name", name != "", 15)
 
 	// Has description (15 points)
-	hasDescription := false
-	if desc, ok := frontmatter["description"].(string); ok && desc != "" {
-		structural += 15
-		hasDescription = true
-	}
-	details = append(details, Metric{
-		Category:  "structural",
-		Name:      "Has description",
-		Points:    boolToInt(hasDescription) * 15,
-		MaxPoints: 15,
-		Passed:    hasDescription,
-	})
+	desc, _ := frontmatter["description"].(string)
+	add("Has description", desc != "", 15)
 
 	return structural, details
 }
