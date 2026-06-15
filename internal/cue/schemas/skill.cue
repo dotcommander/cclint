@@ -10,10 +10,6 @@ import "strings"
 //   ${CLAUDE_SKILL_DIR} - skill's own directory path (v2.1.69+)
 // ============================================================================
 
-// Valid model options for Claude Code
-#Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
-	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-sonnet-4-20250514, claude-fable-5[1m]
-
 // Known Claude Code tools for validation (#KnownTool is generated from
 // textutil.KnownTools at load time; see validator.go).
 

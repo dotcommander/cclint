@@ -71,9 +71,17 @@ func (v *Validator) LoadSchemas(schemaDir string) error {
 				continue
 			}
 
-			// inject the generated #KnownTool union (single source: textutil.KnownTools) so schemas never hand-maintain the tool list
-			if bytes.Contains(content, []byte("#KnownTool")) {
-				content = append(content, []byte("\n"+knownToolUnionCUE()+"\n")...)
+			// Inject generated CUE unions (single source in Go) so schemas never hand-maintain these lists.
+			for _, inj := range []struct {
+				token string
+				gen   func() string
+			}{
+				{"#KnownTool", knownToolUnionCUE},
+				{"#Model", modelUnionCUE},
+			} {
+				if bytes.Contains(content, []byte(inj.token)) {
+					content = append(content, []byte("\n"+inj.gen()+"\n")...)
+				}
 			}
 
 			// Compile the CUE schema

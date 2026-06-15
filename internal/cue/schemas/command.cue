@@ -6,10 +6,6 @@ import "strings"
 // Command Schema
 // ============================================================================
 
-// Valid model options for Claude Code
-#Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
-	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-opus-4-5, claude-fable-5[1m]
-
 // Known Claude Code tools for validation (#KnownTool is generated from
 // textutil.KnownTools at load time; see validator.go).
 

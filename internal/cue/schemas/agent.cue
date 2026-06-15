@@ -15,10 +15,6 @@ import (
 // Valid memory scopes for persistent agent memory (v2.1.33+)
 #MemoryScope: "user" | "project" | "local"
 
-// Valid model options for Claude Code
-#Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
-	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-opus-4-5, claude-fable-5[1m]
-
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"
 
