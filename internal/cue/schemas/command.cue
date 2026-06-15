@@ -10,18 +10,8 @@ import "strings"
 #Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
 	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-opus-4-5, claude-fable-5[1m]
 
-// Known Claude Code tools for validation
-#KnownTool: "Read" | "Write" | "Edit" | "MultiEdit" | "Bash" |
-	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
-	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
-	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
-	"Agent" | "TaskCreate" | "TaskUpdate" | "TaskList" |
-	"TaskGet" | "TaskStop" | "EnterPlanMode" |
-	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
-	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
-	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList" |
-	"Workflow" |                                                      // (v2.1.154+)
-	"ScheduleWakeup" | "PushNotification" | "REPL"                   // (v2.1.156+)
+// Known Claude Code tools for validation (#KnownTool is generated from
+// textutil.KnownTools at load time; see validator.go).
 
 // ============================================================================
 // Command Hook Definitions

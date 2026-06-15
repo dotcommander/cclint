@@ -1,6 +1,7 @@
 package cue
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"path/filepath"
@@ -68,6 +69,11 @@ func (v *Validator) LoadSchemas(schemaDir string) error {
 			content, err := schemaFS.ReadFile(filepath.Join("schemas", entry.Name()))
 			if err != nil {
 				continue
+			}
+
+			// inject the generated #KnownTool union (single source: textutil.KnownTools) so schemas never hand-maintain the tool list
+			if bytes.Contains(content, []byte("#KnownTool")) {
+				content = append(content, []byte("\n"+knownToolUnionCUE()+"\n")...)
 			}
 
 			// Compile the CUE schema

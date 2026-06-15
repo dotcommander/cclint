@@ -9,121 +9,118 @@ import (
 	"github.com/dotcommander/cclint/internal/textutil"
 )
 
-// intentionalDivergence records #KnownTool union members and textutil.KnownTools
-// keys that are deliberately not mirrored. Adjust this map only with a paired
-// reason and a code comment explaining why the symmetry break is correct.
-//
-//	cueOnly: tool appears in CUE schema #KnownTool but not in Go map.
-//	goOnly:  tool appears in Go map but not in CUE #KnownTool.
-//
-// Everything else must be in sync. A new tool added to one side and missing
-// from the other (without an entry here) fails the test.
-var intentionalDivergence = struct {
-	cueOnly map[string]string
-	goOnly  map[string]string
-}{
-	cueOnly: map[string]string{
-		// Documented in Anthropic's tool list but not yet referenced by any
-		// Go-side validator. Keep CUE-only until a Go consumer needs them.
-		"BashOutput": "CUE-only: legacy/alternate Bash output tool name",
-		"KillBash":   "CUE-only: legacy/alternate Bash kill tool name",
-		"DBClient":   "CUE-only: database client tool not validated by Go",
-	},
-	goOnly: map[string]string{
-		// The "*" wildcard is a sibling option of #KnownTool in CUE's
-		// `allowed-tools?: "*" | string | [...#KnownTool]`, not a union
-		// member. Go's flat map conflates both; the wildcard must remain
-		// recognized by ValidateAllowedTools.
-		"*": "Go-only: wildcard handled as separate CUE union option",
-	},
-}
-
-// TestKnownToolsMatchCUESchema asserts that the CUE schema #KnownTool union
-// and textutil.KnownTools agree, modulo intentionalDivergence. Removing a
-// member from either side (without updating the divergence map) fails the
-// build, preventing silent drift.
-func TestKnownToolsMatchCUESchema(t *testing.T) {
-	t.Parallel()
-
-	cueTools, err := extractKnownToolUnionFromSchemas()
-	if err != nil {
-		t.Fatalf("extractKnownToolUnionFromSchemas: %v", err)
-	}
-	if len(cueTools) == 0 {
-		t.Fatal("extracted CUE #KnownTool union is empty")
-	}
-
-	goTools := make(map[string]struct{}, len(textutil.KnownTools))
-	for name := range textutil.KnownTools {
-		goTools[name] = struct{}{}
-	}
-
-	// cueOnly: in CUE but not in Go.
-	var unexpectedCueOnly []string
-	for name := range cueTools {
-		if _, ok := goTools[name]; ok {
-			continue
-		}
-		if _, allowed := intentionalDivergence.cueOnly[name]; allowed {
-			continue
-		}
-		unexpectedCueOnly = append(unexpectedCueOnly, name)
-	}
-
-	// goOnly: in Go but not in CUE.
-	var unexpectedGoOnly []string
-	for name := range goTools {
-		if _, ok := cueTools[name]; ok {
-			continue
-		}
-		if _, allowed := intentionalDivergence.goOnly[name]; allowed {
-			continue
-		}
-		unexpectedGoOnly = append(unexpectedGoOnly, name)
-	}
-
-	sort.Strings(unexpectedCueOnly)
-	sort.Strings(unexpectedGoOnly)
-
-	if len(unexpectedCueOnly) > 0 {
-		t.Errorf("tools present in CUE #KnownTool but missing from textutil.KnownTools (add to Go map or to intentionalDivergence.cueOnly): %v", unexpectedCueOnly)
-	}
-	if len(unexpectedGoOnly) > 0 {
-		t.Errorf("tools present in textutil.KnownTools but missing from CUE #KnownTool (add to CUE schemas or to intentionalDivergence.goOnly): %v", unexpectedGoOnly)
-	}
-}
-
-// knownToolBlockRe extracts the body of `#KnownTool: "A" | "B" | ...` blocks.
-// The union may span multiple lines, terminated by a blank line, a closing
-// brace, or any line that does not continue the alternation.
-var knownToolBlockRe = regexp.MustCompile(`(?ms)^#KnownTool:\s*(.*?)(?:\n\s*\n|\z)`)
+// quotedStringRe extracts a single quoted token's inner text. Used to parse the
+// members of the generated #KnownTool definition line.
 var quotedStringRe = regexp.MustCompile(`"([^"]+)"`)
 
-// extractKnownToolUnionFromSchemas reads every embedded *.cue file, locates
-// the `#KnownTool` union definition (if any), and returns the union of all
-// quoted alternatives across files. Multiple identical definitions are merged.
-func extractKnownToolUnionFromSchemas() (map[string]struct{}, error) {
-	entries, err := schemaFS.ReadDir("schemas")
-	if err != nil {
-		return nil, err
+// TestKnownToolUnionMatchesSource asserts that knownToolUnionCUE() — the single
+// generator feeding the CUE #KnownTool union — reproduces exactly the union of
+// textutil.KnownTools (minus the "*" wildcard) and schemaOnlyTools. Since the
+// CUE schemas no longer hand-maintain #KnownTool (it is injected at load time
+// from this generator), this is the drift guard: adding a tool to one side and
+// not the other fails the build.
+func TestKnownToolUnionMatchesSource(t *testing.T) {
+	t.Parallel()
+
+	// Expected: KnownTools minus "*", plus the schema-only tools.
+	expected := make(map[string]struct{}, len(textutil.KnownTools)+len(schemaOnlyTools))
+	for name := range textutil.KnownTools {
+		if name == "*" {
+			continue
+		}
+		expected[name] = struct{}{}
+	}
+	for _, name := range schemaOnlyTools {
+		expected[name] = struct{}{}
 	}
 
-	out := make(map[string]struct{})
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".cue") {
-			continue
-		}
-		data, err := schemaFS.ReadFile("schemas/" + e.Name())
-		if err != nil {
-			return nil, err
-		}
-		match := knownToolBlockRe.FindSubmatch(data)
-		if match == nil {
-			continue
-		}
-		for _, m := range quotedStringRe.FindAllSubmatch(match[1], -1) {
-			out[string(m[1])] = struct{}{}
+	// Actual: parse the quoted members out of the generated definition.
+	got := make(map[string]struct{}, len(expected))
+	for _, m := range quotedStringRe.FindAllStringSubmatch(knownToolUnionCUE(), -1) {
+		got[m[1]] = struct{}{}
+	}
+
+	if len(got) == 0 {
+		t.Fatal("knownToolUnionCUE() produced no members")
+	}
+
+	// Symmetric diff for a clear mismatch message.
+	var missing, extra []string
+	for name := range expected {
+		if _, ok := got[name]; !ok {
+			missing = append(missing, name)
 		}
 	}
-	return out, nil
+	for name := range got {
+		if _, ok := expected[name]; !ok {
+			extra = append(extra, name)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(extra)
+
+	if len(missing) > 0 || len(extra) > 0 {
+		var b strings.Builder
+		if len(missing) > 0 {
+			b.WriteString("missing from generated union: " + strings.Join(missing, ", ") + ". ")
+		}
+		if len(extra) > 0 {
+			b.WriteString("unexpected in generated union: " + strings.Join(extra, ", ") + ". ")
+		}
+		t.Errorf("%supdate textutil.KnownTools or schemaOnlyTools — the CUE union is generated from them.", b.String())
+	}
+}
+
+// TestKnownToolUnionExcludesWildcard asserts the "*" wildcard is never a union
+// member (it is a sibling union option of #KnownTool, handled separately).
+func TestKnownToolUnionExcludesWildcard(t *testing.T) {
+	t.Parallel()
+
+	union := knownToolUnionCUE()
+	if !strings.Contains(union, `"Read"`) {
+		t.Errorf("generated union missing a real tool: %s", union)
+	}
+	if strings.Contains(union, `"DBClient"`) == false {
+		t.Errorf("generated union missing schema-only tool DBClient: %s", union)
+	}
+	if strings.Contains(union, `"*"`) {
+		t.Errorf("generated union must not include the \"*\" wildcard: %s", union)
+	}
+}
+
+// TestKnownToolUnionInjectedValidates exercises the end-to-end injection path:
+// the generated #KnownTool union is wired into the loaded schemas at load time,
+// so validation accepts a known tool and rejects an unknown one. This proves
+// the injected union actually drives validation, not just the generator string.
+func TestKnownToolUnionInjectedValidates(t *testing.T) {
+	t.Parallel()
+
+	v := NewValidator()
+	if err := v.LoadSchemas(""); err != nil {
+		t.Fatalf("LoadSchemas: %v", err)
+	}
+
+	// A real tool in the union must produce no validation errors.
+	if errs, err := v.ValidateAgent(map[string]any{
+		"name":        "test-agent",
+		"description": "test",
+		"tools":       []any{"Read"},
+	}); err != nil {
+		t.Fatalf("ValidateAgent(valid tool): unexpected error: %v", err)
+	} else if len(errs) != 0 {
+		t.Errorf("ValidateAgent(valid tool): expected no errors, got %d: %v", len(errs), errs)
+	}
+
+	// An unknown tool must produce a validation error.
+	errs, err := v.ValidateAgent(map[string]any{
+		"name":        "test-agent",
+		"description": "test",
+		"tools":       []any{"DefinitelyNotARealTool"},
+	})
+	if err != nil {
+		t.Fatalf("ValidateAgent(unknown tool): unexpected error: %v", err)
+	}
+	if len(errs) == 0 {
+		t.Errorf("ValidateAgent(unknown tool): expected a validation error for an unknown tool, got none")
+	}
 }

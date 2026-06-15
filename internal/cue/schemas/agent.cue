@@ -19,19 +19,6 @@ import (
 #Model: "sonnet" | "opus" | "haiku" | "fable" | "best" | "sonnet[1m]" | "opus[1m]" | "fable[1m]" | "opusplan" | "inherit" |
 	=~"^claude-[a-z0-9-]+(\\[[0-9a-z]+\\])?$"  // allow full model names like claude-opus-4-5, claude-fable-5[1m]
 
-// Known Claude Code tools for validation
-#KnownTool: "Read" | "Write" | "Edit" | "MultiEdit" | "Bash" |
-	"Grep" | "Glob" | "LS" | "Task" | "NotebookEdit" |
-	"WebFetch" | "WebSearch" | "TodoWrite" | "BashOutput" |
-	"KillBash" | "ExitPlanMode" | "AskUserQuestion" |
-	"Agent" | "TaskCreate" | "TaskUpdate" | "TaskList" |
-	"TaskGet" | "TaskStop" | "EnterPlanMode" |
-	"EnterWorktree" | "ExitWorktree" | "KillShell" | "TaskOutput" |
-	"LSP" | "Skill" | "DBClient" | "SendMessage" | "Monitor" |
-	"RemoteTrigger" | "CronCreate" | "CronDelete" | "CronList" |
-	"Workflow" |                                                      // (v2.1.154+)
-	"ScheduleWakeup" | "PushNotification" | "REPL"                   // (v2.1.156+)
-
 // Task(agent_type) restricts which sub-agents can be spawned (v2.1.33+)
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"
 
