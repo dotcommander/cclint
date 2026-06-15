@@ -28,16 +28,7 @@ func (s *CommandScorer) scoreStructural(frontmatter map[string]any, body string)
 	points, details := ScoreRequiredFields(frontmatter, fieldSpecs)
 
 	hasTaskDelegation, _ := regexp.MatchString(`Task\([^)]+\)`, body)
-	if hasTaskDelegation {
-		points += 10
-	}
-	details = append(details, Metric{
-		Category:  "structural",
-		Name:      "Task() delegation",
-		Points:    boolToInt(hasTaskDelegation) * 10,
-		MaxPoints: 10,
-		Passed:    hasTaskDelegation,
-	})
+	points += recordMetric(&details, "structural", "Task() delegation", hasTaskDelegation, 10)
 
 	return points, details
 }
@@ -48,33 +39,14 @@ func (s *CommandScorer) scorePractices(body string) (int, []Metric) {
 	points := 0
 
 	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, body)
-	if hasSuccessCriteria {
-		points += 15
-	}
-	details = append(details, Metric{
-		Category: "practices", Name: "Success criteria",
-		Points: boolToInt(hasSuccessCriteria) * 15, MaxPoints: 15, Passed: hasSuccessCriteria,
-	})
+	points += recordMetric(&details, "practices", "Success criteria", hasSuccessCriteria, 15)
 
 	taskCount := strings.Count(body, "Task(")
 	hasTask := taskCount >= 1
-	if hasTask {
-		points += 15
-	}
-	details = append(details, Metric{
-		Category: "practices", Name: "Task delegation",
-		Points: boolToInt(hasTask) * 15, MaxPoints: 15, Passed: hasTask,
-		Note: pluralize(taskCount, "Task() call"),
-	})
+	points += recordMetric(&details, "practices", "Task delegation", hasTask, 15, pluralize(taskCount, "Task() call"))
 
 	hasFlags, _ := regexp.MatchString(`(?i)## Flags|--\w+`, body)
-	if hasFlags {
-		points += 10
-	}
-	details = append(details, Metric{
-		Category: "practices", Name: "Flags documented",
-		Points: boolToInt(hasFlags) * 10, MaxPoints: 10, Passed: hasFlags,
-	})
+	points += recordMetric(&details, "practices", "Flags documented", hasFlags, 10)
 
 	return points, details
 }
@@ -105,13 +77,7 @@ func (s *CommandScorer) scoreDocumentation(frontmatter map[string]any, body stri
 	})
 
 	hasCodeExamples := strings.Contains(body, "```bash") || strings.Contains(body, "```")
-	if hasCodeExamples {
-		points += 5
-	}
-	details = append(details, Metric{
-		Category: "documentation", Name: "Code examples",
-		Points: boolToInt(hasCodeExamples) * 5, MaxPoints: 5, Passed: hasCodeExamples,
-	})
+	points += recordMetric(&details, "documentation", "Code examples", hasCodeExamples, 5)
 
 	return points, details
 }

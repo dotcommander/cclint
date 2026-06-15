@@ -179,19 +179,7 @@ func addPracticeMetric(check practiceMetricCheck) int {
 	} else {
 		hasMatch = strings.Contains(check.content, check.pattern)
 	}
-
-	*check.details = append(*check.details, Metric{
-		Category:  "practices",
-		Name:      check.name,
-		Points:    boolToInt(hasMatch) * check.points,
-		MaxPoints: check.points,
-		Passed:    hasMatch,
-	})
-
-	if hasMatch {
-		return check.points
-	}
-	return 0
+	return recordMetric(check.details, "practices", check.name, hasMatch, check.points)
 }
 
 // scoreComposition scores the composition/line count of a skill.
@@ -343,31 +331,13 @@ func scoreThinRouterStructural(bodyContent string) (int, []Metric) {
 	total := 0
 
 	// Routing table to references (10 points)
-	hasRoutingTable := thinRouterRoutingTablePattern.MatchString(bodyContent)
-	routingPts := boolToInt(hasRoutingTable) * 10
-	total += routingPts
-	details = append(details, Metric{
-		Category: "structural", Name: "Routing table to references",
-		Points: routingPts, MaxPoints: 10, Passed: hasRoutingTable,
-	})
+	total += recordMetric(&details, "structural", "Routing table to references", thinRouterRoutingTablePattern.MatchString(bodyContent), 10)
 
 	// Reference file mentions (5 points)
-	hasRefs := thinRouterRefsPattern.MatchString(bodyContent)
-	refPts := boolToInt(hasRefs) * 5
-	total += refPts
-	details = append(details, Metric{
-		Category: "structural", Name: "Reference file mentions",
-		Points: refPts, MaxPoints: 5, Passed: hasRefs,
-	})
+	total += recordMetric(&details, "structural", "Reference file mentions", thinRouterRefsPattern.MatchString(bodyContent), 5)
 
 	// Decision matrix or intent table (5 points)
-	hasDecision := thinRouterDecisionPattern.MatchString(bodyContent)
-	decisionPts := boolToInt(hasDecision) * 5
-	total += decisionPts
-	details = append(details, Metric{
-		Category: "structural", Name: "Decision matrix or intent table",
-		Points: decisionPts, MaxPoints: 5, Passed: hasDecision,
-	})
+	total += recordMetric(&details, "structural", "Decision matrix or intent table", thinRouterDecisionPattern.MatchString(bodyContent), 5)
 
 	return total, details
 }
@@ -384,49 +354,20 @@ func scoreThinRouterPractices(bodyContent string) (int, []Metric) {
 	total := 0
 
 	// Reference routing pattern (15 points)
-	hasRefRouting := thinRouterReadRefsPattern.MatchString(bodyContent)
-	refPts := boolToInt(hasRefRouting) * 15
-	total += refPts
-	details = append(details, Metric{
-		Category: "practices", Name: "Reference routing pattern",
-		Points: refPts, MaxPoints: 15, Passed: hasRefRouting,
-	})
+	total += recordMetric(&details, "practices", "Reference routing pattern", thinRouterReadRefsPattern.MatchString(bodyContent), 15)
 
 	// Related skills / cross-links (10 points)
-	hasRelated := thinRouterRelatedSkillsPattern.MatchString(bodyContent)
-	relatedPts := boolToInt(hasRelated) * 10
-	total += relatedPts
-	details = append(details, Metric{
-		Category: "practices", Name: "Related skills / cross-links",
-		Points: relatedPts, MaxPoints: 10, Passed: hasRelated,
-	})
+	total += recordMetric(&details, "practices", "Related skills / cross-links", thinRouterRelatedSkillsPattern.MatchString(bodyContent), 10)
 
 	// Degeneralization notes (5 points)
 	hasDegen := strings.Contains(bodyContent, "degeneralized") || strings.Contains(bodyContent, "Degeneralization")
-	degenPts := boolToInt(hasDegen) * 5
-	total += degenPts
-	details = append(details, Metric{
-		Category: "practices", Name: "Degeneralization notes",
-		Points: degenPts, MaxPoints: 5, Passed: hasDegen,
-	})
+	total += recordMetric(&details, "practices", "Degeneralization notes", hasDegen, 5)
 
 	// Anti-patterns (even brief) (5 points)
-	hasAntiPatterns := thinRouterAntiPatternsPattern.MatchString(bodyContent)
-	antiPts := boolToInt(hasAntiPatterns) * 5
-	total += antiPts
-	details = append(details, Metric{
-		Category: "practices", Name: antiPatternsSection,
-		Points: antiPts, MaxPoints: 5, Passed: hasAntiPatterns,
-	})
+	total += recordMetric(&details, "practices", antiPatternsSection, thinRouterAntiPatternsPattern.MatchString(bodyContent), 5)
 
 	// Success criteria (even brief) (5 points)
-	hasSuccess := thinRouterSuccessPattern.MatchString(bodyContent)
-	successPts := boolToInt(hasSuccess) * 5
-	total += successPts
-	details = append(details, Metric{
-		Category: "practices", Name: "Success criteria",
-		Points: successPts, MaxPoints: 5, Passed: hasSuccess,
-	})
+	total += recordMetric(&details, "practices", "Success criteria", thinRouterSuccessPattern.MatchString(bodyContent), 5)
 
 	return total, details
 }

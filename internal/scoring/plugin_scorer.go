@@ -36,44 +36,28 @@ func (s *PluginScorer) Score(content string, frontmatter map[string]any, bodyCon
 	return NewQualityScore(structural, practices, composition, documentation, details)
 }
 
-// checkStringField reports whether frontmatter[field] is a non-empty string,
-// awarding 10 points when present.
-func checkStringField(frontmatter map[string]any, field string) (present bool, points int) {
-	if val, ok := frontmatter[field].(string); ok && val != "" {
-		return true, 10
-	}
-	return false, 0
-}
-
 // scoreStructural evaluates required fields for structure (40 points max).
 func (s *PluginScorer) scoreStructural(frontmatter map[string]any) (int, []Metric) {
 	var details []Metric
 	structural := 0
 
 	// name (10 points)
-	hasName, pts := checkStringField(frontmatter, "name")
-	structural += pts
-	details = append(details, Metric{Category: "structural", Name: "Has name", Points: pts, MaxPoints: 10, Passed: hasName})
+	structural += recordMetric(&details, "structural", "Has name", hasStringValue(frontmatter, "name"), 10)
 
 	// description (10 points)
-	hasDescription, pts := checkStringField(frontmatter, "description")
-	structural += pts
-	details = append(details, Metric{Category: "structural", Name: "Has description", Points: pts, MaxPoints: 10, Passed: hasDescription})
+	structural += recordMetric(&details, "structural", "Has description", hasStringValue(frontmatter, "description"), 10)
 
 	// version (10 points)
-	hasVersion, pts := checkStringField(frontmatter, "version")
-	structural += pts
-	details = append(details, Metric{Category: "structural", Name: "Has version", Points: pts, MaxPoints: 10, Passed: hasVersion})
+	structural += recordMetric(&details, "structural", "Has version", hasStringValue(frontmatter, "version"), 10)
 
 	// author.name (10 points)
 	hasAuthorName := false
 	if author, ok := frontmatter["author"].(map[string]any); ok {
 		if authorName, ok := author["name"].(string); ok && authorName != "" {
-			structural += 10
 			hasAuthorName = true
 		}
 	}
-	details = append(details, Metric{Category: "structural", Name: "Has author.name", Points: boolToInt(hasAuthorName) * 10, MaxPoints: 10, Passed: hasAuthorName})
+	structural += recordMetric(&details, "structural", "Has author.name", hasAuthorName, 10)
 
 	return structural, details
 }
@@ -84,27 +68,20 @@ func (s *PluginScorer) scorePractices(frontmatter map[string]any) (int, []Metric
 	practices := 0
 
 	// homepage (10 points)
-	hasHomepage, pts := checkStringField(frontmatter, "homepage")
-	practices += pts
-	details = append(details, Metric{Category: "practices", Name: "Has homepage", Points: pts, MaxPoints: 10, Passed: hasHomepage})
+	practices += recordMetric(&details, "practices", "Has homepage", hasStringValue(frontmatter, "homepage"), 10)
 
 	// repository (10 points)
-	hasRepo, pts := checkStringField(frontmatter, "repository")
-	practices += pts
-	details = append(details, Metric{Category: "practices", Name: "Has repository", Points: pts, MaxPoints: 10, Passed: hasRepo})
+	practices += recordMetric(&details, "practices", "Has repository", hasStringValue(frontmatter, "repository"), 10)
 
 	// license (10 points)
-	hasLicense, pts := checkStringField(frontmatter, "license")
-	practices += pts
-	details = append(details, Metric{Category: "practices", Name: "Has license", Points: pts, MaxPoints: 10, Passed: hasLicense})
+	practices += recordMetric(&details, "practices", "Has license", hasStringValue(frontmatter, "license"), 10)
 
 	// keywords (10 points)
 	hasKeywords := false
 	if keywords, ok := frontmatter["keywords"].([]any); ok && len(keywords) > 0 {
-		practices += 10
 		hasKeywords = true
 	}
-	details = append(details, Metric{Category: "practices", Name: "Has keywords", Points: boolToInt(hasKeywords) * 10, MaxPoints: 10, Passed: hasKeywords})
+	practices += recordMetric(&details, "practices", "Has keywords", hasKeywords, 10)
 
 	return practices, details
 }
@@ -145,12 +122,7 @@ func (s *PluginScorer) scoreDocumentation(frontmatter map[string]any) (int, []Me
 	details = append(details, Metric{Category: "documentation", Name: "Description quality", Points: descPoints, MaxPoints: 5, Passed: descLen >= 50, Note: descNote})
 
 	// README reference (5 points)
-	hasReadme := false
-	if readme, ok := frontmatter["readme"].(string); ok && readme != "" {
-		documentation += 5
-		hasReadme = true
-	}
-	details = append(details, Metric{Category: "documentation", Name: "Has readme", Points: boolToInt(hasReadme) * 5, MaxPoints: 5, Passed: hasReadme})
+	documentation += recordMetric(&details, "documentation", "Has readme", hasStringValue(frontmatter, "readme"), 5)
 
 	return documentation, details
 }

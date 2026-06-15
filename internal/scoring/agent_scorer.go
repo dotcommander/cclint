@@ -67,16 +67,7 @@ func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
 	practices := 0
 
 	add := func(name string, passed bool, points int) {
-		if passed {
-			practices += points
-		}
-		details = append(details, Metric{
-			Category:  "practices",
-			Name:      name,
-			Points:    boolToInt(passed) * points,
-			MaxPoints: points,
-			Passed:    passed,
-		})
+		practices += recordMetric(&details, "practices", name, passed, points)
 	}
 
 	// Skill reference (10 points)

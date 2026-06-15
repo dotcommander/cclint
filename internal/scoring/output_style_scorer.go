@@ -40,29 +40,14 @@ func (s *OutputStyleScorer) scoreStructural(content string, frontmatter map[stri
 	var details []Metric
 	structural := 0
 
-	add := func(name string, passed bool, points int) {
-		if passed {
-			structural += points
-		}
-		details = append(details, Metric{
-			Category:  "structural",
-			Name:      name,
-			Points:    boolToInt(passed) * points,
-			MaxPoints: points,
-			Passed:    passed,
-		})
-	}
-
 	// Has frontmatter at all (10 points)
-	add("Has frontmatter", strings.HasPrefix(strings.TrimSpace(content), "---"), 10)
+	structural += recordMetric(&details, "structural", "Has frontmatter", strings.HasPrefix(strings.TrimSpace(content), "---"), 10)
 
 	// Has name (15 points)
-	name, _ := frontmatter["name"].(string)
-	add("Has name", name != "", 15)
+	structural += recordMetric(&details, "structural", "Has name", hasStringValue(frontmatter, "name"), 15)
 
 	// Has description (15 points)
-	desc, _ := frontmatter["description"].(string)
-	add("Has description", desc != "", 15)
+	structural += recordMetric(&details, "structural", "Has description", hasStringValue(frontmatter, "description"), 15)
 
 	return structural, details
 }
@@ -73,46 +58,15 @@ func (s *OutputStyleScorer) scorePractices(frontmatter map[string]any, bodyConte
 	practices := 0
 
 	// Has body content (20 points)
-	hasBody := strings.TrimSpace(bodyContent) != ""
-	if hasBody {
-		practices += 20
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Has body content",
-		Points:    boolToInt(hasBody) * 20,
-		MaxPoints: 20,
-		Passed:    hasBody,
-	})
+	practices += recordMetric(&details, "practices", "Has body content", strings.TrimSpace(bodyContent) != "", 20)
 
 	// Has keep-coding-instructions field (10 points)
-	hasKeepCoding := false
-	if _, ok := frontmatter["keep-coding-instructions"]; ok {
-		practices += 10
-		hasKeepCoding = true
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Has keep-coding-instructions",
-		Points:    boolToInt(hasKeepCoding) * 10,
-		MaxPoints: 10,
-		Passed:    hasKeepCoding,
-	})
+	_, hasKeepCoding := frontmatter["keep-coding-instructions"]
+	practices += recordMetric(&details, "practices", "Has keep-coding-instructions", hasKeepCoding, 10)
 
 	// Body has meaningful length (10 points)
 	bodyLen := len(strings.TrimSpace(bodyContent))
-	hasSubstantialBody := bodyLen >= 50
-	if hasSubstantialBody {
-		practices += 10
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Substantial body content",
-		Points:    boolToInt(hasSubstantialBody) * 10,
-		MaxPoints: 10,
-		Passed:    hasSubstantialBody,
-		Note:      bodyLengthNote(bodyLen),
-	})
+	practices += recordMetric(&details, "practices", "Substantial body content", bodyLen >= 50, 10, bodyLengthNote(bodyLen))
 
 	return practices, details
 }
@@ -168,17 +122,7 @@ func (s *OutputStyleScorer) scoreDocumentation(frontmatter map[string]any, bodyC
 	details = append(details, descMetric)
 
 	// Body uses markdown formatting (5 points)
-	hasFormatting := s.hasMarkdownFormatting(bodyContent)
-	if hasFormatting {
-		documentation += 5
-	}
-	details = append(details, Metric{
-		Category:  "documentation",
-		Name:      "Uses markdown formatting",
-		Points:    boolToInt(hasFormatting) * 5,
-		MaxPoints: 5,
-		Passed:    hasFormatting,
-	})
+	documentation += recordMetric(&details, "documentation", "Uses markdown formatting", s.hasMarkdownFormatting(bodyContent), 5)
 
 	return documentation, details
 }

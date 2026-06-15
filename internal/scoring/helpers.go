@@ -134,6 +134,34 @@ func ScoreComposition(lines int, thresholds CompositionThresholds) (int, Metric)
 	}
 }
 
+// recordMetric appends a pass/fail metric worth points to *details and returns
+// the points earned (points when passed, else 0). It is the single source of
+// truth for the boolToInt(passed)*points scoring shape used across scorers.
+// An optional note populates Metric.Note.
+func recordMetric(details *[]Metric, category, name string, passed bool, points int, note ...string) int {
+	m := Metric{
+		Category:  category,
+		Name:      name,
+		Points:    boolToInt(passed) * points,
+		MaxPoints: points,
+		Passed:    passed,
+	}
+	if len(note) > 0 {
+		m.Note = note[0]
+	}
+	*details = append(*details, m)
+	if passed {
+		return points
+	}
+	return 0
+}
+
+// hasStringValue reports whether frontmatter[field] is a non-empty string.
+func hasStringValue(frontmatter map[string]any, field string) bool {
+	s, _ := frontmatter[field].(string)
+	return s != ""
+}
+
 // boolToInt converts a boolean to 0 or 1
 func boolToInt(b bool) int {
 	if b {
