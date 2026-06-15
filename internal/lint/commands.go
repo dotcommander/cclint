@@ -433,45 +433,54 @@ func validateCommandSubstitution(filePath string, contents string, data map[stri
 		})
 	}
 
-	// Check: sequential positional args (warn if $2 used without $1)
-	if len(positionalNums) > 0 {
-		sort.Ints(positionalNums)
-		for idx, n := range positionalNums {
-			if idx == 0 && n != 1 {
-				issues = append(issues, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Positional argument $%d used without $1. Arguments should start at $1.", n),
-					Severity: cue.SeverityWarning,
-					Source:   cue.SourceCClintObserve,
-					Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
-				})
-				break
-			}
-			if idx > 0 && n > positionalNums[idx-1]+1 {
-				issues = append(issues, cue.ValidationError{
-					File:     filePath,
-					Message:  fmt.Sprintf("Positional argument gap: $%d used without $%d. Arguments should be sequential.", n, positionalNums[idx-1]+1),
-					Severity: cue.SeverityWarning,
-					Source:   cue.SourceCClintObserve,
-					Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
-				})
-				break
-			}
-		}
+	// Check: positional args start at $1, are sequential, and stay below $10.
+	issues = append(issues, checkPositionalArgSequence(positionalNums, filePath, contents)...)
 
-		// Check: warn on high positional args ($10+)
-		maxArg := positionalNums[len(positionalNums)-1]
-		if maxArg >= 10 {
+	return issues
+}
+
+// checkPositionalArgSequence flags positional args that don't start at $1, skip
+// a number, or reach the $10+ "likely unintended" range. positionalNums is
+// sorted in place; returns nil when there are no positional args.
+func checkPositionalArgSequence(positionalNums []int, filePath, contents string) []cue.ValidationError {
+	if len(positionalNums) == 0 {
+		return nil
+	}
+	var issues []cue.ValidationError
+	sort.Ints(positionalNums)
+	for idx, n := range positionalNums {
+		if idx == 0 && n != 1 {
 			issues = append(issues, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Positional argument $%d used without $1. Arguments should start at $1.", n),
+				Severity: cue.SeverityWarning,
+				Source:   cue.SourceCClintObserve,
+				Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
+			})
+			break
+		}
+		if idx > 0 && n > positionalNums[idx-1]+1 {
+			issues = append(issues, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Positional argument gap: $%d used without $%d. Arguments should be sequential.", n, positionalNums[idx-1]+1),
+				Severity: cue.SeverityWarning,
+				Source:   cue.SourceCClintObserve,
+				Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", n)),
+			})
+			break
+		}
+	}
+
+	maxArg := positionalNums[len(positionalNums)-1]
+	if maxArg >= 10 {
+		issues = append(issues, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("High positional argument $%d detected. Commands with 10+ arguments are likely unintended. Consider using $ARGUMENTS instead.", maxArg),
 				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 				Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", maxArg)),
 			})
-		}
 	}
-
 	return issues
 }
 
