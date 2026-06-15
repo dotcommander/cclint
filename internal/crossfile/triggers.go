@@ -146,6 +146,14 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols 
 	}
 
 	var refs []TriggerRef
+	addRef := func(refType, name string) {
+		key := refType + ":" + name
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		refs = append(refs, TriggerRef{File: filePath, RefType: refType, RefName: name})
+	}
 	for _, cell := range targetCells {
 		cell = strings.TrimSpace(cell)
 		if cell == "" {
@@ -158,13 +166,7 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols 
 			if len(m) < 2 {
 				continue
 			}
-			name := strings.TrimSpace(m[1])
-			key := "agent:" + name
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			refs = append(refs, TriggerRef{File: filePath, RefType: "agent", RefName: name})
+			addRef("agent", strings.TrimSpace(m[1]))
 		}
 
 		// Second pass: extract bare skill names from cells that have no Task() pattern.
@@ -188,13 +190,7 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols 
 			if len(m) < 2 || m[0] != cleanCell {
 				continue
 			}
-			name := m[1]
-			key := "skill:" + name
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			refs = append(refs, TriggerRef{File: filePath, RefType: "skill", RefName: name})
+			addRef("skill", m[1])
 		}
 	}
 	return refs
