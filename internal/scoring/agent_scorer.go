@@ -66,84 +66,41 @@ func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
 	var details []Metric
 	practices := 0
 
-	// Skill reference (10 points)
-	hasSkillRef := s.hasSkillReference(bodyContent)
-	if hasSkillRef {
-		practices += 10
+	add := func(name string, passed bool, points int) {
+		if passed {
+			practices += points
+		}
+		details = append(details, Metric{
+			Category:  "practices",
+			Name:      name,
+			Points:    boolToInt(passed) * points,
+			MaxPoints: points,
+			Passed:    passed,
+		})
 	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Skill: reference",
-		Points:    boolToInt(hasSkillRef) * 10,
-		MaxPoints: 10,
-		Passed:    hasSkillRef,
-	})
+
+	// Skill reference (10 points)
+	add("Skill: reference", s.hasSkillReference(bodyContent), 10)
 
 	// Anti-Patterns section (5 points)
 	hasAntiPatterns, _ := regexp.MatchString(`(?i)## Anti-Patterns`, bodyContent)
-	if hasAntiPatterns {
-		practices += 5
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Anti-Patterns section",
-		Points:    boolToInt(hasAntiPatterns) * 5,
-		MaxPoints: 5,
-		Passed:    hasAntiPatterns,
-	})
+	add("Anti-Patterns section", hasAntiPatterns, 5)
 
 	// Expected Output section (5 points)
 	hasExpectedOutput, _ := regexp.MatchString(`(?i)## Expected Output`, bodyContent)
-	if hasExpectedOutput {
-		practices += 5
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Expected Output section",
-		Points:    boolToInt(hasExpectedOutput) * 5,
-		MaxPoints: 5,
-		Passed:    hasExpectedOutput,
-	})
+	add("Expected Output section", hasExpectedOutput, 5)
 
 	// HARD GATE markers (5 points)
 	hasHardGates, _ := regexp.MatchString(`(?i)HARD GATE`, bodyContent)
-	if hasHardGates {
-		practices += 5
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "HARD GATE markers",
-		Points:    boolToInt(hasHardGates) * 5,
-		MaxPoints: 5,
-		Passed:    hasHardGates,
-	})
+	add("HARD GATE markers", hasHardGates, 5)
 
 	// Third-person description (5 points)
 	desc, _ := frontmatter["description"].(string)
-	isThirdPerson := !strings.HasPrefix(strings.TrimSpace(desc), "I ")
-	if isThirdPerson && len(desc) > 0 {
-		practices += 5
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "Third-person description",
-		Points:    boolToInt(isThirdPerson && len(desc) > 0) * 5,
-		MaxPoints: 5,
-		Passed:    isThirdPerson && len(desc) > 0,
-	})
+	isThirdPerson := !strings.HasPrefix(strings.TrimSpace(desc), "I ") && len(desc) > 0
+	add("Third-person description", isThirdPerson, 5)
 
 	// PROACTIVELY/WHEN in description (5 points)
-	hasProactiveTriggers := s.hasProactiveTriggers(desc)
-	if hasProactiveTriggers {
-		practices += 5
-	}
-	details = append(details, Metric{
-		Category:  "practices",
-		Name:      "WHEN triggers in description",
-		Points:    boolToInt(hasProactiveTriggers) * 5,
-		MaxPoints: 5,
-		Passed:    hasProactiveTriggers,
-	})
+	add("WHEN triggers in description", s.hasProactiveTriggers(desc), 5)
 
 	return practices, details
 }
