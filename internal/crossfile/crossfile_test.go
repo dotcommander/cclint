@@ -1,9 +1,12 @@
 package crossfile
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 )
 
@@ -48,21 +51,21 @@ func TestValidateCommand(t *testing.T) {
 		wantErrCount int
 	}{
 		{
-			name:     "valid Task() reference",
-			filePath: "commands/test.md",
-			contents: "Task(test-specialist): do something",
+			name:         "valid Task() reference",
+			filePath:     "commands/test.md",
+			contents:     "Task(test-specialist): do something",
 			wantErrCount: 0,
 		},
 		{
-			name:     "missing agent reference",
-			filePath: "commands/test.md",
-			contents: "Task(nonexistent-agent): do something",
+			name:         "missing agent reference",
+			filePath:     "commands/test.md",
+			contents:     "Task(nonexistent-agent): do something",
 			wantErrCount: 1,
 		},
 		{
-			name:     "built-in subagent type",
-			filePath: "commands/test.md",
-			contents: "Task(general-purpose): do something",
+			name:         "built-in subagent type",
+			filePath:     "commands/test.md",
+			contents:     "Task(general-purpose): do something",
 			wantErrCount: 0,
 		},
 		{
@@ -1546,6 +1549,64 @@ func TestIsPluginNamespacedRef(t *testing.T) {
 	for _, tc := range cases {
 		if got := IsPluginNamespacedRef(tc.ref); got != tc.want {
 			t.Errorf("IsPluginNamespacedRef(%q) = %v, want %v", tc.ref, got, tc.want)
+		}
+	}
+}
+
+func TestValidateCommand_UserScopeAgentRef(t *testing.T) {
+	t.Parallel()
+
+	v := NewCrossFileValidator(nil)
+	writeUserScopeAgentFile(t, v, "pi-agent")
+
+	errs := v.ValidateCommand("commands/test.md", `Run Task(pi-agent, "handle this").`, nil)
+	assertNoMissingAgentError(t, errs, "pi-agent")
+}
+
+func TestValidateAgent_ToolsUserScopeAgentRef(t *testing.T) {
+	t.Parallel()
+
+	v := NewCrossFileValidator(nil)
+	writeUserScopeAgentFile(t, v, "pi-agent")
+
+	frontmatter := map[string]any{
+		"tools": []any{"Read", "Task(pi-agent)"},
+	}
+	errs := v.ValidateAgent("agents/test.md", "Agent content", frontmatter)
+	assertNoMissingAgentError(t, errs, "pi-agent")
+}
+
+func TestValidateSkill_UserScopeAgentRefs(t *testing.T) {
+	t.Parallel()
+
+	v := NewCrossFileValidator(nil)
+	writeUserScopeAgentFile(t, v, "pi-agent")
+
+	errs := v.ValidateSkill("skills/test/SKILL.md", "delegate via pi-agent", map[string]any{"agent": "pi-agent"})
+	assertNoMissingAgentError(t, errs, "pi-agent")
+}
+
+func writeUserScopeAgentFile(t *testing.T, v *CrossFileValidator, agentName string) {
+	t.Helper()
+
+	v.userScopeAgentDir = filepath.Join(t.TempDir(), ".claude", "agents")
+	if err := os.MkdirAll(v.userScopeAgentDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(v.userScopeAgentDir, agentName+".md"), []byte("agent"), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+}
+
+func assertNoMissingAgentError(t *testing.T, errs []cue.ValidationError, agentName string) {
+	t.Helper()
+
+	for _, e := range errs {
+		if strings.Contains(e.Message, agentName) && strings.Contains(e.Message, "non-existent agent") {
+			t.Fatalf("user-scope agent produced dangling error: %s", e.Message)
+		}
+		if strings.Contains(e.Message, agentName) && strings.Contains(e.Message, "agent doesn't exist") {
+			t.Fatalf("user-scope agent produced dangling error: %s", e.Message)
 		}
 	}
 }

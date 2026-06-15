@@ -100,10 +100,11 @@ func IsPluginNamespacedRef(ref string) bool {
 
 // CrossFileValidator validates references between components
 type CrossFileValidator struct {
-	agents   map[string]discovery.File
-	skills   map[string]discovery.File
-	commands map[string]discovery.File
-	rootPath string
+	agents            map[string]discovery.File
+	skills            map[string]discovery.File
+	commands          map[string]discovery.File
+	rootPath          string
+	userScopeAgentDir string
 }
 
 // NewCrossFileValidator creates a validator with indexed files.
@@ -116,6 +117,9 @@ func NewCrossFileValidator(files []discovery.File, rootPath ...string) *CrossFil
 	}
 	if len(rootPath) > 0 {
 		v.rootPath = rootPath[0]
+	}
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		v.userScopeAgentDir = filepath.Join(homeDir, ".claude", "agents")
 	}
 
 	// Index files. User-space agents (agents/**/*.md) are processed first so they
@@ -157,6 +161,29 @@ func isPluginAgentRelPath(relPath string) bool {
 	return strings.Contains(normalized, "plugins/cache/")
 }
 
+// hasResolvableAgent reports whether an agent reference resolves to something
+// valid and thus must not be flagged as dangling: built-in subagent types
+// (Claude Code runtime) and plugin-namespaced refs (owned by another plugin's
+// lint scope) are out of local scope; locally-discovered and user-scope agents
+// resolve directly.
+func (v *CrossFileValidator) hasResolvableAgent(agentName string) bool {
+	if BuiltInSubagentTypes[agentName] || IsPluginNamespacedRef(agentName) {
+		return true
+	}
+	if _, exists := v.agents[agentName]; exists {
+		return true
+	}
+	return v.hasUserAgentFile(agentName)
+}
+
+func (v *CrossFileValidator) hasUserAgentFile(agentName string) bool {
+	if v.userScopeAgentDir == "" {
+		return false
+	}
+	info, err := os.Stat(filepath.Join(v.userScopeAgentDir, agentName+".md"))
+	return err == nil && !info.IsDir()
+}
+
 // ValidateCommand checks command references to agents
 func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
@@ -178,16 +205,7 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 		if seenAgentErrors[agentRef] {
 			continue
 		}
-		if BuiltInSubagentTypes[agentRef] {
-			continue
-		}
-		// Cross-plugin reference (e.g. Task(dc:fetch-agent, ...)) — owned by
-		// another plugin's lint scope, not resolvable locally.
-		if IsPluginNamespacedRef(agentRef) {
-			continue
-		}
-
-		if _, exists := v.agents[agentRef]; !exists {
+		if !v.hasResolvableAgent(agentRef) {
 			seenAgentErrors[agentRef] = true
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -430,13 +448,7 @@ func (v *CrossFileValidator) validateToolsAgentRefs(filePath string, frontmatter
 
 	var errors []cue.ValidationError
 	for _, agentRef := range agentRefs {
-		if BuiltInSubagentTypes[agentRef] {
-			continue
-		}
-		if IsPluginNamespacedRef(agentRef) {
-			continue
-		}
-		if _, exists := v.agents[agentRef]; !exists {
+		if !v.hasResolvableAgent(agentRef) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("tools field Task(%s) references non-existent agent. Create agents/%s.md", agentRef, agentRef),
@@ -541,22 +553,12 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, fro
 				continue
 			}
 
-			// Skip built-in agents
-			if BuiltInSubagentTypes[agentRef] {
-				continue
-			}
-
-			// Cross-plugin reference (e.g. dc:fetch-agent) — external to local scope.
-			if IsPluginNamespacedRef(agentRef) {
-				continue
-			}
-
 			if seenAgents[agentRef] {
 				continue
 			}
 			seenAgents[agentRef] = true
 
-			if _, exists := v.agents[agentRef]; !exists {
+			if !v.hasResolvableAgent(agentRef) {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
 					Message:  fmt.Sprintf("Skill references '%s' but agent doesn't exist. Create agents/%s.md", agentRef, agentRef),
@@ -585,16 +587,7 @@ func (v *CrossFileValidator) validateFrontmatterAgent(filePath string, frontmatt
 		return nil
 	}
 
-	// Skip built-in agent types
-	if BuiltInSubagentTypes[agentName] {
-		return nil
-	}
-	// Cross-plugin reference (e.g. agent: dc:foo-agent) — external to local scope.
-	if IsPluginNamespacedRef(agentName) {
-		return nil
-	}
-
-	if _, exists := v.agents[agentName]; !exists {
+	if !v.hasResolvableAgent(agentName) {
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  fmt.Sprintf("Frontmatter agent field references non-existent agent '%s'. Create agents/%s.md", agentName, agentName),
