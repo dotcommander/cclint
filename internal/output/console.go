@@ -285,7 +285,7 @@ func (f *ConsoleFormatter) printConclusion(summary *lint.LintSummary) {
 	}
 
 	if allPassed {
-		componentType := summary.ComponentType + "s" // pluralize: agent -> agents
+		componentType := pluralize(summary.ComponentType) // pluralize: agent -> agents
 		if summary.ComponentType == "" {
 			componentType = "files"
 		}

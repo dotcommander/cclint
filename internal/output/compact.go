@@ -363,7 +363,8 @@ type errorEntry struct {
 
 // irregularPlurals maps component type names that don't pluralize by appending 's'.
 var irregularPlurals = map[string]string{
-	"": "files",
+	"":         "files",
+	"settings": "settings",
 }
 
 // pluralize returns the plural form of a component type name.
