@@ -314,6 +314,17 @@ package schemas
 	// Env equivalent: CLAUDE_CODE_DISABLE_BUNDLED_SKILLS.
 	disableBundledSkills?: bool
 
+	// Ramp mouse-wheel scroll speed during fast scrolls, fullscreen mode only (v2.1.174+).
+	wheelScrollAccelerationEnabled?: bool
+
+	// When true and availableModels is non-empty, the Default model selection is
+	// also constrained to the allowlist (v2.1.175+). Managed (policy) setting.
+	enforceAvailableModels?: bool
+
+	// Extra clickable footer badges shown when a regex matches turn output (v2.1.176+).
+	// Array of {type, pattern, url, label?}; configurable via user or managed settings.
+	footerLinksRegexes?: [...{...}]
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
