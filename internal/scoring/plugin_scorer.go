@@ -36,34 +36,34 @@ func (s *PluginScorer) Score(content string, frontmatter map[string]any, bodyCon
 	return NewQualityScore(structural, practices, composition, documentation, details)
 }
 
+// checkStringField reports whether frontmatter[field] is a non-empty string,
+// awarding 10 points when present.
+func checkStringField(frontmatter map[string]any, field string) (present bool, points int) {
+	if val, ok := frontmatter[field].(string); ok && val != "" {
+		return true, 10
+	}
+	return false, 0
+}
+
 // scoreStructural evaluates required fields for structure (40 points max).
 func (s *PluginScorer) scoreStructural(frontmatter map[string]any) (int, []Metric) {
 	var details []Metric
 	structural := 0
 
 	// name (10 points)
-	hasName := false
-	if name, ok := frontmatter["name"].(string); ok && name != "" {
-		structural += 10
-		hasName = true
-	}
-	details = append(details, Metric{Category: "structural", Name: "Has name", Points: boolToInt(hasName) * 10, MaxPoints: 10, Passed: hasName})
+	hasName, pts := checkStringField(frontmatter, "name")
+	structural += pts
+	details = append(details, Metric{Category: "structural", Name: "Has name", Points: pts, MaxPoints: 10, Passed: hasName})
 
 	// description (10 points)
-	hasDescription := false
-	if desc, ok := frontmatter["description"].(string); ok && desc != "" {
-		structural += 10
-		hasDescription = true
-	}
-	details = append(details, Metric{Category: "structural", Name: "Has description", Points: boolToInt(hasDescription) * 10, MaxPoints: 10, Passed: hasDescription})
+	hasDescription, pts := checkStringField(frontmatter, "description")
+	structural += pts
+	details = append(details, Metric{Category: "structural", Name: "Has description", Points: pts, MaxPoints: 10, Passed: hasDescription})
 
 	// version (10 points)
-	hasVersion := false
-	if version, ok := frontmatter["version"].(string); ok && version != "" {
-		structural += 10
-		hasVersion = true
-	}
-	details = append(details, Metric{Category: "structural", Name: "Has version", Points: boolToInt(hasVersion) * 10, MaxPoints: 10, Passed: hasVersion})
+	hasVersion, pts := checkStringField(frontmatter, "version")
+	structural += pts
+	details = append(details, Metric{Category: "structural", Name: "Has version", Points: pts, MaxPoints: 10, Passed: hasVersion})
 
 	// author.name (10 points)
 	hasAuthorName := false
@@ -83,25 +83,18 @@ func (s *PluginScorer) scorePractices(frontmatter map[string]any) (int, []Metric
 	var details []Metric
 	practices := 0
 
-	checkStringField := func(field string) (bool, int) {
-		if val, ok := frontmatter[field].(string); ok && val != "" {
-			return true, 10
-		}
-		return false, 0
-	}
-
 	// homepage (10 points)
-	hasHomepage, pts := checkStringField("homepage")
+	hasHomepage, pts := checkStringField(frontmatter, "homepage")
 	practices += pts
 	details = append(details, Metric{Category: "practices", Name: "Has homepage", Points: pts, MaxPoints: 10, Passed: hasHomepage})
 
 	// repository (10 points)
-	hasRepo, pts := checkStringField("repository")
+	hasRepo, pts := checkStringField(frontmatter, "repository")
 	practices += pts
 	details = append(details, Metric{Category: "practices", Name: "Has repository", Points: pts, MaxPoints: 10, Passed: hasRepo})
 
 	// license (10 points)
-	hasLicense, pts := checkStringField("license")
+	hasLicense, pts := checkStringField(frontmatter, "license")
 	practices += pts
 	details = append(details, Metric{Category: "practices", Name: "Has license", Points: pts, MaxPoints: 10, Passed: hasLicense})
 
