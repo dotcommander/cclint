@@ -329,6 +329,72 @@ package schemas
 	// Array of {type, pattern, url, label?}; configurable via user or managed settings.
 	footerLinksRegexes?: [...{...}]
 
+	// --- Top-level settings keys backfilled from the v2.1.177 binary zod schema (deterministically type-verified). ---
+
+	// Auth/credential helper script paths.
+	apiKeyHelper?:        string
+	awsAuthRefresh?:      string
+	awsCredentialExport?: string
+	gcpAuthRefresh?:      string
+	proxyAuthHelper?:     string
+	otelHeadersHelper?:   string
+
+	// Model selection.
+	model?:          string
+	advisorModel?:   string
+	modelOverrides?: {...} // per-target model override map
+	outputStyle?:    string
+
+	// Permission / directory scope.
+	additionalDirectories?: [...string]
+	defaultMode?:           string // permission-mode enum; modeled permissively as string (binary enum members not cleanly extractable)
+
+	// Status line + commit attribution (open structs).
+	statusLine?:          {...}
+	subagentStatusLine?:  {...}
+	attribution?:         {...}
+	includeCoAuthoredBy?: bool // deprecated, superseded by attribution
+
+	// Context / compaction.
+	autoCompactEnabled?:       bool
+	autoCompactWindow?:        number
+	fileCheckpointingEnabled?: bool
+	alwaysThinkingEnabled?:    bool
+
+	// Update channel + UX toggles.
+	autoUpdatesChannel?:         "latest" | "stable" | "rc"
+	verbose?:                    bool
+	editorMode?:                 string // enum (members not cleanly extractable) — permissive
+	hideVimModeIndicator?:       bool
+	syntaxHighlightingDisabled?: bool
+	todoFeatureEnabled?:         bool
+	spinnerTipsEnabled?:         bool
+	promptSuggestionEnabled?:    bool
+	preferredNotifChannel?:      string // enum — permissive
+	teammateMode?:               string // enum — permissive
+
+	// Remote control.
+	remoteControlAtStartup?: bool
+	disableRemoteControl?:   bool
+
+	// Permission-prompt skips (user-accepted dialogs).
+	skipDangerousModePermissionPrompt?: bool
+	skipAutoPermissionPrompt?:          bool
+	skipWebFetchPreflight?:             bool
+
+	// MCP server enablement.
+	enableAllProjectMcpServers?:      bool
+	enabledMcpjsonServers?:           [...string]
+	disabledMcpjsonServers?:          [...string]
+	allowManagedMcpServersOnly?:      bool
+	allowManagedPermissionRulesOnly?: bool
+
+	// Misc / enterprise.
+	companyAnnouncements?: [...string]
+	forceLoginMethod?:     "claudeai" | "console" | "gateway"
+	enableWorkflows?:      bool
+	disableWorkflows?:     bool
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)
