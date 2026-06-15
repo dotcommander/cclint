@@ -445,6 +445,106 @@ func TestExpandDirectories(t *testing.T) {
 	}
 }
 
+// TestSingleFileResolvesRelativePathAgainstRoot verifies that a relative file
+// path is resolved against an explicitly-set --root rather than the cwd, so
+// `cclint --root /DIR ./file.md` finds the file under /DIR.
+func TestSingleFileResolvesRelativePathAgainstRoot(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	createDirs(t, tmpDir, ".claude/agents")
+
+	relPath := filepath.Join(".claude", "agents", "x.md")
+	absFile := filepath.Join(tmpDir, relPath)
+	content := `---
+name: test-agent
+description: A test agent for testing purposes. Use PROACTIVELY when testing.
+model: sonnet
+---
+
+## Foundation
+
+Test agent foundation.
+
+## Workflow
+
+1. Do stuff
+`
+	if err := os.WriteFile(absFile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("relative path resolved against root", func(t *testing.T) {
+		t.Parallel()
+
+		// FilePath is a relative path that only exists under tmpDir, not the
+		// cwd. With RootPath set, it must be resolved there and NOT error with
+		// "file not found".
+		summary, err := LintSingleFile(relPath, tmpDir, "", true, false)
+		if err != nil {
+			if containsString(err.Error(), "file not found") {
+				t.Fatalf("relative path not resolved against --root: %v", err)
+			}
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if summary == nil {
+			t.Fatal("expected non-nil summary")
+		}
+		if len(summary.Results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(summary.Results))
+		}
+	})
+
+	t.Run("prefixed relative path resolved against root", func(t *testing.T) {
+		t.Parallel()
+
+		// Same as above but with a leading "./" to exercise that form too.
+		prefixed := "./" + relPath
+		summary, err := LintSingleFile(prefixed, tmpDir, "", true, false)
+		if err != nil {
+			if containsString(err.Error(), "file not found") {
+				t.Fatalf("prefixed relative path not resolved against --root: %v", err)
+			}
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if summary == nil {
+			t.Fatal("expected non-nil summary")
+		}
+	})
+
+	t.Run("empty root preserves cwd-relative behavior", func(t *testing.T) {
+		t.Parallel()
+
+		// With an empty RootPath, the relative path is resolved against the
+		// cwd. Since the file only exists under tmpDir (not the cwd), this
+		// must fail with "file not found" — proving the fix did not change
+		// the default cwd-relative behavior.
+		_, err := LintSingleFile(relPath, "", "", true, false)
+		if err == nil {
+			t.Fatal("expected file-not-found error for relative path under empty root, got nil")
+		}
+		if !containsString(err.Error(), "file not found") {
+			t.Fatalf("expected 'file not found' error, got: %v", err)
+		}
+	})
+
+	t.Run("absolute path still works", func(t *testing.T) {
+		t.Parallel()
+
+		// Sanity guard: an absolute path must keep working regardless of root.
+		summary, err := LintSingleFile(absFile, tmpDir, "", true, false)
+		if err != nil {
+			t.Fatalf("absolute path failed unexpectedly: %v", err)
+		}
+		if summary == nil {
+			t.Fatal("expected non-nil summary")
+		}
+		if len(summary.Results) != 1 {
+			t.Fatalf("expected 1 result, got %d", len(summary.Results))
+		}
+	})
+}
+
 func TestFindProjectRootForFileEdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 

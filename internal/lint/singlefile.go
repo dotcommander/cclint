@@ -119,7 +119,14 @@ func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, 
 
 func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext, error) {
 	// Validate file path (checks existence, not dir, not binary, etc.)
-	absPath, err := discovery.ValidateFilePath(req.FilePath)
+	//
+	// Resolve a relative file path against an explicitly-set --root (default is ""),
+	// so `cclint --root /DIR ./file.md` finds the file under /DIR, not cwd.
+	filePath := req.FilePath
+	if req.RootPath != "" && !filepath.IsAbs(filePath) {
+		filePath = filepath.Join(req.RootPath, filePath)
+	}
+	absPath, err := discovery.ValidateFilePath(filePath)
 	if err != nil {
 		return nil, err
 	}
