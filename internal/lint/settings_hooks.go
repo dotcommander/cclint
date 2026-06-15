@@ -149,43 +149,32 @@ func validateHookMatcherField(hookMatcherMap map[string]any, eventName string, i
 
 // validateInnerHook validates a single inner hook entry (type, command/prompt fields).
 func validateInnerHook(innerHook any, eventName string, hookIdx, innerIdx int, filePath string) []cue.ValidationError {
-	innerHookMap, ok := innerHook.(map[string]any)
-	if !ok {
+	fail := func(msg string) []cue.ValidationError {
 		return []cue.ValidationError{{
 			File:     filePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: must be an object", eventName, hookIdx, innerIdx),
+			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: %s", eventName, hookIdx, innerIdx, msg),
 			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		}}
+	}
+
+	innerHookMap, ok := innerHook.(map[string]any)
+	if !ok {
+		return fail("must be an object")
 	}
 
 	hookType, typeExists := innerHookMap["type"]
 	if !typeExists {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: missing required field 'type'", eventName, hookIdx, innerIdx),
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-		}}
+		return fail("missing required field 'type'")
 	}
 
 	hookTypeStr, ok := hookType.(string)
 	if !ok {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: 'type' must be a string", eventName, hookIdx, innerIdx),
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-		}}
+		return fail("'type' must be a string")
 	}
 
 	if !validHookTypes[hookTypeStr] {
-		return []cue.ValidationError{{
-			File:     filePath,
-			Message:  fmt.Sprintf("Event '%s' hook %d inner hook %d: invalid type '%s'. Valid types: command, prompt, agent, http", eventName, hookIdx, innerIdx, hookTypeStr),
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-		}}
+		return fail(fmt.Sprintf("invalid type '%s'. Valid types: command, prompt, agent, http", hookTypeStr))
 	}
 
 	hookCtx := hookContext{EventName: eventName, HookIdx: hookIdx, InnerIdx: innerIdx, FilePath: filePath}
