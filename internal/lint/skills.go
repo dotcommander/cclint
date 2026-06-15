@@ -260,49 +260,37 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		out = append(out, *bracketErr)
 	}
 
+	// Every description finding points at the same frontmatter line and source.
+	descLine := textutil.FindFrontmatterFieldLine(contents, "description")
+	add := func(severity, msg string) {
+		out = append(out, cue.ValidationError{
+			File:     filePath,
+			Message:  msg,
+			Severity: severity,
+			Source:   cue.SourceAnthropicDocs,
+			Line:     descLine,
+		})
+	}
+
 	// P3: Third-person description check
 	firstPersonStarts := []string{"I ", "I'm ", "I'll ", "I've ", "My ", "We ", "We're "}
 	for _, fp := range firstPersonStarts {
 		if strings.HasPrefix(description, fp) {
-			out = append(out, cue.ValidationError{
-				File:     filePath,
-				Message:  "Skill description should use third person (e.g., 'Analyzes...' not 'I analyze...')",
-				Severity: cue.SeveritySuggestion,
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
-			})
+			add(cue.SeveritySuggestion, "Skill description should use third person (e.g., 'Analyzes...' not 'I analyze...')")
 			break
 		}
 	}
 
 	if strings.HasPrefix(description, "You ") {
-		out = append(out, cue.ValidationError{
-			File:     filePath,
-			Message:  "Skill description should describe what it does, not address the user",
-			Severity: cue.SeveritySuggestion,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
-		})
+		add(cue.SeveritySuggestion, "Skill description should describe what it does, not address the user")
 	}
 
 	if len(description) < 50 {
-		out = append(out, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Description is only %d chars. Aim for 50+ to help with skill discovery.", len(description)),
-			Severity: cue.SeveritySuggestion,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
-		})
+		add(cue.SeveritySuggestion, fmt.Sprintf("Description is only %d chars. Aim for 50+ to help with skill discovery.", len(description)))
 	}
 
 	if len(description) > 1536 {
-		out = append(out, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Description is %d chars, exceeding the 1536-character limit. Skill descriptions over 1536 chars are truncated by Claude Code (v2.1.105).", len(description)),
-			Severity: cue.SeverityWarning,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
-		})
+		add(cue.SeverityWarning, fmt.Sprintf("Description is %d chars, exceeding the 1536-character limit. Skill descriptions over 1536 chars are truncated by Claude Code (v2.1.105).", len(description)))
 	}
 
 	lower := strings.ToLower(description)
@@ -313,13 +301,7 @@ func validateSkillDescription(description, filePath, contents string) []cue.Vali
 		strings.Contains(lower, "covers") ||
 		strings.Contains(lower, "handles")
 	if !hasTrigger && len(description) > 0 {
-		out = append(out, cue.ValidationError{
-			File:     filePath,
-			Message:  "Consider adding trigger phrases like 'Use when...' or 'Use for...' to help skill discovery",
-			Severity: cue.SeveritySuggestion,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "description"),
-		})
+		add(cue.SeveritySuggestion, "Consider adding trigger phrases like 'Use when...' or 'Use for...' to help skill discovery")
 	}
 
 	return out
