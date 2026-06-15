@@ -184,6 +184,17 @@ func (v *CrossFileValidator) hasUserAgentFile(agentName string) bool {
 	return err == nil && !info.IsDir()
 }
 
+// cleanAgentRef normalizes a Task() regex match group into a bare agent name,
+// trimming whitespace and surrounding quotes. ok is false for dynamic refs
+// (subagent_type passthrough) that must not be treated as concrete names.
+func cleanAgentRef(raw string) (ref string, ok bool) {
+	ref = strings.Trim(strings.TrimSpace(raw), `"'`)
+	if strings.Contains(ref, "subagent_type") {
+		return "", false
+	}
+	return ref, true
+}
+
 // ValidateCommand checks command references to agents
 func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, frontmatter map[string]any) []cue.ValidationError {
 	var errors []cue.ValidationError
@@ -196,10 +207,8 @@ func (v *CrossFileValidator) ValidateCommand(filePath string, contents string, f
 		if len(match) < 2 {
 			continue
 		}
-		agentRef := strings.TrimSpace(match[1])
-		agentRef = strings.Trim(agentRef, `"'`)
-
-		if strings.Contains(agentRef, "subagent_type") {
+		agentRef, ok := cleanAgentRef(match[1])
+		if !ok {
 			continue
 		}
 		if seenAgentErrors[agentRef] {
@@ -296,9 +305,8 @@ func (v *CrossFileValidator) findPrimaryAgent(taskMatches [][]string) (agentName
 		if len(match) < 2 {
 			continue
 		}
-		agentRef := strings.TrimSpace(match[1])
-		agentRef = strings.Trim(agentRef, `"'`)
-		if strings.Contains(agentRef, "subagent_type") {
+		agentRef, ok := cleanAgentRef(match[1])
+		if !ok {
 			continue
 		}
 		if agentFile, exists := v.agents[agentRef]; exists {
