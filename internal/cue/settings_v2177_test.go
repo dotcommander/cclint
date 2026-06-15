@@ -41,6 +41,20 @@ func TestSettingsV2177Fields(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid availableModels array of strings",
+			data: map[string]any{
+				"availableModels": []any{"opus", "sonnet", "claude-opus-4-5"},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid availableModels as plain string",
+			data: map[string]any{
+				"availableModels": "opus",
+			},
+			wantError: true,
+		},
+		{
 			name: "valid footerLinksRegexes array of objects",
 			data: map[string]any{
 				"footerLinksRegexes": []any{map[string]any{"type": "regex", "pattern": "PR #(\\d+)", "url": "https://example.com/{1}", "label": "PR"}},

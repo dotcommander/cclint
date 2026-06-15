@@ -317,6 +317,10 @@ package schemas
 	// Ramp mouse-wheel scroll speed during fast scrolls, fullscreen mode only (v2.1.174+).
 	wheelScrollAccelerationEnabled?: bool
 
+	// Model allowlist — array of family aliases, version prefixes, or full model IDs
+	// (free-form strings). User/project/managed tiers. Gated by enforceAvailableModels.
+	availableModels?: [...string]
+
 	// When true and availableModels is non-empty, the Default model selection is
 	// also constrained to the allowlist (v2.1.175+). Managed (policy) setting.
 	enforceAvailableModels?: bool
