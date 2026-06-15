@@ -127,14 +127,14 @@ func (s *SkillScorer) scorePractices(bodyContent string) (int, []Metric) {
 		useRegex: true,
 	})
 
-	// Success criteria checkboxes (4 points) - string contains check
-	hasCheckboxes := strings.Contains(bodyContent, "- [ ]")
-	if hasCheckboxes {
-		practices += 4
-	}
-	details = append(details, Metric{
-		Category: "practices", Name: "Success criteria checkboxes",
-		Points: boolToInt(hasCheckboxes) * 4, MaxPoints: 4, Passed: hasCheckboxes,
+	// Success criteria checkboxes (4 points) - literal substring check
+	practices += addPracticeMetric(practiceMetricCheck{
+		details:  &details,
+		name:     "Success criteria checkboxes",
+		pattern:  "- [ ]",
+		points:   4,
+		content:  bodyContent,
+		useRegex: false,
 	})
 
 	// References to references/ directory (4 points)
