@@ -52,6 +52,13 @@ func TestValidatePermissions(t *testing.T) {
 			wantErrors: 0,
 		},
 		{
+			name: "valid ask only",
+			perms: map[string]any{
+				"ask": []any{"Bash(rm*)", "Read"},
+			},
+			wantErrors: 0,
+		},
+		{
 			name: "valid allow and deny",
 			perms: map[string]any{
 				"allow": []any{"Bash(npm*)", "Read", "Edit", "Glob", "Grep"},

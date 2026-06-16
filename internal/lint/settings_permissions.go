@@ -9,7 +9,7 @@ import (
 )
 
 // validatePermissions validates the permissions section of settings.json.
-// Expected structure: {"allow": ["Bash(npm*)", ...], "deny": ["Bash(rm*)", ...]}
+// Expected structure: {"allow": ["Bash(npm*)", ...], "deny": ["Bash(rm*)", ...], "ask": ["Bash(rm*)", ...]}
 func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -17,7 +17,7 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	if !ok {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
-			Message:  "permissions must be an object with optional 'allow' and 'deny' arrays",
+			Message:  "permissions must be an object with optional 'allow', 'deny', and 'ask' arrays",
 			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
@@ -25,10 +25,10 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	}
 
 	for key, val := range permsMap {
-		if key != "allow" && key != "deny" {
+		if key != "allow" && key != "deny" && key != "ask" {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("permissions: unknown key '%s'. Only 'allow' and 'deny' are supported", key),
+				Message:  fmt.Sprintf("permissions: unknown key '%s'. Only 'allow', 'deny', and 'ask' are supported", key),
 				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
@@ -41,7 +41,7 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	return errors
 }
 
-// validatePermissionEntries validates a single permission list (allow or deny).
+// validatePermissionEntries validates a single permission list (allow, deny, or ask).
 func validatePermissionEntries(entries any, listName string, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
