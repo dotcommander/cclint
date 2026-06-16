@@ -19,7 +19,7 @@ import (
 #TaskAgentTool: =~"^Task\\([a-z0-9][a-z0-9-]*\\)$"
 
 // Tools specification - can be "*" for all, comma-separated string, or array of specific tools/Task(agent) refs
-#Tools: "*" | string | [...(#KnownTool | #TaskAgentTool)]
+#Tools: "*" | string | [...(#KnownTool | #TaskAgentTool | =~"^mcp__" | =~"^[A-Za-z]+\\(.*\\)$")]
 
 // ============================================================================
 // Agent Hook Definitions

@@ -56,8 +56,8 @@ import "strings"
 	"argument-hint"?: string                                  // hint shown during autocomplete (e.g., "[issue-number]")
 	"disable-model-invocation"?: bool                         // prevent Claude from auto-loading this skill
 	"user-invocable"?: bool                                   // show in slash command menu (default true)
-	"allowed-tools"?: "*" | string | [...#KnownTool]          // skills use 'allowed-tools:', NOT 'tools:'
-	"disallowed-tools"?: "*" | string | [...#KnownTool]       // remove tools from model while skill is active (v2.1.152+)
+	"allowed-tools"?: "*" | string | [...#KnownTool | =~"^mcp__" | =~"^[A-Za-z]+\\(.*\\)$"]          // skills use 'allowed-tools:', NOT 'tools:'
+	"disallowed-tools"?: "*" | string | [...#KnownTool | =~"^mcp__" | =~"^[A-Za-z]+\\(.*\\)$"]       // remove tools from model while skill is active (v2.1.152+)
 	model?: #Model                                            // model to use when skill is active
 	effort?: string                                           // reasoning effort level (v2.1.80+)
 	context?: "fork"                                          // run skill in forked sub-agent context

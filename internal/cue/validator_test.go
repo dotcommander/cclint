@@ -153,6 +153,15 @@ func TestValidateAgent(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid tools array with MCP and Tool token forms",
+			data: map[string]any{
+				"name":        "test-agent",
+				"description": "Agent with MCP and Tool token forms",
+				"tools":       []string{"Read", "mcp__server", "mcp__server__tool", "Tool(Bash:git status)"},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid with skills",
 			data: map[string]any{
 				"name":        "test-agent",
@@ -460,6 +469,22 @@ func TestValidateCommand(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid allowed-tools array with MCP and Tool token forms",
+			data: map[string]any{
+				"name":          "test-cmd",
+				"allowed-tools": []string{"Read", "mcp__server", "mcp__server__tool", "Tool(Bash:git status)"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid disallowed-tools as array with MCP and Tool token forms (v2.1.178)",
+			data: map[string]any{
+				"name":             "test-cmd",
+				"disallowed-tools": []string{"mcp__server", "Tool(AskUserQuestion:approve)", "Tool(Bash:git status)"},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid allowed-tools array with newer runtime tools",
 			data: map[string]any{
 				"name":          "test-cmd",
@@ -610,6 +635,24 @@ func TestValidateSkill(t *testing.T) {
 				"name":          "test-skill",
 				"description":   "Skill with tool array",
 				"allowed-tools": []string{"Read", "Grep", "Glob"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid allowed-tools array with MCP and Tool token forms",
+			data: map[string]any{
+				"name":          "test-skill",
+				"description":   "Skill with MCP and Tool forms",
+				"allowed-tools": []string{"Read", "mcp__server", "mcp__server__tool", "Tool(Bash:git status)"},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid disallowed-tools array with MCP and Tool token forms",
+			data: map[string]any{
+				"name":             "test-skill",
+				"description":      "Skill with disallowed MCP/Tool forms",
+				"disallowed-tools": []string{"mcp__server", "Tool(Bash:git status)"},
 			},
 			wantError: false,
 		},
