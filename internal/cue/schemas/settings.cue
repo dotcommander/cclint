@@ -174,6 +174,11 @@ package schemas
 	sandbox?: {
 		failIfUnavailable?: bool
 
+		// macOS-only opt-in: allow sandboxed commands to send Apple Events (v2.1.181+)
+		allowAppleEvents?: bool
+		// Policy-tier gate disabling the dangerouslyDisableSandbox escape hatch (v2.1.181+)
+		allowUnsandboxedCommands?: bool
+
 		// Managed-settings paths to custom bubblewrap / socat binaries (v2.1.133+, Linux/WSL only)
 		bwrapPath?: string
 		socatPath?: string

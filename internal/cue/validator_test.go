@@ -847,6 +847,16 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with sandbox apple events and unsandboxed commands (v2.1.181)",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"allowAppleEvents":         true,
+					"allowUnsandboxedCommands": true,
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid settings with disableDeepLinkRegistration",
 			data: map[string]any{
 				"disableDeepLinkRegistration": true,
