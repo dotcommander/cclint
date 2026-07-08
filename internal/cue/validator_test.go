@@ -847,6 +847,54 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with sandbox credentials (v2.1.187)",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"credentials": map[string]any{
+						"files": []map[string]any{
+							{"path": "/Users/me/.aws/credentials", "mode": "deny"},
+						},
+						"envVars": []map[string]any{
+							{"name": "AWS_SECRET_ACCESS_KEY", "mode": "mask"},
+							{"name": "DATABASE_URL", "mode": "deny"},
+						},
+						"allowPlaintextInject": false,
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with respondToBashCommands (v2.1.186)",
+			data: map[string]any{
+				"respondToBashCommands": false,
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with workflowSizeGuideline (v2.1.202)",
+			data: map[string]any{
+				"workflowSizeGuideline": "medium",
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with autoMode classifyAllShell (v2.1.193)",
+			data: map[string]any{
+				"autoMode": map[string]any{
+					"classifyAllShell": true,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid workflowSizeGuideline value rejected",
+			data: map[string]any{
+				"workflowSizeGuideline": "huge",
+			},
+			wantError: true,
+		},
+		{
 			name: "valid settings with sandbox apple events and unsandboxed commands (v2.1.181)",
 			data: map[string]any{
 				"sandbox": map[string]any{

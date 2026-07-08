@@ -179,6 +179,26 @@ package schemas
 		// Policy-tier gate disabling the dangerouslyDisableSandbox escape hatch (v2.1.181+)
 		allowUnsandboxedCommands?: bool
 
+		// Credential file / secret-env blocking for sandboxed commands (v2.1.187+)
+		credentials?: {
+			// Credential file paths to block (mode is always "deny")
+			files?: [...{
+				path: string
+				mode: "deny"
+				...
+			}]
+			// Secret environment variables to deny or mask
+			envVars?: [...{
+				name:         string
+				mode:         "deny" | "mask"
+				injectHosts?: [...string]
+				...
+			}]
+			// Permit injecting secrets in plaintext
+			allowPlaintextInject?: bool
+			...
+		}
+
 		// Managed-settings paths to custom bubblewrap / socat binaries (v2.1.133+, Linux/WSL only)
 		bwrapPath?: string
 		socatPath?: string
@@ -265,6 +285,8 @@ package schemas
 		hard_deny?:   [...string]
 		deny?:        [...string]
 		environment?: [...string]
+		// Route every Bash/PowerShell command through the auto-mode classifier (v2.1.193+)
+		classifyAllShell?: bool
 		...
 	}
 
@@ -419,6 +441,8 @@ package schemas
 	useAutoModeDuringPlan?:         bool
 	ultracode?:                     bool // workflow keyword trigger (renamed from the "workflow" keyword in v2.1.160)
 	workflowKeywordTriggerEnabled?: bool
+	respondToBashCommands?:         bool // keep context-only behavior after an !-bash command (v2.1.186+)
+	workflowSizeGuideline?:         "small" | "medium" | "large" | "unrestricted" // dynamic-workflow agent-count target (v2.1.202+)
 
 	// Notifications / away summary.
 	awaySummaryEnabled?:     bool
