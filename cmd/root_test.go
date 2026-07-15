@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/alecthomas/kong"
+	"github.com/dotcommander/cclint/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -236,10 +240,8 @@ func TestInitConfig(t *testing.T) {
 				require.NoError(t, os.WriteFile(configPath, []byte(tt.content), 0644))
 			}
 
-			// Run initConfig - only testing success cases
-			initConfig()
-
-			// If we reach here, the config was loaded successfully (no os.Exit called)
+			_, err := config.LoadConfig(tmpDir)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -336,73 +338,139 @@ func TestExecute_ErrorPath(t *testing.T) {
 }
 
 func TestRootCmdFlags(t *testing.T) {
-	// Verify that root command has expected flags
-	flags := rootCmd.PersistentFlags()
+	var app cli
+	parser, err := kong.New(&app, kong.Name("cclint"))
+	require.NoError(t, err)
+	ctx, err := parser.Parse([]string{"--root", ".", "--quiet", "--verbose", "--scores", "--improvements", "--format", "json", "--output", "out", "--fail-on", "warning", "--no-cycle-check", "--baseline", "--baseline-create", "--baseline-path", "base", "--type", "agent", "--diff", "--staged", "file.md"})
+	require.NoError(t, err)
+	assert.Equal(t, "lint <files-or-dirs>", ctx.Command())
+	require.NotNil(t, app.Lint.Type)
+	assert.Equal(t, "agent", *app.Lint.Type)
+	require.NotNil(t, app.Lint.Diff)
+	assert.True(t, *app.Lint.Diff)
+	require.NotNil(t, app.Lint.Staged)
+	assert.True(t, *app.Lint.Staged)
+	assert.Equal(t, []string{"file.md"}, app.Lint.Paths)
+}
 
-	testCases := []struct {
-		name     string
-		flagName string
+func TestCLICommandDispatchAndGlobalFlags(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantCommand string
+		check       func(*testing.T, *cli)
 	}{
-		{"root flag", "root"},
-		{"quiet flag", "quiet"},
-		{"verbose flag", "verbose"},
-		{"scores flag", "scores"},
-		{"improvements flag", "improvements"},
-		{"format flag", "format"},
-		{"output flag", "output"},
-		{"fail-on flag", "fail-on"},
-		{"no-cycle-check flag", "no-cycle-check"},
-		{"baseline flag", "baseline"},
-		{"baseline-create flag", "baseline-create"},
-		{"baseline-path flag", "baseline-path"},
+		{
+			name:        "lint with globals after command",
+			args:        []string{"lint", "--root", ".", "--quiet", "--type", "agent", "file.md"},
+			wantCommand: "lint <files-or-dirs>",
+			check: func(t *testing.T, app *cli) {
+				require.NotNil(t, app.Root)
+				assert.True(t, filepath.IsAbs(*app.Root))
+				require.NotNil(t, app.Quiet)
+				assert.True(t, *app.Quiet)
+				require.NotNil(t, app.Lint.Type)
+				assert.Equal(t, "agent", *app.Lint.Type)
+			},
+		},
+		{
+			name:        "fmt with globals after command",
+			args:        []string{"fmt", "--root", ".", "--quiet", "--type", "agent", "--diff", "file.md"},
+			wantCommand: "fmt <files>",
+			check: func(t *testing.T, app *cli) {
+				require.NotNil(t, app.Root)
+				assert.True(t, filepath.IsAbs(*app.Root))
+				assert.True(t, app.Fmt.Diff)
+				assert.Equal(t, "agent", app.Fmt.Type)
+			},
+		},
+		{
+			name:        "summary with globals after command",
+			args:        []string{"summary", "--root", ".", "--quiet"},
+			wantCommand: "summary",
+			check: func(t *testing.T, app *cli) {
+				require.NotNil(t, app.Root)
+				assert.True(t, filepath.IsAbs(*app.Root))
+				require.NotNil(t, app.Quiet)
+				assert.True(t, *app.Quiet)
+			},
+		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			flag := flags.Lookup(tc.flagName)
-			assert.NotNil(t, flag, "flag %s should exist", tc.flagName)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var app cli
+			parser, err := kong.New(&app, kong.Name("cclint"))
+			require.NoError(t, err)
+			ctx, err := parser.Parse(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCommand, ctx.Command())
+			tt.check(t, &app)
 		})
 	}
-
-	// Check local flags
-	localFlags := rootCmd.Flags()
-	assert.NotNil(t, localFlags.Lookup("type"))
-	assert.NotNil(t, localFlags.Lookup("diff"))
-	assert.NotNil(t, localFlags.Lookup("staged"))
 }
 
-func TestRootCmdSubcommands(t *testing.T) {
-	// Verify subcommands are registered
-	commands := rootCmd.Commands()
-	commandNames := make(map[string]bool)
-	for _, cmd := range commands {
-		commandNames[cmd.Name()] = true
+func TestCLIFlagValuesDoNotSelectCommands(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		wantRoot   string
+		wantOutput string
+	}{
+		{name: "fmt as root value", args: []string{"--root", "fmt", "file.md"}, wantRoot: "fmt"},
+		{name: "summary as output value", args: []string{"--output", "summary", "file.md"}, wantOutput: "summary"},
 	}
 
-	expectedCommands := []string{
-		"fmt",
-		"summary",
-	}
-
-	for _, name := range expectedCommands {
-		assert.True(t, commandNames[name], "subcommand %s should be registered", name)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var app cli
+			parser, err := kong.New(&app, kong.Name("cclint"))
+			require.NoError(t, err)
+			ctx, err := parser.Parse(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, "lint <files-or-dirs>", ctx.Command())
+			if tt.wantRoot != "" {
+				require.NotNil(t, app.Root)
+				assert.Equal(t, tt.wantRoot, filepath.Base(*app.Root))
+			}
+			if tt.wantOutput != "" {
+				require.NotNil(t, app.Output)
+				assert.Equal(t, tt.wantOutput, filepath.Base(*app.Output))
+			}
+		})
 	}
 }
 
-func TestExecute(t *testing.T) {
-	// Test that Execute doesn't panic with valid setup
-	// We can't fully test it without running the command, but we can verify it exists
-	assert.NotNil(t, Execute)
-}
+func TestLintFlagCompatibility(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		wantType string
+		wantDiff bool
+	}{
+		{name: "long type equals", args: []string{"--type=agent"}, wantType: "agent"},
+		{name: "attached short type", args: []string{"-tagent"}, wantType: "agent"},
+		{name: "explicit diff boolean", args: []string{"--diff=true"}, wantDiff: true},
+	}
 
-func TestRootCmdRun(t *testing.T) {
-	// Test that root command Run function exists and is configured
-	assert.NotNil(t, rootCmd.Run)
-
-	// Verify root command has correct configuration
-	assert.Equal(t, "cclint [files|dirs...]", rootCmd.Use)
-	assert.Contains(t, rootCmd.Long, "USAGE MODES")
-	assert.Contains(t, rootCmd.Long, "EXAMPLES")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var app cli
+			parser, err := kong.New(&app, kong.Name("cclint"))
+			require.NoError(t, err)
+			ctx, err := parser.Parse(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, "lint", ctx.Command())
+			if tt.wantType != "" {
+				require.NotNil(t, app.Lint.Type)
+				assert.Equal(t, tt.wantType, *app.Lint.Type)
+			}
+			if tt.wantDiff {
+				require.NotNil(t, app.Lint.Diff)
+				assert.True(t, *app.Lint.Diff)
+			}
+		})
+	}
 }
 
 func TestRunGitLint_NoFiles(t *testing.T) {
@@ -731,13 +799,65 @@ Test agent.
 }
 
 func TestRootCmdLongDescription(t *testing.T) {
-	assert.Contains(t, rootCmd.Long, "File and directory mode")
-	assert.Contains(t, rootCmd.Long, "Git integration mode")
-	assert.Contains(t, rootCmd.Long, "Baseline mode")
+	var output bytes.Buffer
+	parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Description(rootDescription), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
+	require.NoError(t, err)
+	_, err = parseCLI(parser, []string{"--help"})
+	require.NoError(t, err)
+	assert.Contains(t, output.String(), "Run without a subcommand")
+	assert.Contains(t, output.String(), "cclint agents commands")
+	assert.Contains(t, output.String(), "cclint lint --help")
+	assert.Contains(t, output.String(), "--type, --diff, and")
+	assert.Contains(t, output.String(), "--staged")
+	assert.Contains(t, output.String(), "lint")
+	assert.Contains(t, output.String(), "fmt")
+	assert.Contains(t, output.String(), "summary")
+}
+
+func TestLintHelp(t *testing.T) {
+	tests := []struct {
+		args         []string
+		wantLintHelp bool
+	}{
+		{args: []string{"lint", "--help"}, wantLintHelp: true},
+		{args: []string{"agents", "--help"}, wantLintHelp: true},
+		{args: []string{"--type", "agent", "--help"}},
+		{args: []string{"--diff", "--help"}},
+	}
+	for _, tt := range tests {
+		t.Run(strings.Join(tt.args, "_"), func(t *testing.T) {
+			var output bytes.Buffer
+			parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Description(rootDescription), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
+			require.NoError(t, err)
+			_, err = parseCLI(parser, tt.args)
+			require.NoError(t, err)
+			help := output.String()
+			if tt.wantLintHelp {
+				assert.Contains(t, help, "Lint files or directories")
+				assert.Contains(t, help, "-t, --type")
+				assert.Contains(t, help, "--diff")
+				assert.Contains(t, help, "--staged")
+				return
+			}
+			assert.Contains(t, help, "cclint lint --help")
+			assert.Contains(t, help, "--type, --diff, and")
+			assert.Contains(t, help, "--staged")
+		})
+	}
+}
+
+func TestBaselinePathRemainsProjectRelative(t *testing.T) {
+	var app cli
+	parser, err := kong.New(&app, kong.Name("cclint"))
+	require.NoError(t, err)
+	_, err = parser.Parse([]string{"--baseline-path", "baselines/custom.json"})
+	require.NoError(t, err)
+	require.NotNil(t, app.BaselinePath)
+	assert.Equal(t, "baselines/custom.json", *app.BaselinePath)
 }
 
 func TestRootCmdVersion(t *testing.T) {
-	assert.Equal(t, Version, rootCmd.Version)
+	assert.NotEmpty(t, Version)
 }
 
 func TestRunGitLint_DiffMode(t *testing.T) {
@@ -1250,10 +1370,17 @@ func TestClassifyArgs(t *testing.T) {
 }
 
 func TestRootCmdVersionFlag(t *testing.T) {
-	// Test that version flag (-V) is properly configured
-	flag := rootCmd.Flags().Lookup("version")
-	assert.NotNil(t, flag)
-	assert.Equal(t, "V", flag.Shorthand)
+	for _, flag := range []string{"--version", "-V"} {
+		t.Run(strings.TrimLeft(flag, "-"), func(t *testing.T) {
+			var app cli
+			parser, err := kong.New(&app, kong.Name("cclint"))
+			require.NoError(t, err)
+			ctx, err := parser.Parse([]string{flag})
+			require.NoError(t, err)
+			assert.Equal(t, "lint", ctx.Command())
+			assert.True(t, app.Version)
+		})
+	}
 }
 
 func TestRunLint_Success(t *testing.T) {
@@ -1580,8 +1707,6 @@ func TestInitConfig_WithYmlFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, ".cclintrc.yml")
 	require.NoError(t, os.WriteFile(configPath, []byte("quiet: true\n"), 0644))
 
-	// Should not panic
-	assert.NotPanics(t, func() {
-		initConfig()
-	})
+	_, err = config.LoadConfig(tmpDir)
+	require.NoError(t, err)
 }

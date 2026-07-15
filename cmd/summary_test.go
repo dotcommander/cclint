@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"testing"
 
-	"github.com/dotcommander/cclint/internal/lint"
+	"github.com/alecthomas/kong"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/scoring"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAggregateResults(t *testing.T) {
@@ -590,7 +593,7 @@ func TestPrintSummaryReport_LongIssueMessages(t *testing.T) {
 		TopIssues: map[string]int{
 			"This is a very long issue message that exceeds the normal display width and should be truncated": 5,
 			"Another long issue that describes a complex problem with many details about what went wrong":     4,
-			"Short issue":                                                                    3,
+			"Short issue": 3,
 		},
 		LowestScoring: []ScoredComponent{},
 	}
@@ -609,8 +612,8 @@ func TestRenderBar_EdgeCases(t *testing.T) {
 		expected bool // true if should return non-empty
 	}{
 		{"count equals total", 10, 10, true},
-		{"count is zero", 0, 10, true},  // Still renders dim blocks
-		{"total is zero", 5, 0, false},  // Returns empty
+		{"count is zero", 0, 10, true}, // Still renders dim blocks
+		{"total is zero", 5, 0, false}, // Returns empty
 		{"large count", 100, 100, true},
 		{"fractional fill", 3, 10, true},
 	}
@@ -733,13 +736,13 @@ func TestPrintSummaryReport_MoreThan5LowestScoring(t *testing.T) {
 }
 
 func TestSummaryCmdInit(t *testing.T) {
-	// Verify summary command is registered
-	found := false
-	for _, cmd := range rootCmd.Commands() {
-		if cmd.Name() == "summary" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "summary command should be registered")
+	var output bytes.Buffer
+	parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
+	require.NoError(t, err)
+	_, err = parseCLI(parser, []string{"summary", "--help"})
+	require.NoError(t, err)
+	help := output.String()
+	assert.Contains(t, help, "Show quality summary across all components")
+	assert.Contains(t, help, "--root")
+	assert.NotContains(t, help, "--type")
 }

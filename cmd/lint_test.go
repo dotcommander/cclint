@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/dotcommander/cclint/internal/baseline"
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

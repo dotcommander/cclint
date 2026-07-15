@@ -39,3 +39,56 @@ func TestApplyCLIOverridesSetsVersion(t *testing.T) {
 		t.Fatalf("cfg.FailOn = %q, want warning", cfg.FailOn)
 	}
 }
+
+func TestApplyCLIOverridesPreservesLoadedConfigWithoutFlags(t *testing.T) {
+	oldCLIChanged := cliChanged
+	oldRootPath := rootPath
+	oldQuiet := quiet
+	oldOutputFormat := outputFormat
+	oldNoCycleCheck := noCycleCheck
+	t.Cleanup(func() {
+		cliChanged = oldCLIChanged
+		rootPath = oldRootPath
+		quiet = oldQuiet
+		outputFormat = oldOutputFormat
+		noCycleCheck = oldNoCycleCheck
+	})
+
+	cliChanged = map[string]bool{}
+	rootPath = "/cli/root"
+	quiet = false
+	outputFormat = "console"
+	noCycleCheck = false
+	cfg := &config.Config{
+		Root:         "/config/root",
+		Quiet:        true,
+		Format:       "json",
+		NoCycleCheck: true,
+	}
+
+	applyCLIOverrides(cfg)
+
+	if cfg.Root != "/config/root" || !cfg.Quiet || cfg.Format != "json" || !cfg.NoCycleCheck {
+		t.Fatalf("config values were overwritten without CLI flags: %+v", cfg)
+	}
+}
+
+func TestApplyCLIOverridesHonorsExplicitFalse(t *testing.T) {
+	oldCLIChanged := cliChanged
+	oldQuiet := quiet
+	t.Cleanup(func() {
+		cliChanged = oldCLIChanged
+		quiet = oldQuiet
+	})
+
+	explicitFalse := false
+	app := cli{Quiet: &explicitFalse}
+	app.apply()
+	cfg := &config.Config{Quiet: true}
+
+	applyCLIOverrides(cfg)
+
+	if cfg.Quiet {
+		t.Fatal("explicit --quiet=false did not override loaded config")
+	}
+}

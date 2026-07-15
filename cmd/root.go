@@ -9,8 +9,6 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/git"
 	"github.com/dotcommander/cclint/internal/lint"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
 
@@ -25,151 +23,22 @@ var (
 	verbose          bool
 	showScores       bool
 	showImprovements bool
-	outputFormat     string
+	outputFormat     = "console"
 	outputFile       string
-	failOn           string
-	typeFlag         string // Force component type (--type flag)
-	diffMode         bool   // Lint only changed files (--diff)
-	stagedMode       bool   // Lint only staged files (--staged)
-	noCycleCheck     bool   // Disable circular dependency detection
-	useBaseline      bool   // Use baseline filtering
-	createBaseline   bool   // Create/update baseline file
-	baselinePath     string // Custom baseline file path
+	failOn           = "error"
+	typeFlag         string                   // Force component type (--type flag)
+	diffMode         bool                     // Lint only changed files (--diff)
+	stagedMode       bool                     // Lint only staged files (--staged)
+	noCycleCheck     bool                     // Disable circular dependency detection
+	useBaseline      bool                     // Use baseline filtering
+	createBaseline   bool                     // Create/update baseline file
+	baselinePath     = ".cclintbaseline.json" // Custom baseline file path
+	cliChanged       map[string]bool
 
 	// exitFunc is the function called to exit the program.
 	// It can be overridden in tests to prevent actual process termination.
 	exitFunc = os.Exit
 )
-
-var rootCmd = &cobra.Command{
-	Use:     "cclint [files|dirs...]",
-	Short:   "Claude Code Lint - A comprehensive linting tool for Claude Code projects",
-	Version: Version,
-	Long: `CCLint is a linting tool for Claude Code projects that validates agent files,
-command files, settings, and documentation according to established patterns.
-
-USAGE MODES:
-
-  Full scan (default):
-    cclint                    Lint all component types
-    cclint agents             Lint only agents
-    cclint agents commands    Lint multiple types
-
-  File and directory mode:
-    cclint ./agents/foo.md    Lint a specific file
-    cclint path/to/file.md    Lint by path
-    cclint a.md b.md c.md     Lint multiple files
-    cclint ./commands/        Lint all files in a directory
-    cclint ./command/         Singular dir names auto-detected
-
-  Git integration mode:
-    cclint --staged           Lint only staged files (pre-commit)
-    cclint --diff             Lint all uncommitted changes
-
-  Baseline mode (gradual adoption):
-    cclint --baseline-create  Create baseline from current issues
-    cclint --baseline         Lint with baseline filtering
-
-  Type override:
-    cclint --type agent x.md  Override type detection
-
-EXAMPLES:
-
-  # Lint a single agent
-  cclint ./agents/my-agent.md
-
-  # Lint multiple files
-  cclint ./agents/a.md ./commands/b.md
-
-  # Lint an entire directory
-  cclint ./commands/
-
-  # Lint only staged files (pre-commit hook)
-  cclint --staged
-
-  # Lint all uncommitted changes
-  cclint --diff
-
-  # Create baseline to accept current state
-  cclint --baseline-create
-
-  # Lint with baseline (only new issues fail)
-  cclint --baseline
-
-  # Force type for file outside standard path
-  cclint --type skill ./custom/methodology.md
-
-⚠️  NOTE: cclint is a work in progress. Its suggestions should be validated:
-   • Cross-reference with official docs: docs.anthropic.com, docs.claude.com
-   • Clear violations (fake flags, >220 lines agents) are reliable
-   • Style suggestions should be verified against official documentation`,
-	Args: cobra.ArbitraryArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runRootCommand(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			exitFunc(1)
-		}
-	},
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		exitFunc(1)
-	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Use -V for version since -v is already used for verbose
-	rootCmd.Flags().BoolP("version", "V", false, "Print version information")
-
-	// Existing flags
-	rootCmd.PersistentFlags().StringVarP(&rootPath, "root", "r", "", "Project root directory (auto-detected if not specified)")
-	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress non-essential output")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose output")
-	rootCmd.PersistentFlags().BoolVarP(&showScores, "scores", "s", false, "Show quality scores (0-100) for each component")
-	rootCmd.PersistentFlags().BoolVarP(&showImprovements, "improvements", "i", false, "Show specific improvements with point values")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "format", "f", "console", "Output format for reports (console|json|markdown)")
-	rootCmd.PersistentFlags().StringVarP(&outputFile, "output", "o", "", "Output file for reports (requires --format)")
-	rootCmd.PersistentFlags().StringVarP(&failOn, "fail-on", "", "error", "Fail build on specified level (error|warning|suggestion)")
-
-	// Single-file mode flags
-	rootCmd.Flags().StringVarP(&typeFlag, "type", "t", "", "Force component type (agent|command|skill|settings|context|plugin|rule|output-style)")
-
-	// Git integration flags
-	rootCmd.Flags().BoolVar(&diffMode, "diff", false, "Lint only uncommitted changes (staged + unstaged)")
-	rootCmd.Flags().BoolVar(&stagedMode, "staged", false, "Lint only staged files (for pre-commit hooks)")
-
-	// Analysis flags
-	rootCmd.PersistentFlags().BoolVar(&noCycleCheck, "no-cycle-check", false, "Disable circular dependency detection")
-
-	// Baseline flags
-	rootCmd.PersistentFlags().BoolVar(&useBaseline, "baseline", false, "Use .cclintbaseline.json to filter known issues")
-	rootCmd.PersistentFlags().BoolVar(&createBaseline, "baseline-create", false, "Create/update baseline file from current issues")
-	rootCmd.PersistentFlags().StringVar(&baselinePath, "baseline-path", ".cclintbaseline.json", "Path to baseline file")
-
-	// Viper bindings
-	mustBindPFlag("root", "root")
-	mustBindPFlag("quiet", "quiet")
-	mustBindPFlag("verbose", "verbose")
-	mustBindPFlag("showScores", "scores")
-	mustBindPFlag("showImprovements", "improvements")
-	mustBindPFlag("format", "format")
-	mustBindPFlag("output", "output")
-	mustBindPFlag("fail-on", "fail-on")
-	mustBindPFlag("no-cycle-check", "no-cycle-check")
-}
-
-func mustBindPFlag(key, flagName string) {
-	flag := rootCmd.PersistentFlags().Lookup(flagName)
-	if flag == nil {
-		panic(fmt.Sprintf("missing persistent flag %q", flagName))
-	}
-	if err := viper.BindPFlag(key, flag); err != nil {
-		panic(fmt.Sprintf("bind flag %q: %v", flagName, err))
-	}
-}
 
 // shouldFail checks if the lint run should exit with failure based on the --fail-on level.
 func shouldFail(cfg *config.Config, errors, warnings, suggestions int) bool {
@@ -187,14 +56,6 @@ func shouldFail(cfg *config.Config, errors, warnings, suggestions int) bool {
 	default: // "error"
 		return errors > 0
 	}
-}
-
-func initConfig() {
-	// Config loading is handled by config.LoadConfig — this hook only
-	// registers environment variable support so viper flag bindings work
-	// before LoadConfig is called.
-	viper.SetEnvPrefix("CCLINT")
-	viper.AutomaticEnv()
 }
 
 // startSpinner starts a braille spinner on stderr showing elapsed time.

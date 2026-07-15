@@ -21,19 +21,36 @@ func loadCLIConfig() (*config.Config, error) {
 
 func applyCLIOverrides(cfg *config.Config) {
 	cfg.Version = Version
+	changed := func(name string) bool { return cliChanged == nil || cliChanged[name] }
 
-	if rootPath != "" {
+	if rootPath != "" && changed("root") {
 		cfg.Root = rootPath
 	}
 
-	cfg.Quiet = quiet
-	cfg.Verbose = verbose
-	cfg.ShowScores = showScores
-	cfg.ShowImprovements = showImprovements
-	cfg.Format = outputFormat
-	cfg.Output = outputFile
-	cfg.FailOn = failOn
-	cfg.NoCycleCheck = noCycleCheck
+	if changed("quiet") {
+		cfg.Quiet = quiet
+	}
+	if changed("verbose") {
+		cfg.Verbose = verbose
+	}
+	if changed("scores") {
+		cfg.ShowScores = showScores
+	}
+	if changed("improvements") {
+		cfg.ShowImprovements = showImprovements
+	}
+	if changed("format") {
+		cfg.Format = outputFormat
+	}
+	if changed("output") {
+		cfg.Output = outputFile
+	}
+	if changed("fail-on") {
+		cfg.FailOn = failOn
+	}
+	if changed("no-cycle-check") {
+		cfg.NoCycleCheck = noCycleCheck
+	}
 }
 
 func runOrchestratedLint(cfg *config.Config, linters []lint.LinterEntry) (*lint.Result, error) {

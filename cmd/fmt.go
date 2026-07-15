@@ -9,7 +9,6 @@ import (
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/format"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -20,72 +19,20 @@ var (
 	fmtType  string   // Force component type
 )
 
-var fmtCmd = &cobra.Command{
-	Use:   "fmt [files...]",
-	Short: "Format Claude Code component files canonically",
-	Long: `Format Claude Code component files with canonical style.
-
-FORMATTING RULES:
-
-  Frontmatter:
-  - Normalize field order: name, description, model, tools/allowed-tools, then alphabetical
-  - Ensure exactly one blank line after frontmatter
-
-  Markdown:
-  - Trim trailing whitespace from lines
-  - Ensure file ends with exactly one newline
-
-USAGE MODES:
-
-  Format all components (preview):
-    cclint fmt                    # Print formatted to stdout
-    cclint fmt agents             # Format only agents
-    cclint fmt --write            # Write changes in place
-
-  Format specific files:
-    cclint fmt file.md            # Preview formatting
-    cclint fmt -w file.md         # Write changes
-    cclint fmt --diff file.md     # Show diff
-
-  CI mode:
-    cclint fmt --check            # Exit 1 if files need formatting
-
-FLAGS:
-  --check      Exit 1 if files would change (for CI)
-  -w, --write  Write changes in place
-  --diff       Show diff of what would change
-
-EXAMPLES:
-
-  # Preview formatting
-  cclint fmt ./agents/my-agent.md
-
-  # Format in place
-  cclint fmt -w ./agents/my-agent.md
-
-  # Check if formatting needed (CI)
-  cclint fmt --check agents/
-
-  # Format all components
-  cclint fmt --write`,
-	Args: cobra.ArbitraryArgs,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runFmt(args); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			exitFunc(1)
-		}
-	},
+type fmtCommand struct {
+	Check bool     `help:"Exit 1 if files would change."`
+	Write bool     `short:"w" help:"Write changes in place."`
+	Diff  bool     `help:"Show diff of what would change."`
+	Files []string `name:"file" type:"path" help:"Explicit file path to format."`
+	Type  string   `short:"t" help:"Force component type."`
+	Args  []string `arg:"" optional:"" name:"files"`
 }
 
-func init() {
-	rootCmd.AddCommand(fmtCmd)
-
-	fmtCmd.Flags().BoolVar(&fmtCheck, "check", false, "Exit 1 if files would change (for CI)")
-	fmtCmd.Flags().BoolVarP(&fmtWrite, "write", "w", false, "Write changes in place")
-	fmtCmd.Flags().BoolVar(&fmtDiff, "diff", false, "Show diff of what would change")
-	fmtCmd.Flags().StringArrayVar(&fmtFiles, "file", nil, "Explicit file path(s) to format")
-	fmtCmd.Flags().StringVarP(&fmtType, "type", "t", "", "Force component type (agent|command|skill)")
+func (cmd *fmtCommand) apply() {
+	fmtCheck, fmtWrite, fmtDiff, fmtFiles, fmtType = cmd.Check, cmd.Write, cmd.Diff, cmd.Files, cmd.Type
 }
+
+func (cmd *fmtCommand) Run() error { return runFmt(cmd.Args) }
 
 func runFmt(args []string) error {
 	// Load configuration

@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,10 +23,10 @@ func TestIsComponentType(t *testing.T) {
 		{"context", true},
 		{"plugins", true},
 		{"rules", true},
-		{"AGENTS", true},  // Case insensitive
+		{"AGENTS", true}, // Case insensitive
 		{"Commands", true},
 		{"unknown", false},
-		{"agent", false},  // Singular form
+		{"agent", false}, // Singular form
 		{"./agents", false},
 		{"agents.md", false},
 		{"/path/to/agents", false},
@@ -417,14 +419,33 @@ End of file`
 }
 
 func TestFmtCmdFlags(t *testing.T) {
-	// Verify fmt command has expected flags
-	flags := fmtCmd.Flags()
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "long type", args: []string{"fmt", "--check", "--write", "--diff", "--file", "a.md", "--type", "agent", "b.md"}},
+		{name: "short type", args: []string{"fmt", "-tagent", "b.md"}},
+	}
 
-	assert.NotNil(t, flags.Lookup("check"))
-	assert.NotNil(t, flags.Lookup("write"))
-	assert.NotNil(t, flags.Lookup("diff"))
-	assert.NotNil(t, flags.Lookup("file"))
-	assert.NotNil(t, flags.Lookup("type"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var app cli
+			parser, err := kong.New(&app, kong.Name("cclint"))
+			require.NoError(t, err)
+			ctx, err := parser.Parse(tt.args)
+			require.NoError(t, err)
+			assert.Equal(t, "fmt <files>", ctx.Command())
+			assert.Equal(t, "agent", app.Fmt.Type)
+			assert.Equal(t, []string{"b.md"}, app.Fmt.Args)
+			if tt.name == "long type" {
+				assert.True(t, app.Fmt.Check)
+				assert.True(t, app.Fmt.Write)
+				assert.True(t, app.Fmt.Diff)
+				require.Len(t, app.Fmt.Files, 1)
+				assert.Equal(t, "a.md", filepath.Base(app.Fmt.Files[0]))
+			}
+		})
+	}
 }
 
 func TestCollectFilesToFormat_Precedence(t *testing.T) {
@@ -798,11 +819,16 @@ Formatted content.
 }
 
 func TestFmtCmdLongDescription(t *testing.T) {
-	// Test long description content
-	assert.Contains(t, fmtCmd.Long, "FORMATTING RULES")
-	assert.Contains(t, fmtCmd.Long, "USAGE MODES")
-	assert.Contains(t, fmtCmd.Long, "Frontmatter")
-	assert.Contains(t, fmtCmd.Long, "Markdown")
+	var output bytes.Buffer
+	parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
+	require.NoError(t, err)
+	_, err = parseCLI(parser, []string{"fmt", "--help"})
+	require.NoError(t, err)
+	help := output.String()
+	assert.Contains(t, help, "Format component files canonically")
+	assert.Contains(t, help, "--type")
+	assert.Contains(t, help, "--diff")
+	assert.Contains(t, help, "--write")
 }
 
 func TestRunFmt_CheckModeNeedsFormatting(t *testing.T) {

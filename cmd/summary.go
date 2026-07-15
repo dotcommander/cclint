@@ -2,30 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dotcommander/cclint/internal/lint"
-	"github.com/spf13/cobra"
 )
-
-var summaryCmd = &cobra.Command{
-	Use:   "summary",
-	Short: "Show quality summary across all components",
-	Long: `Aggregates quality scores across all Claude Code components (agents, commands, skills)
-and displays a summary report with quality distribution, top issues, and lowest-scoring components.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runSummary(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			exitFunc(1)
-		}
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(summaryCmd)
-}
 
 // ComponentSummary holds aggregated data for summary report
 type ComponentSummary struct {
