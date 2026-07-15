@@ -60,6 +60,16 @@ cclint --scores
 cclint --improvements
 ```
 
+Inspect commands and the installed version:
+
+```bash
+cclint --help
+cclint lint --help
+cclint fmt --help
+cclint summary --help
+cclint --version
+```
+
 ## Verification
 
 - JSON report file exists after CI command
