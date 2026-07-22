@@ -210,6 +210,12 @@ package schemas
 			deniedDomains?: [...string]
 			...
 		}
+		// Filesystem isolation controls (v2.1.216+)
+		filesystem?: {
+			// Skip filesystem isolation entirely (v2.1.216+)
+			disabled?: bool
+			...
+		}
 		...
 	}
 
@@ -443,6 +449,10 @@ package schemas
 	workflowKeywordTriggerEnabled?: bool
 	respondToBashCommands?:         bool // keep context-only behavior after an !-bash command (v2.1.186+)
 	workflowSizeGuideline?:         "small" | "medium" | "large" | "unrestricted" // dynamic-workflow agent-count target (v2.1.202+)
+	emojiCompletionEnabled?:        bool // emoji shortcode autocomplete in the prompt input (v2.1.217+)
+	axScreenReader?:                bool // opt-in plain-text rendering for screen-reader users (v2.1.208+)
+	vimInsertModeRemaps?:           {...} // map two-key insert-mode sequences to Escape in vim mode (v2.1.208+)
+	disableAutoMode?:               "disable" // disable auto mode (v2.1.207+)
 
 	// Notifications / away summary.
 	awaySummaryEnabled?:     bool
