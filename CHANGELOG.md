@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.53.0 (2026-07-22)
+
+### Features
+
+- model Claude Code v2.1.205-v2.1.217 settings keys.
+- recognize `EndConversation` as a known agent tool.
+
+### Changed
+
+- replace shared CLI and linter state with explicit execution options and a centralized linter registry.
+- move output coordination into `internal/output` and remove unused internal interfaces and project detection helpers.
+
+### Fixes
+
+- preserve per-file project root detection when linting files outside the current project without `--root`.
+
 ## v0.52.0 (2026-07-14)
 
 ### Changed
