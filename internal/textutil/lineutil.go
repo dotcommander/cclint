@@ -307,6 +307,8 @@ var KnownTools = map[string]bool{
 	// Scheduling / background
 	"CronCreate": true, "CronDelete": true, "CronList": true,
 	"ScheduleWakeup": true, "PushNotification": true, "REPL": true,
+	// Conversation control (v2.1.214)
+	"EndConversation": true,
 	// Wildcards
 	"*": true,
 }
