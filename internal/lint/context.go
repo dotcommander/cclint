@@ -41,7 +41,7 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclud
 	validator := cue.NewValidator()
 
 	// Load schemas (soft failure - continue with Go validation)
-	if err := validator.LoadSchemas(""); err != nil {
+	if err := validator.LoadSchemas(); err != nil {
 		if !quiet {
 			fmt.Fprintf(os.Stderr, "Warning: CUE schemas not loaded, using Go validation\n")
 		}
@@ -90,23 +90,7 @@ func (ctx *LinterContext) NewSummary(totalFiles int) *LintSummary {
 	}
 }
 
-// LogProcessed is a no-op - console formatter handles file status display.
-// Kept for API compatibility with callers.
-func (ctx *LinterContext) LogProcessed(filePath string, errorCount int) {
-	// No-op: console formatter shows ✓/✗ for each file
-}
-
-// LogProcessedWithSuggestions is a no-op - console formatter handles file status display.
-// Kept for API compatibility with callers.
-func (ctx *LinterContext) LogProcessedWithSuggestions(filePath string, errorCount, suggestionCount int) {
-	// No-op: console formatter shows ✓/✗ for each file
-}
-
 // LintContext runs linting on CLAUDE.md context files.
 func LintContext(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewContextLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeContext)
 }

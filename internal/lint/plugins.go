@@ -4,15 +4,12 @@ import (
 	"slices"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 )
 
 // LintPlugins runs linting on plugin manifest files using the generic linter.
 func LintPlugins(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewPluginLinter(ctx.RootPath)), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypePlugin)
 }
 
 // validatePluginSpecific implements plugin-specific validation rules.

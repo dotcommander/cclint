@@ -322,11 +322,6 @@ func (f *CompactFormatter) printCelebration(msg string) {
 	printCelebration(msg)
 }
 
-// Format implements Formatter interface for single summary (falls back to verbose style).
-func (f *CompactFormatter) Format(summary *lint.LintSummary) error {
-	return f.FormatAll([]*lint.LintSummary{summary})
-}
-
 // printError prints a single error with indentation.
 func (f *CompactFormatter) printError(err cue.ValidationError, severity string) {
 	var style lipgloss.Style

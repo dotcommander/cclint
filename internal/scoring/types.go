@@ -53,11 +53,6 @@ func NewQualityScore(structural, practices, composition, documentation int, deta
 	}
 }
 
-// Scorer is the interface for component scorers
-type Scorer interface {
-	Score(content string, frontmatter map[string]any, bodyContent string) QualityScore
-}
-
 // ScorerComponent defines the component-specific scoring methods that each scorer
 // type (Command, Skill, Agent, Plugin) implements. This allows the shared Score
 // method to delegate to type-specific logic.

@@ -13,25 +13,8 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 )
 
-// LinterFunc is the function signature for component linters.
-type LinterFunc func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error)
-
-// DefaultLinters returns the standard set of component linters.
-func DefaultLinters() []LinterEntry {
-	return []LinterEntry{
-		{Name: "agents", Linter: LintAgents},
-		{Name: "commands", Linter: LintCommands},
-		{Name: "skills", Linter: LintSkills},
-		{Name: "settings", Linter: LintSettings},
-		{Name: "rules", Linter: LintRules},
-		{Name: "output-styles", Linter: LintOutputStyles},
-		{Name: "plugins", Linter: LintPlugins},
-	}
-}
-
 // OrchestratorConfig holds configuration for the lint orchestrator.
 type OrchestratorConfig struct {
-	RootPath       string
 	UseBaseline    bool
 	CreateBaseline bool
 	BaselinePath   string
@@ -42,12 +25,6 @@ type Orchestrator struct {
 	cfg     *config.Config
 	opts    OrchestratorConfig
 	linters []LinterEntry
-}
-
-// LinterEntry pairs a component name with its linter function.
-type LinterEntry struct {
-	Name   string
-	Linter LinterFunc
 }
 
 // NewOrchestrator creates a new lint orchestrator.
@@ -96,7 +73,7 @@ func (o *Orchestrator) Run() (*Result, error) {
 	result := &Result{StartTime: startTime}
 
 	// Run all linters and collect summaries
-	allIssues, _, errs := o.runAllLinters(b, result)
+	allIssues, errs := o.runAllLinters(b, result)
 	if errs != nil {
 		return nil, errs
 	}
@@ -121,15 +98,19 @@ func (o *Orchestrator) Run() (*Result, error) {
 }
 
 // runAllLinters runs all configured linters and collects results.
-func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, []*LintSummary, error) {
+func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, error) {
 	var allIssues []cue.ValidationError
-	var allSummaries []*LintSummary
+	if len(o.linters) == 0 {
+		return allIssues, nil
+	}
+
+	ctx, err := NewLinterContext(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude)
+	if err != nil {
+		return nil, fmt.Errorf("initialize lint context: %w", err)
+	}
 
 	for _, l := range o.linters {
-		summary, err := l.Linter(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error running %s linter: %w", l.Name, err)
-		}
+		summary := lintBatch(ctx, l.New(ctx.RootPath))
 
 		// Skip empty results (no files of this type)
 		if summary.TotalFiles == 0 {
@@ -150,7 +131,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		}
 
 		// Collect summary for compact output
-		allSummaries = append(allSummaries, summary)
+		result.Summaries = append(result.Summaries, summary)
 
 		// Accumulate totals
 		result.TotalFiles += summary.TotalFiles
@@ -160,8 +141,6 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		if summary.TotalErrors > 0 {
 			result.HasErrors = true
 		}
-		result.Summaries = allSummaries
-
 		// Progressive output in verbose mode
 		if o.cfg.Verbose && !o.cfg.Quiet {
 			status := "✓"
@@ -172,7 +151,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		}
 	}
 
-	return allIssues, allSummaries, nil
+	return allIssues, nil
 }
 
 // resolveBaselinePath returns the absolute path to the baseline file.

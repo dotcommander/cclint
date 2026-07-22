@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/scoring"
 	"github.com/dotcommander/cclint/internal/textutil"
 )
@@ -52,11 +53,7 @@ func applyResultToSummary(summary *LintSummary, result LintResult) {
 
 // LintAgents runs linting on agent files using the generic linter.
 func LintAgents(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewAgentLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeAgent)
 }
 
 // knownAgentFields lists valid frontmatter fields per Anthropic docs

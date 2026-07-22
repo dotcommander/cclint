@@ -159,20 +159,6 @@ func TestNewSummary(t *testing.T) {
 	}
 }
 
-func TestLogProcessed(t *testing.T) {
-	ctx := &LinterContext{}
-	// This is a no-op function, just verify it doesn't panic
-	ctx.LogProcessed("test.md", 0)
-	ctx.LogProcessed("test.md", 5)
-}
-
-func TestLogProcessedWithSuggestions(t *testing.T) {
-	ctx := &LinterContext{}
-	// This is a no-op function, just verify it doesn't panic
-	ctx.LogProcessedWithSuggestions("test.md", 0, 0)
-	ctx.LogProcessedWithSuggestions("test.md", 5, 3)
-}
-
 func TestLinterContextAutoDiscoverRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 

@@ -72,8 +72,8 @@ func TestContextLinterValidateCUE(t *testing.T) {
 	}
 }
 
-// TestLintSingleSkillIntegrated tests lintSingleSkill integration
-func TestLintSingleSkillIntegrated(t *testing.T) {
+// TestRegistrySingleSkillIntegrated tests single-file registry dispatch for skills.
+func TestRegistrySingleSkillIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
 		Quiet:     true,
 		Verbose:   false,
@@ -91,14 +91,15 @@ Test content.
 		},
 	}
 
-	result := lintSingleSkill(ctx)
+	entry, _ := LinterForType(discovery.FileTypeSkill)
+	result := lintComponent(ctx, entry.New(ctx.RootPath))
 	if result.File == "" {
-		t.Error("lintSingleSkill() returned empty result")
+		t.Error("skill registry dispatch returned empty result")
 	}
 }
 
-// TestLintSingleSettingsIntegrated tests lintSingleSettings integration
-func TestLintSingleSettingsIntegrated(t *testing.T) {
+// TestRegistrySingleSettingsIntegrated tests single-file registry dispatch for settings.
+func TestRegistrySingleSettingsIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
 		Quiet:     true,
 		Verbose:   false,
@@ -109,14 +110,15 @@ func TestLintSingleSettingsIntegrated(t *testing.T) {
 		},
 	}
 
-	result := lintSingleSettings(ctx)
+	entry, _ := LinterForType(discovery.FileTypeSettings)
+	result := lintComponent(ctx, entry.New(ctx.RootPath))
 	if result.File == "" {
-		t.Error("lintSingleSettings() returned empty result")
+		t.Error("settings registry dispatch returned empty result")
 	}
 }
 
-// TestLintSingleContextIntegrated tests lintSingleContext integration
-func TestLintSingleContextIntegrated(t *testing.T) {
+// TestRegistrySingleContextIntegrated tests single-file registry dispatch for context files.
+func TestRegistrySingleContextIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
 		Quiet:     true,
 		Verbose:   false,
@@ -132,14 +134,15 @@ Instructions.
 		},
 	}
 
-	result := lintSingleContext(ctx)
+	entry, _ := LinterForType(discovery.FileTypeContext)
+	result := lintComponent(ctx, entry.New(ctx.RootPath))
 	if result.File == "" {
-		t.Error("lintSingleContext() returned empty result")
+		t.Error("context registry dispatch returned empty result")
 	}
 }
 
-// TestLintSinglePluginIntegrated tests lintSinglePlugin integration
-func TestLintSinglePluginIntegrated(t *testing.T) {
+// TestRegistrySinglePluginIntegrated tests single-file registry dispatch for plugins.
+func TestRegistrySinglePluginIntegrated(t *testing.T) {
 	ctx := &SingleFileLinterContext{
 		Quiet:     true,
 		Verbose:   false,
@@ -155,8 +158,9 @@ func TestLintSinglePluginIntegrated(t *testing.T) {
 		},
 	}
 
-	result := lintSinglePlugin(ctx)
+	entry, _ := LinterForType(discovery.FileTypePlugin)
+	result := lintComponent(ctx, entry.New(ctx.RootPath))
 	if result.File == "" {
-		t.Error("lintSinglePlugin() returned empty result")
+		t.Error("plugin registry dispatch returned empty result")
 	}
 }

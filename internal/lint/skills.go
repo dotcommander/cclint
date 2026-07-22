@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/textutil"
 )
 
@@ -39,11 +40,7 @@ var knownSkillFields = map[string]bool{
 
 // LintSkills runs linting on skill files using the generic linter.
 func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewSkillLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeSkill)
 }
 
 // validateSkillBestPractices checks opinionated best practices for skills

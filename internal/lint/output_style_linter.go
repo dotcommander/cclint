@@ -12,17 +12,12 @@ import (
 
 // LintOutputStyles runs linting on output style files using the generic linter.
 func LintOutputStyles(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewOutputStyleLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeOutputStyle)
 }
 
 // OutputStyleLinter implements ComponentLinter for output style markdown files.
 // It also implements Scorable for quality scoring.
 type OutputStyleLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance checks

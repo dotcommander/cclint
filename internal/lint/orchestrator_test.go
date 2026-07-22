@@ -9,1014 +9,301 @@ import (
 	"github.com/dotcommander/cclint/internal/baseline"
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 )
 
-// =============================================================================
-// Test NewOrchestrator
-// =============================================================================
+type recordingComponentLinter struct {
+	fileType discovery.FileType
+	typeName string
+	issues   []cue.ValidationError
+	contexts *[]*LinterContext
+}
 
-func TestNewOrchestrator(t *testing.T) {
-	cfg := &config.Config{
-		Root:    "/test/root",
-		Format:  "console",
-		Quiet:   false,
-		Verbose: true,
+func (l *recordingComponentLinter) Type() string                 { return l.typeName }
+func (l *recordingComponentLinter) FileType() discovery.FileType { return l.fileType }
+func (l *recordingComponentLinter) ParseContent(string) (map[string]any, string, error) {
+	return map[string]any{}, "", nil
+}
+func (l *recordingComponentLinter) ValidateCUE(*cue.Validator, map[string]any) ([]cue.ValidationError, error) {
+	return nil, nil
+}
+func (l *recordingComponentLinter) ValidateSpecific(_ map[string]any, filePath, _ string) []cue.ValidationError {
+	issues := make([]cue.ValidationError, len(l.issues))
+	copy(issues, l.issues)
+	for i := range issues {
+		if issues[i].File == "" {
+			issues[i].File = filePath
+		}
 	}
-
-	opts := OrchestratorConfig{
-		RootPath:       "/test/root",
-		UseBaseline:    false,
-		CreateBaseline: false,
-		BaselinePath:   ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	if orch == nil {
-		t.Fatal("NewOrchestrator() returned nil")
-	}
-
-	if orch.cfg != cfg {
-		t.Error("Config not set correctly")
-	}
-
-	if orch.opts.RootPath != opts.RootPath {
-		t.Errorf("RootPath = %s, want %s", orch.opts.RootPath, opts.RootPath)
-	}
-
-	// Should initialize with default linters
-	if len(orch.linters) == 0 {
-		t.Error("Default linters not initialized")
+	return issues
+}
+func (l *recordingComponentLinter) PostProcessBatch(ctx *LinterContext, _ *LintSummary) {
+	if l.contexts != nil {
+		*l.contexts = append(*l.contexts, ctx)
 	}
 }
 
-// =============================================================================
-// Test WithLinters
-// =============================================================================
+func writeComponentFile(t *testing.T, root string, fileType discovery.FileType) {
+	t.Helper()
+	var rel string
+	switch fileType {
+	case discovery.FileTypeAgent:
+		rel = ".claude/agents/test.md"
+	case discovery.FileTypeCommand:
+		rel = ".claude/commands/test.md"
+	default:
+		t.Fatalf("unsupported fixture type %s", fileType)
+	}
+	path := filepath.Join(root, rel)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
 
-func TestWithLinters(t *testing.T) {
-	cfg := &config.Config{Root: "/test", Format: "console"}
-	opts := OrchestratorConfig{RootPath: "/test"}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	// Create custom linters
-	customLinters := []LinterEntry{
-		{
-			Name: "test-linter",
-			Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-				return &LintSummary{}, nil
-			},
+func fakeEntry(fileType discovery.FileType, name string, issues []cue.ValidationError, contexts *[]*LinterContext, roots *[]string) LinterEntry {
+	return LinterEntry{
+		FileType: fileType,
+		Name:     name,
+		New: func(rootPath string) ComponentLinter {
+			if roots != nil {
+				*roots = append(*roots, rootPath)
+			}
+			return &recordingComponentLinter{fileType: fileType, typeName: name, issues: issues, contexts: contexts}
 		},
 	}
+}
 
-	// Apply custom linters
-	result := orch.WithLinters(customLinters)
-
-	// Should return self for chaining
-	if result != orch {
-		t.Error("WithLinters() didn't return self for chaining")
+func TestRegistryOrderAndDefaults(t *testing.T) {
+	wantRegistry := []struct {
+		fileType  discovery.FileType
+		name      string
+		isDefault bool
+	}{
+		{discovery.FileTypeAgent, "agents", true},
+		{discovery.FileTypeCommand, "commands", true},
+		{discovery.FileTypeSkill, "skills", true},
+		{discovery.FileTypeSettings, "settings", true},
+		{discovery.FileTypeContext, "context", false},
+		{discovery.FileTypeRule, "rules", true},
+		{discovery.FileTypeOutputStyle, "output-styles", true},
+		{discovery.FileTypePlugin, "plugins", true},
+	}
+	if len(linterRegistry) != len(wantRegistry) {
+		t.Fatalf("registry length = %d, want %d", len(linterRegistry), len(wantRegistry))
+	}
+	for i, want := range wantRegistry {
+		got := linterRegistry[i]
+		if got.FileType != want.fileType || got.Name != want.name || got.Default != want.isDefault || got.New == nil {
+			t.Errorf("registry[%d] = {%s %q %v}, want {%s %q %v}", i, got.FileType, got.Name, got.Default, want.fileType, want.name, want.isDefault)
+		}
+		lookedUp, ok := LinterForType(want.fileType)
+		if !ok || lookedUp.Name != want.name {
+			t.Errorf("LinterForType(%s) = {%q, %v}, want %q", want.fileType, lookedUp.Name, ok, want.name)
+		}
+	}
+	if _, ok := LinterForType(discovery.FileTypeUnknown); ok {
+		t.Error("LinterForType(unknown) unexpectedly succeeded")
 	}
 
-	if len(orch.linters) != 1 {
-		t.Errorf("Linters count = %d, want 1", len(orch.linters))
+	wantDefaults := []string{"agents", "commands", "skills", "settings", "rules", "output-styles", "plugins"}
+	defaults := DefaultLinters()
+	if len(defaults) != len(wantDefaults) {
+		t.Fatalf("default length = %d, want %d", len(defaults), len(wantDefaults))
 	}
-
-	if orch.linters[0].Name != "test-linter" {
-		t.Errorf("Linter name = %s, want test-linter", orch.linters[0].Name)
+	for i, want := range wantDefaults {
+		if defaults[i].Name != want {
+			t.Errorf("defaults[%d].Name = %q, want %q", i, defaults[i].Name, want)
+		}
 	}
 }
 
-// =============================================================================
-// Test DefaultLinters
-// =============================================================================
-
-func TestDefaultLinters(t *testing.T) {
-	linters := DefaultLinters()
-
-	if len(linters) == 0 {
-		t.Fatal("DefaultLinters() returned empty slice")
+func TestRegistryPluginFactoryReceivesRoot(t *testing.T) {
+	entry, ok := LinterForType(discovery.FileTypePlugin)
+	if !ok {
+		t.Fatal("plugin registry entry missing")
 	}
-
-	// Check that expected linters are present
-	expectedNames := []string{"agents", "commands", "skills", "settings", "rules", "output-styles"}
-	linterMap := make(map[string]bool)
-
-	for _, l := range linters {
-		linterMap[l.Name] = true
-		if l.Linter == nil {
-			t.Errorf("Linter %s has nil Linter function", l.Name)
-		}
+	linter, ok := entry.New("/explicit/root").(*PluginLinter)
+	if !ok {
+		t.Fatalf("plugin factory returned %T", entry.New("/explicit/root"))
 	}
+	if linter.RootPath != "/explicit/root" {
+		t.Errorf("plugin root = %q, want /explicit/root", linter.RootPath)
+	}
+}
 
-	for _, name := range expectedNames {
-		if !linterMap[name] {
-			t.Errorf("Expected linter %s not found in DefaultLinters", name)
+func TestNewOrchestratorAndWithLinters(t *testing.T) {
+	cfg := &config.Config{Root: t.TempDir(), Quiet: true}
+	orch := NewOrchestrator(cfg, OrchestratorConfig{BaselinePath: ".cclintbaseline.json"})
+	if orch.cfg != cfg || len(orch.linters) != len(DefaultLinters()) {
+		t.Fatal("NewOrchestrator did not retain config and defaults")
+	}
+	custom := []LinterEntry{fakeEntry(discovery.FileTypeAgent, "custom", nil, nil, nil)}
+	if got := orch.WithLinters(custom); got != orch || len(orch.linters) != 1 || orch.linters[0].Name != "custom" {
+		t.Fatal("WithLinters did not replace linters and return the orchestrator")
+	}
+}
+
+func TestRunSharesContextAndPropagatesResolvedRoot(t *testing.T) {
+	root := t.TempDir()
+	writeComponentFile(t, root, discovery.FileTypeAgent)
+	writeComponentFile(t, root, discovery.FileTypeCommand)
+
+	var contexts []*LinterContext
+	var roots []string
+	linters := []LinterEntry{
+		fakeEntry(discovery.FileTypeAgent, "agents", nil, &contexts, &roots),
+		fakeEntry(discovery.FileTypeCommand, "commands", nil, &contexts, &roots),
+	}
+	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{BaselinePath: ".cclintbaseline.json"}).WithLinters(linters)
+	result, err := orch.Run()
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if result.TotalFiles != 2 || len(result.Summaries) != 2 {
+		t.Fatalf("Run totals = %d files, %d summaries; want 2, 2", result.TotalFiles, len(result.Summaries))
+	}
+	if len(contexts) != 2 || contexts[0] != contexts[1] {
+		t.Fatalf("batch contexts = %#v, want the same context twice", contexts)
+	}
+	for _, got := range roots {
+		if got != root {
+			t.Errorf("factory root = %q, want %q", got, root)
 		}
 	}
 }
 
-// =============================================================================
-// Test resolveBaselinePath
-// =============================================================================
+func TestRunSelectedSubset(t *testing.T) {
+	root := t.TempDir()
+	writeComponentFile(t, root, discovery.FileTypeAgent)
+	writeComponentFile(t, root, discovery.FileTypeCommand)
+	var commandCalls int
+	command := fakeEntry(discovery.FileTypeCommand, "commands", nil, nil, nil)
+	command.New = func(string) ComponentLinter {
+		commandCalls++
+		return &recordingComponentLinter{fileType: discovery.FileTypeCommand, typeName: "commands"}
+	}
+
+	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters([]LinterEntry{command})
+	result, err := orch.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commandCalls != 1 || result.TotalFiles != 1 || len(result.Summaries) != 1 || result.Summaries[0].ComponentType != "commands" {
+		t.Fatalf("subset calls command=%d, files=%d summaries=%d", commandCalls, result.TotalFiles, len(result.Summaries))
+	}
+}
+
+func TestRunAggregatesAndSkipsEmptySummaries(t *testing.T) {
+	root := t.TempDir()
+	writeComponentFile(t, root, discovery.FileTypeAgent)
+	issues := []cue.ValidationError{
+		{Message: "error", Severity: cue.SeverityError},
+		{Message: "warning", Severity: cue.SeverityWarning},
+		{Message: "suggestion", Severity: cue.SeveritySuggestion},
+	}
+	linters := []LinterEntry{
+		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
+		fakeEntry(discovery.FileTypeCommand, "commands", nil, nil, nil),
+	}
+	result, err := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters(linters).Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.TotalFiles != 1 || result.TotalErrors != 1 || result.TotalWarnings != 1 || result.TotalSuggestions != 1 || !result.HasErrors {
+		t.Fatalf("unexpected totals: %+v", result)
+	}
+	if len(result.Summaries) != 1 || result.Summaries[0].ComponentType != "agents" {
+		t.Fatalf("summaries = %+v, want only agents", result.Summaries)
+	}
+}
+
+func TestRunEmptySelectionDoesNotInitializeContext(t *testing.T) {
+	result, err := NewOrchestrator(&config.Config{Root: filepath.Join(t.TempDir(), "missing"), Quiet: true}, OrchestratorConfig{}).WithLinters(nil).Run()
+	if err != nil {
+		t.Fatalf("empty run error = %v", err)
+	}
+	if result.TotalFiles != 0 || len(result.Summaries) != 0 {
+		t.Fatalf("empty run result = %+v", result)
+	}
+}
 
 func TestResolveBaselinePath(t *testing.T) {
-	tests := []struct {
-		name         string
-		rootPath     string
-		baselinePath string
-		want         string
-	}{
-		{
-			name:         "absolute path unchanged",
-			rootPath:     "/project",
-			baselinePath: "/absolute/path/baseline.json",
-			want:         "/absolute/path/baseline.json",
-		},
-		{
-			name:         "relative path joined to root",
-			rootPath:     "/project",
-			baselinePath: ".cclintbaseline.json",
-			want:         "/project/.cclintbaseline.json",
-		},
-		{
-			name:         "relative path with subdirectory",
-			rootPath:     "/project",
-			baselinePath: "baselines/custom.json",
-			want:         "/project/baselines/custom.json",
-		},
+	root := t.TempDir()
+	tests := []struct{ path, want string }{
+		{filepath.Join(root, "absolute.json"), filepath.Join(root, "absolute.json")},
+		{"relative.json", filepath.Join(root, "relative.json")},
 	}
-
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.Config{Root: tt.rootPath, Format: "console"}
-			opts := OrchestratorConfig{
-				RootPath:     tt.rootPath,
-				BaselinePath: tt.baselinePath,
-			}
-
-			orch := NewOrchestrator(cfg, opts)
-			result := orch.resolveBaselinePath()
-
-			if result != tt.want {
-				t.Errorf("resolveBaselinePath() = %s, want %s", result, tt.want)
-			}
-		})
+		orch := NewOrchestrator(&config.Config{Root: root}, OrchestratorConfig{BaselinePath: tt.path})
+		if got := orch.resolveBaselinePath(); got != tt.want {
+			t.Errorf("resolveBaselinePath(%q) = %q, want %q", tt.path, got, tt.want)
+		}
 	}
 }
 
-// =============================================================================
-// Test loadBaseline
-// =============================================================================
-
-func TestLoadBaseline(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	// Create a baseline file
-	issues := []cue.ValidationError{
-		{
-			File:     "test.md",
-			Message:  "Test error",
-			Severity: "error",
-			Source:   "test",
-		},
+func TestLoadAndSaveBaseline(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "baseline.json")
+	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path})
+	if got, err := orch.loadBaseline(path); err != nil || got != nil {
+		t.Fatalf("missing baseline = (%v, %v), want (nil, nil)", got, err)
 	}
-	b := baseline.CreateBaseline(issues)
-	b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := b.SaveBaseline(baselinePath); err != nil {
-		t.Fatalf("Failed to create test baseline: %v", err)
+	issues := []cue.ValidationError{{File: ".claude/agents/test.md", Message: "known", Severity: cue.SeverityError, Source: "test"}}
+	if err := orch.saveBaseline(issues, path); err != nil {
+		t.Fatal(err)
 	}
-
-	tests := []struct {
-		name           string
-		useBaseline    bool
-		createBaseline bool
-		baselineExists bool
-		wantNil        bool
-		wantError      bool
-	}{
-		{
-			name:           "baseline mode disabled",
-			useBaseline:    false,
-			createBaseline: false,
-			baselineExists: true,
-			wantNil:        true,
-			wantError:      false,
-		},
-		{
-			name:           "use baseline - file exists",
-			useBaseline:    true,
-			createBaseline: false,
-			baselineExists: true,
-			wantNil:        false,
-			wantError:      false,
-		},
-		{
-			name:           "use baseline - file missing",
-			useBaseline:    true,
-			createBaseline: false,
-			baselineExists: false,
-			wantNil:        true,
-			wantError:      false, // Missing file is not an error
-		},
-		{
-			name:           "create baseline mode",
-			useBaseline:    false,
-			createBaseline: true,
-			baselineExists: true,
-			wantNil:        false,
-			wantError:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.Config{Root: tmpDir, Format: "console"}
-
-			testBaselinePath := baselinePath
-			if !tt.baselineExists {
-				testBaselinePath = filepath.Join(tmpDir, "nonexistent.json")
-			}
-
-			opts := OrchestratorConfig{
-				RootPath:       tmpDir,
-				UseBaseline:    tt.useBaseline,
-				CreateBaseline: tt.createBaseline,
-				BaselinePath:   testBaselinePath,
-			}
-
-			orch := NewOrchestrator(cfg, opts)
-			result, err := orch.loadBaseline(testBaselinePath)
-
-			if tt.wantError && err == nil {
-				t.Error("loadBaseline() expected error, got nil")
-			}
-
-			if !tt.wantError && err != nil {
-				t.Errorf("loadBaseline() unexpected error: %v", err)
-			}
-
-			if tt.wantNil && result != nil {
-				t.Error("loadBaseline() expected nil, got baseline")
-			}
-
-			if !tt.wantNil && !tt.wantError && result == nil {
-				t.Error("loadBaseline() expected baseline, got nil")
-			}
-		})
+	got, err := orch.loadBaseline(path)
+	if err != nil || got == nil || len(got.Fingerprints) != 1 {
+		t.Fatalf("loaded baseline = (%v, %v)", got, err)
 	}
 }
 
-// =============================================================================
-// Test saveBaseline
-// =============================================================================
-
-func TestSaveBaseline(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, "test_baseline.json")
-
-	issues := []cue.ValidationError{
-		{
-			File:     "agents/test.md",
-			Message:  "Error 1",
-			Severity: "error",
-			Source:   "test",
-		},
-		{
-			File:     "commands/cmd.md",
-			Message:  "Error 2",
-			Severity: "error",
-			Source:   "test",
-		},
-	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true, // Quiet mode to avoid output
-	}
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-	err := orch.saveBaseline(issues, baselinePath)
-
-	if err != nil {
-		t.Fatalf("saveBaseline() error: %v", err)
-	}
-
-	// Verify file was created
-	if _, statErr := os.Stat(baselinePath); statErr != nil {
-		t.Errorf("Baseline file not created: %v", statErr)
-	}
-
-	// Load and verify contents
-	loaded, err := baseline.LoadBaseline(baselinePath)
-	if err != nil {
-		t.Fatalf("Failed to load saved baseline: %v", err)
-	}
-
-	if len(loaded.Fingerprints) != 2 {
-		t.Errorf("Baseline contains %d fingerprints, want 2", len(loaded.Fingerprints))
-	}
-}
-
-// =============================================================================
-// Test Run - happy path
-// =============================================================================
-
-func TestRun_Success(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:    tmpDir,
-		Format:  "console",
-		Quiet:   true,
-		Verbose: false,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    false,
-		CreateBaseline: false,
-		BaselinePath:   ".cclintbaseline.json",
-	}
-
-	// Create orchestrator with mock linter that returns successful results
-	orch := NewOrchestrator(cfg, opts)
-
-	successLinter := LinterEntry{
-		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				ProjectRoot:      rootPath,
-				ComponentType:    "test",
-				StartTime:        time.Now(),
-				TotalFiles:       2,
-				SuccessfulFiles:  2,
-				FailedFiles:      0,
-				TotalErrors:      0,
-				TotalSuggestions: 0,
-				Results: []LintResult{
-					{File: "test1.md", Success: true, Errors: nil},
-					{File: "test2.md", Success: true, Errors: nil},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{successLinter})
-
+func TestRunCreatesBaseline(t *testing.T) {
+	root := t.TempDir()
+	writeComponentFile(t, root, discovery.FileTypeAgent)
+	path := filepath.Join(root, "baseline.json")
+	issues := []cue.ValidationError{{Message: "new", Severity: cue.SeverityError, Source: "test"}}
+	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{CreateBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
+		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
+	})
 	result, err := orch.Run()
-
 	if err != nil {
-		t.Fatalf("Run() error: %v", err)
+		t.Fatal(err)
 	}
-
-	if result == nil {
-		t.Fatal("Run() returned nil result")
-	}
-
-	if result.TotalFiles != 2 {
-		t.Errorf("TotalFiles = %d, want 2", result.TotalFiles)
-	}
-
-	if result.TotalErrors != 0 {
-		t.Errorf("TotalErrors = %d, want 0", result.TotalErrors)
-	}
-
 	if result.HasErrors {
-		t.Error("HasErrors = true, want false")
+		t.Error("baseline creation must clear HasErrors")
+	}
+	loaded, err := baseline.LoadBaseline(path)
+	if err != nil || len(loaded.Fingerprints) != 1 {
+		t.Fatalf("created baseline = (%v, %v)", loaded, err)
 	}
 }
 
-// =============================================================================
-// Test Run - with errors
-// =============================================================================
-
-func TestRun_WithErrors(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:    tmpDir,
-		Format:  "console",
-		Quiet:   true,
-		Verbose: false,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    false,
-		CreateBaseline: false,
-		BaselinePath:   ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	errorLinter := LinterEntry{
-		Name: "error-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				ProjectRoot:      rootPath,
-				ComponentType:    "test",
-				StartTime:        time.Now(),
-				TotalFiles:       1,
-				SuccessfulFiles:  0,
-				FailedFiles:      1,
-				TotalErrors:      2,
-				TotalSuggestions: 1,
-				Results: []LintResult{
-					{
-						File:    "test.md",
-						Success: false,
-						Errors: []cue.ValidationError{
-							{File: "test.md", Message: "Error 1", Severity: "error"},
-							{File: "test.md", Message: "Error 2", Severity: "error"},
-						},
-						Suggestions: []cue.ValidationError{
-							{File: "test.md", Message: "Suggestion 1", Severity: "suggestion"},
-						},
-					},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{errorLinter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	if !result.HasErrors {
-		t.Error("HasErrors = false, want true")
-	}
-
-	if result.TotalErrors != 2 {
-		t.Errorf("TotalErrors = %d, want 2", result.TotalErrors)
-	}
-
-	if result.TotalSuggestions != 1 {
-		t.Errorf("TotalSuggestions = %d, want 1", result.TotalSuggestions)
-	}
-}
-
-// =============================================================================
-// Test Run - skip empty results
-// =============================================================================
-
-func TestRun_SkipEmptyResults(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	emptyLinter := LinterEntry{
-		Name: "empty-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles: 0, // No files found
-				Results:    []LintResult{},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{emptyLinter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	// Empty results should be skipped
-	if result.TotalFiles != 0 {
-		t.Errorf("TotalFiles = %d, want 0 (empty results should be skipped)", result.TotalFiles)
-	}
-}
-
-// =============================================================================
-// Test Run - baseline creation
-// =============================================================================
-
-func TestRun_CreateBaseline(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    false,
-		CreateBaseline: true,
-		BaselinePath:   baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	linter := LinterEntry{
-		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles:  1,
-				TotalErrors: 1,
-				Results: []LintResult{
-					{
-						File:    "test.md",
-						Success: false,
-						Errors: []cue.ValidationError{
-							{File: "test.md", Message: "Error", Severity: "error", Source: "test"},
-						},
-					},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{linter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	// Baseline creation should clear errors
-	if result.HasErrors {
-		t.Error("HasErrors = true, want false (baseline creation accepts current state)")
-	}
-
-	// Verify baseline file was created
-	if _, statErr := os.Stat(baselinePath); statErr != nil {
-		t.Errorf("Baseline file not created: %v", statErr)
-	}
-
-	// Load and verify baseline contains the issue
-	loaded, err := baseline.LoadBaseline(baselinePath)
-	if err != nil {
-		t.Fatalf("Failed to load baseline: %v", err)
-	}
-
-	if len(loaded.Fingerprints) != 1 {
-		t.Errorf("Baseline contains %d fingerprints, want 1", len(loaded.Fingerprints))
-	}
-}
-
-// =============================================================================
-// Test Run - baseline filtering
-// =============================================================================
-
-func TestRun_WithBaselineFiltering(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	// Create baseline with known issues
-	knownIssues := []cue.ValidationError{
-		{File: "test.md", Message: "Known error", Severity: "error", Source: "test"},
-	}
-	b := baseline.CreateBaseline(knownIssues)
+func TestRunFiltersBaseline(t *testing.T) {
+	root := t.TempDir()
+	writeComponentFile(t, root, discovery.FileTypeAgent)
+	path := filepath.Join(root, "baseline.json")
+	known := cue.ValidationError{File: ".claude/agents/test.md", Message: "known", Severity: cue.SeverityError, Source: "test"}
+	b := baseline.CreateBaseline([]cue.ValidationError{known})
 	b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := b.SaveBaseline(baselinePath); err != nil {
-		t.Fatalf("Failed to create baseline: %v", err)
+	if err := b.SaveBaseline(path); err != nil {
+		t.Fatal(err)
 	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    true,
-		CreateBaseline: false,
-		BaselinePath:   baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	linter := LinterEntry{
-		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles:  1,
-				TotalErrors: 2,
-				Results: []LintResult{
-					{
-						File:    "test.md",
-						Success: false,
-						Errors: []cue.ValidationError{
-							{File: "test.md", Message: "Known error", Severity: "error", Source: "test"}, // Should be filtered
-							{File: "test.md", Message: "New error", Severity: "error", Source: "test"},   // Should remain
-						},
-					},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{linter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	// One error should be filtered by baseline
-	if result.BaselineIgnored == 0 {
-		t.Error("BaselineIgnored = 0, want > 0")
-	}
-
-	// Should still have one new error
-	if result.TotalErrors == 0 {
-		t.Error("TotalErrors = 0, want > 0 (new error should remain)")
-	}
-}
-
-// =============================================================================
-// Test Run - multiple linters
-// =============================================================================
-
-func TestRun_MultipleLinters(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	linter1 := LinterEntry{
-		Name: "linter-1",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles:       2,
-				TotalErrors:      1,
-				TotalSuggestions: 0,
-				Results: []LintResult{
-					{File: "file1.md", Success: true},
-					{File: "file2.md", Success: false, Errors: []cue.ValidationError{
-						{File: "file2.md", Message: "Error", Severity: "error"},
-					}},
-				},
-			}, nil
-		},
-	}
-
-	linter2 := LinterEntry{
-		Name: "linter-2",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles:       1,
-				TotalErrors:      0,
-				TotalSuggestions: 2,
-				Results: []LintResult{
-					{File: "file3.md", Success: true, Suggestions: []cue.ValidationError{
-						{File: "file3.md", Message: "Suggestion 1", Severity: "suggestion"},
-						{File: "file3.md", Message: "Suggestion 2", Severity: "suggestion"},
-					}},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{linter1, linter2})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	// Verify aggregated results
-	if result.TotalFiles != 3 {
-		t.Errorf("TotalFiles = %d, want 3", result.TotalFiles)
-	}
-
-	if result.TotalErrors != 1 {
-		t.Errorf("TotalErrors = %d, want 1", result.TotalErrors)
-	}
-
-	if result.TotalSuggestions != 2 {
-		t.Errorf("TotalSuggestions = %d, want 2", result.TotalSuggestions)
-	}
-
-	if !result.HasErrors {
-		t.Error("HasErrors = false, want true")
-	}
-}
-
-// =============================================================================
-// Test Run - linter error handling
-// =============================================================================
-
-func TestRun_LinterError(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  true,
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	failingLinter := LinterEntry{
-		Name: "failing-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return nil, os.ErrNotExist // Return an error
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{failingLinter})
-
-	_, err := orch.Run()
-
-	if err == nil {
-		t.Fatal("Run() expected error from failing linter, got nil")
-	}
-
-	// Error message should mention the linter name
-	if !containsString(err.Error(), "failing-linter") {
-		t.Errorf("Error message should mention linter name, got: %s", err.Error())
-	}
-}
-
-// =============================================================================
-// Test Run - baseline load error (non-quiet mode)
-// =============================================================================
-
-func TestRun_BaselineLoadError_NotQuiet(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, "invalid.json")
-
-	// Create invalid baseline file
-	if err := os.WriteFile(baselinePath, []byte("invalid json"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  false, // NOT quiet - should print warning
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    true,
-		CreateBaseline: false,
-		BaselinePath:   baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	// Empty linter - just want to test baseline loading
-	orch.WithLinters([]LinterEntry{})
-
-	// Should not error even with invalid baseline
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Run() returned nil result")
-	}
-
-	// Warning should be printed to stderr but not cause failure
-}
-
-// =============================================================================
-// Test Run - baseline filtering summary output (non-quiet)
-// =============================================================================
-
-func TestRun_BaselineFilteringSummary_NotQuiet(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	// Create baseline with known issues
-	knownIssues := []cue.ValidationError{
-		{File: "test.md", Message: "Known error", Severity: "error", Source: "test"},
-	}
-	b := baseline.CreateBaseline(knownIssues)
-	b.CreatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := b.SaveBaseline(baselinePath); err != nil {
-		t.Fatalf("Failed to create baseline: %v", err)
-	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  false, // NOT quiet - should print summary
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:       tmpDir,
-		UseBaseline:    true,
-		CreateBaseline: false,
-		BaselinePath:   baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	linter := LinterEntry{
-		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles:  1,
-				TotalErrors: 1,
-				Results: []LintResult{
-					{
-						File:    "test.md",
-						Success: false,
-						Errors: []cue.ValidationError{
-							{File: "test.md", Message: "Known error", Severity: "error", Source: "test"}, // Should be filtered
-						},
-					},
-				},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{linter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	if result.BaselineIgnored == 0 {
-		t.Error("BaselineIgnored = 0, want > 0")
-	}
-
-	// Should print baseline filtering summary (verified by coverage)
-}
-
-// =============================================================================
-// Test Run - validation reminder output (non-quiet)
-// =============================================================================
-
-func TestRun_ValidationReminder_NotQuiet(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  false, // NOT quiet - should print reminder
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	successLinter := LinterEntry{
-		Name: "test-linter",
-		Linter: func(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-			return &LintSummary{
-				TotalFiles: 1,
-				Results:    []LintResult{{File: "test.md", Success: true}},
-			}, nil
-		},
-	}
-
-	orch.WithLinters([]LinterEntry{successLinter})
-
-	result, err := orch.Run()
-
-	if err != nil {
-		t.Fatalf("Run() error: %v", err)
-	}
-
-	if result == nil {
-		t.Fatal("Run() returned nil result")
-	}
-
-	// Validation reminder should be printed (verified by coverage)
-}
-
-// =============================================================================
-// Test saveBaseline - non-quiet output
-// =============================================================================
-
-func TestSaveBaseline_NotQuiet(t *testing.T) {
-	tmpDir := t.TempDir()
-	baselinePath := filepath.Join(tmpDir, "test_baseline.json")
-
 	issues := []cue.ValidationError{
-		{File: "test.md", Message: "Error", Severity: "error", Source: "test"},
+		{Message: "known", Severity: cue.SeverityError, Source: "test"},
+		{Message: "new", Severity: cue.SeverityError, Source: "test"},
 	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  false, // NOT quiet - should print output
-	}
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: baselinePath,
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-	err := orch.saveBaseline(issues, baselinePath)
-
+	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
+		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
+	})
+	result, err := orch.Run()
 	if err != nil {
-		t.Fatalf("saveBaseline() error: %v", err)
+		t.Fatal(err)
 	}
-
-	// Verify file was created
-	if _, err := os.Stat(baselinePath); err != nil {
-		t.Errorf("Baseline file not created: %v", err)
+	if result.BaselineIgnored != 1 || result.TotalErrors != 1 || !result.HasErrors {
+		t.Fatalf("filtered result = %+v", result)
 	}
-
-	// Output should be printed (verified by coverage)
-}
-
-// =============================================================================
-// Test runMemoryChecks (integration test)
-// =============================================================================
-
-func TestRunMemoryChecks(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create CLAUDE.local.md but don't add to .gitignore
-	localMdPath := filepath.Join(tmpDir, "CLAUDE.local.md")
-	if err := os.WriteFile(localMdPath, []byte("test"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	cfg := &config.Config{
-		Root:   tmpDir,
-		Format: "console",
-		Quiet:  false, // Not quiet so checks run
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	// This should not panic or error
-	orch.runMemoryChecks()
-}
-
-// =============================================================================
-// Test runMemoryChecks - quiet mode
-// =============================================================================
-
-func TestRunMemoryChecks_QuietMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	cfg := &config.Config{
-		Root:  tmpDir,
-		Quiet: true, // Quiet mode - checks should be skipped
-	}
-
-	opts := OrchestratorConfig{
-		RootPath:     tmpDir,
-		BaselinePath: ".cclintbaseline.json",
-	}
-
-	orch := NewOrchestrator(cfg, opts)
-
-	// Should return early without errors
-	orch.runMemoryChecks()
 }

@@ -44,9 +44,36 @@ type lintCommand struct {
 }
 type parserExit int
 
+type executionOptions struct {
+	root           *string
+	quiet          *bool
+	verbose        *bool
+	scores         *bool
+	improvements   *bool
+	format         *string
+	output         *string
+	failOn         *string
+	noCycleCheck   *bool
+	baseline       *bool
+	baselineCreate *bool
+	baselinePath   *string
+}
+
 func Execute() {
 	var app cli
-	parser, err := kong.New(&app, kong.Name("cclint"), kong.Description(rootDescription), kong.UsageOnError(), kong.Exit(func(code int) { panic(parserExit(code)) }))
+	parser, err := kong.New(
+		&app,
+		kong.Name("cclint"),
+		kong.Description(rootDescription),
+		kong.UsageOnError(),
+		kong.Exit(func(code int) { panic(parserExit(code)) }),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact:   true,
+			Tree:      true,
+			Summary:   true,
+			FlagsLast: true,
+		}),
+	)
 	if err != nil {
 		exitWithError(err)
 		return
@@ -59,13 +86,11 @@ func Execute() {
 	if ctx == nil {
 		return
 	}
-	app.apply()
-	defer func() { cliChanged = nil }()
 	if app.Version {
 		fmt.Printf("cclint version %s\n", Version)
 		return
 	}
-	if err := ctx.Run(); err != nil {
+	if err := ctx.Run(app.executionOptions()); err != nil {
 		exitWithError(err)
 	}
 }
@@ -88,37 +113,22 @@ func exitWithError(err error) {
 	exitFunc(1)
 }
 
-func (cmd *lintCommand) Run() error { return runRootCommand(cmd.Paths) }
-func (summaryCommand) Run() error   { return runSummary() }
+func (cmd *lintCommand) Run(opts executionOptions) error { return runRootCommand(opts, cmd) }
+func (summaryCommand) Run(opts executionOptions) error   { return runSummary(opts) }
 
-func (app *cli) apply() {
-	cliChanged = make(map[string]bool)
-	setString := func(name string, value *string, target *string) {
-		if value != nil {
-			*target = *value
-			cliChanged[name] = true
-		}
+func (app *cli) executionOptions() executionOptions {
+	return executionOptions{
+		root:           app.Root,
+		quiet:          app.Quiet,
+		verbose:        app.Verbose,
+		scores:         app.Scores,
+		improvements:   app.Improvements,
+		format:         app.Format,
+		output:         app.Output,
+		failOn:         app.FailOn,
+		noCycleCheck:   app.NoCycleCheck,
+		baseline:       app.Baseline,
+		baselineCreate: app.BaselineCreate,
+		baselinePath:   app.BaselinePath,
 	}
-	setBool := func(name string, value *bool, target *bool) {
-		if value != nil {
-			*target = *value
-			cliChanged[name] = true
-		}
-	}
-	setString("root", app.Root, &rootPath)
-	setBool("quiet", app.Quiet, &quiet)
-	setBool("verbose", app.Verbose, &verbose)
-	setBool("scores", app.Scores, &showScores)
-	setBool("improvements", app.Improvements, &showImprovements)
-	setString("format", app.Format, &outputFormat)
-	setString("output", app.Output, &outputFile)
-	setString("fail-on", app.FailOn, &failOn)
-	setBool("no-cycle-check", app.NoCycleCheck, &noCycleCheck)
-	setBool("baseline", app.Baseline, &useBaseline)
-	setBool("baseline-create", app.BaselineCreate, &createBaseline)
-	setString("baseline-path", app.BaselinePath, &baselinePath)
-	setString("type", app.Lint.Type, &typeFlag)
-	setBool("diff", app.Lint.Diff, &diffMode)
-	setBool("staged", app.Lint.Staged, &stagedMode)
-	app.Fmt.apply()
 }

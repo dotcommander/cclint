@@ -5,16 +5,6 @@ import (
 	"path/filepath"
 )
 
-// Info contains information about the detected project.
-// Named 'Info' instead of 'ProjectInfo' to avoid stuttering (project.Info vs project.ProjectInfo).
-type Info struct {
-	Root       string
-	IsClaude   bool
-	HasGit     bool
-	Type       string
-	FilesFound []string
-}
-
 // FindProjectRoot searches for a project root starting from the given path
 // and climbing up the directory tree if needed.
 func FindProjectRoot(startPath string) (string, error) {
@@ -85,56 +75,4 @@ func isProjectRoot(path string) bool {
 	}
 
 	return false
-}
-
-// Detect detects project information at the given path.
-// Named 'Detect' instead of 'DetectProjectInfo' to avoid stuttering.
-func Detect(rootPath string) (*Info, error) {
-	projectInfo := &Info{
-		Root:     rootPath,
-		IsClaude: false,
-		HasGit:   false,
-		Type:     "unknown",
-	}
-
-	// Check for specific project markers
-	if _, err := os.Stat(filepath.Join(rootPath, ".claude")); err == nil {
-		projectInfo.IsClaude = true
-		projectInfo.Type = "claude"
-	}
-
-	if _, err := os.Stat(filepath.Join(rootPath, ".git")); err == nil {
-		projectInfo.HasGit = true
-	}
-
-	// Detect project type
-	if _, err := os.Stat(filepath.Join(rootPath, "package.json")); err == nil {
-		projectInfo.Type = "node"
-	}
-
-	if _, err := os.Stat(filepath.Join(rootPath, "go.mod")); err == nil {
-		projectInfo.Type = "go"
-	}
-
-	// Find relevant files
-	projectInfo.FilesFound = findProjectFiles(rootPath)
-
-	return projectInfo, nil
-}
-
-// findProjectFiles scans the project for relevant files
-func findProjectFiles(rootPath string) []string {
-	var files []string
-
-	// This will be enhanced in the file discovery phase
-	// For now, just find some basic markers
-	if _, err := os.Stat(filepath.Join(rootPath, ".claude")); err == nil {
-		files = append(files, ".claude/")
-	}
-
-	if _, err := os.Stat(filepath.Join(rootPath, ".git")); err == nil {
-		files = append(files, ".git/")
-	}
-
-	return files
 }

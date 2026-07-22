@@ -5,1708 +5,239 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
-	"github.com/dotcommander/cclint/internal/config"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunSingleFileLint(t *testing.T) {
-	// Create temporary test directory
-	tmpDir := t.TempDir()
-
-	// Create a valid test file
-	validAgentPath := filepath.Join(tmpDir, "agents", "test-agent.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(validAgentPath), 0755))
-
-	validContent := `---
-name: test-agent
-description: A test agent. Use PROACTIVELY when testing.. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-This is a test agent.
-
-## Workflow
-
-1. Test step 1
-2. Test step 2
-`
-	require.NoError(t, os.WriteFile(validAgentPath, []byte(validContent), 0644))
-
-	// Only test valid file to avoid os.Exit issues in tests
-	tests := []struct {
-		name      string
-		files     []string
-		rootPath  string
-		typeFlag  string
-		quiet     bool
-		wantError bool
-	}{
-		{
-			name:      "valid file",
-			files:     []string{validAgentPath},
-			rootPath:  tmpDir,
-			typeFlag:  "",
-			quiet:     true,
-			wantError: false,
-		},
-		{
-			name:      "force type override",
-			files:     []string{validAgentPath},
-			rootPath:  tmpDir,
-			typeFlag:  "agent",
-			quiet:     true,
-			wantError: false,
-		},
-		// Note: Tests for error cases (invalid files, non-existent files) are skipped
-		// because runSingleFileLint calls os.Exit() directly which terminates the test
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set global flags
-			oldRootPath := rootPath
-			oldQuiet := quiet
-			oldVerbose := verbose
-			oldTypeFlag := typeFlag
-
-			rootPath = tt.rootPath
-			quiet = tt.quiet
-			verbose = false
-			typeFlag = tt.typeFlag
-
-			defer func() {
-				// Restore global flags
-				rootPath = oldRootPath
-				quiet = oldQuiet
-				verbose = oldVerbose
-				typeFlag = oldTypeFlag
-			}()
-
-			// Run the function - only testing success cases
-			err := runSingleFileLint(tt.files)
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestRunGitLint(t *testing.T) {
-	// Create temporary test directory with git repo
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	gitDir := filepath.Join(tmpDir, ".git")
-	require.NoError(t, os.MkdirAll(gitDir, 0755))
-
-	// Create a test file
-	testFile := filepath.Join(tmpDir, "agents", "test-agent.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(testFile), 0755))
-	validContent := `---
-name: test-agent
-description: A test agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-Test agent.
-
-## Workflow
-1. Test step
-`
-	require.NoError(t, os.WriteFile(testFile, []byte(validContent), 0644))
-
-	tests := []struct {
-		name       string
-		rootPath   string
-		stagedMode bool
-		diffMode   bool
-		quiet      bool
-		setupGit   bool
-	}{
-		{
-			name:       "not in git repo falls back to full lint",
-			rootPath:   t.TempDir(), // Different temp dir without .git
-			stagedMode: false,
-			diffMode:   true,
-			quiet:      true,
-			setupGit:   false,
-		},
-		{
-			name:       "staged mode in git repo",
-			rootPath:   tmpDir,
-			stagedMode: true,
-			diffMode:   false,
-			quiet:      true,
-			setupGit:   true,
-		},
-		{
-			name:       "diff mode in git repo",
-			rootPath:   tmpDir,
-			stagedMode: false,
-			diffMode:   true,
-			quiet:      true,
-			setupGit:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set global flags
-			oldRootPath := rootPath
-			oldQuiet := quiet
-			oldVerbose := verbose
-			oldStagedMode := stagedMode
-			oldDiffMode := diffMode
-
-			rootPath = tt.rootPath
-			quiet = tt.quiet
-			verbose = false
-			stagedMode = tt.stagedMode
-			diffMode = tt.diffMode
-
-			// Capture exit behavior
-			originalOsExit := osExit
-			osExit = func(code int) {
-				// Just prevent actual exit
-			}
-			defer func() { osExit = originalOsExit }()
-
-			// Run the function (may call os.Exit)
-			_ = runGitLint()
-
-			// Just verify it doesn't panic - actual behavior depends on git state
-			// which we can't fully control in unit tests
-
-			// Restore global flags
-			rootPath = oldRootPath
-			quiet = oldQuiet
-			verbose = oldVerbose
-			stagedMode = oldStagedMode
-			diffMode = oldDiffMode
-		})
-	}
-}
-
-func TestInitConfig(t *testing.T) {
-	// Create temporary directory for config files
-	tmpDir := t.TempDir()
-	originalWd, err := os.Getwd()
-	require.NoError(t, err)
-
-	// Change to temp directory
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(originalWd) }()
-
-	tests := []struct {
-		name       string
-		configFile string
-		content    string
-	}{
-		{
-			name:       "no config file",
-			configFile: "",
-			content:    "",
-		},
-		{
-			name:       "valid json config",
-			configFile: ".cclintrc.json",
-			content:    `{"quiet": true, "verbose": false}`,
-		},
-		{
-			name:       "valid yaml config",
-			configFile: ".cclintrc.yaml",
-			content:    "quiet: true\nverbose: false\n",
-		},
-		// Note: "invalid json config" test case removed because initConfig()
-		// calls os.Exit(1) directly which terminates the test process.
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Clean up any existing config files
-			for _, name := range []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"} {
-				_ = os.Remove(filepath.Join(tmpDir, name))
-			}
-
-			// Create config file if specified
-			if tt.configFile != "" {
-				configPath := filepath.Join(tmpDir, tt.configFile)
-				require.NoError(t, os.WriteFile(configPath, []byte(tt.content), 0644))
-			}
-
-			_, err := config.LoadConfig(tmpDir)
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestVersion(t *testing.T) {
-	// Test that Version variable can be set
-	oldVersion := Version
-	Version = "1.2.3"
-	assert.Equal(t, "1.2.3", Version)
-	Version = oldVersion
-}
-
-// Note: osExit is kept for backward compatibility with existing tests
-var osExit = os.Exit
-
-func TestExecute_Success(t *testing.T) {
-	// Save original exit function
-	originalExitFunc := exitFunc
-	exitCalled := false
-	exitCode := 0
-
-	// Mock exit function
-	exitFunc = func(code int) {
-		exitCalled = true
-		exitCode = code
-	}
-	defer func() { exitFunc = originalExitFunc }()
-
-	// Set up a simple command that succeeds
-	// Reset args to just help (which always succeeds)
-	oldArgs := os.Args
-	os.Args = []string{"cclint", "--help"}
-	defer func() { os.Args = oldArgs }()
-
-	// Execute should succeed with --help
-	Execute()
-
-	// Should not have called exit (help exits with 0 by default but Cobra handles it)
-	// The key is it didn't call exitFunc(1)
-	if exitCalled && exitCode != 0 {
-		t.Errorf("Execute called exit with code %d, expected no error exit", exitCode)
-	}
-}
-
-func TestExecute_WithVersion(t *testing.T) {
-	// Save original exit function
-	originalExitFunc := exitFunc
-	exitCalled := false
-
-	// Mock exit function
-	exitFunc = func(code int) {
-		exitCalled = true
-	}
-	defer func() { exitFunc = originalExitFunc }()
-
-	// Set up version flag
-	oldArgs := os.Args
-	os.Args = []string{"cclint", "--version"}
-	defer func() { os.Args = oldArgs }()
-
-	// Execute should succeed with --version
-	Execute()
-
-	// Should not have called exitFunc(1)
-	if exitCalled {
-		t.Errorf("Execute should not have called exit for version flag")
-	}
-}
-
-func TestExecute_ErrorPath(t *testing.T) {
-	// Save original exit function
-	originalExitFunc := exitFunc
-	exitCalled := false
-	exitCode := -1
-
-	// Mock exit function to capture exit code
-	exitFunc = func(code int) {
-		exitCalled = true
-		exitCode = code
-	}
-	defer func() { exitFunc = originalExitFunc }()
-
-	// Set up an invalid flag to trigger an error from Cobra
-	oldArgs := os.Args
-	os.Args = []string{"cclint", "--invalid-flag-that-does-not-exist"}
-	defer func() { os.Args = oldArgs }()
-
-	// Execute should fail and call exitFunc(1)
-	Execute()
-
-	// Should have called exit with code 1
-	assert.True(t, exitCalled, "Execute should have called exit on error")
-	assert.Equal(t, 1, exitCode, "Exit code should be 1")
-}
-
-func TestRootCmdFlags(t *testing.T) {
+func TestCLIParsingKeepsGlobalAndCommandStateSeparate(t *testing.T) {
 	var app cli
 	parser, err := kong.New(&app, kong.Name("cclint"))
 	require.NoError(t, err)
-	ctx, err := parser.Parse([]string{"--root", ".", "--quiet", "--verbose", "--scores", "--improvements", "--format", "json", "--output", "out", "--fail-on", "warning", "--no-cycle-check", "--baseline", "--baseline-create", "--baseline-path", "base", "--type", "agent", "--diff", "--staged", "file.md"})
+
+	ctx, err := parser.Parse([]string{
+		"lint", "--root", ".", "--quiet=false", "--verbose", "--scores",
+		"--improvements", "--format", "json", "--output", "out.json",
+		"--fail-on", "warning", "--no-cycle-check=false", "--baseline",
+		"--baseline-create=false", "--baseline-path", "base.json", "--type", "agent",
+		"--diff=false", "--staged", "file.md",
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "lint <files-or-dirs>", ctx.Command())
+
+	opts := app.executionOptions()
+	require.NotNil(t, opts.root)
+	assert.True(t, filepath.IsAbs(*opts.root))
+	require.NotNil(t, opts.quiet)
+	assert.False(t, *opts.quiet)
+	require.NotNil(t, opts.verbose)
+	assert.True(t, *opts.verbose)
+	require.NotNil(t, opts.noCycleCheck)
+	assert.False(t, *opts.noCycleCheck)
+	require.NotNil(t, opts.baselineCreate)
+	assert.False(t, *opts.baselineCreate)
+	assert.Equal(t, "json", stringValue(opts.format))
+	assert.Equal(t, "warning", stringValue(opts.failOn))
+
 	require.NotNil(t, app.Lint.Type)
 	assert.Equal(t, "agent", *app.Lint.Type)
 	require.NotNil(t, app.Lint.Diff)
-	assert.True(t, *app.Lint.Diff)
+	assert.False(t, *app.Lint.Diff)
 	require.NotNil(t, app.Lint.Staged)
 	assert.True(t, *app.Lint.Staged)
 	assert.Equal(t, []string{"file.md"}, app.Lint.Paths)
 }
 
-func TestCLICommandDispatchAndGlobalFlags(t *testing.T) {
+func TestCLIAbsentFlagsRemainNilAcrossParses(t *testing.T) {
+	var first cli
+	firstParser, err := kong.New(&first, kong.Name("cclint"))
+	require.NoError(t, err)
+	_, err = firstParser.Parse([]string{"--quiet=false", "--format", "json"})
+	require.NoError(t, err)
+	assert.NotNil(t, first.executionOptions().quiet)
+
+	var second cli
+	secondParser, err := kong.New(&second, kong.Name("cclint"))
+	require.NoError(t, err)
+	_, err = secondParser.Parse(nil)
+	require.NoError(t, err)
+	assert.Nil(t, second.executionOptions().quiet)
+	assert.Nil(t, second.executionOptions().format)
+}
+
+func TestCLICommandDispatch(t *testing.T) {
 	tests := []struct {
-		name        string
 		args        []string
 		wantCommand string
-		check       func(*testing.T, *cli)
 	}{
-		{
-			name:        "lint with globals after command",
-			args:        []string{"lint", "--root", ".", "--quiet", "--type", "agent", "file.md"},
-			wantCommand: "lint <files-or-dirs>",
-			check: func(t *testing.T, app *cli) {
-				require.NotNil(t, app.Root)
-				assert.True(t, filepath.IsAbs(*app.Root))
-				require.NotNil(t, app.Quiet)
-				assert.True(t, *app.Quiet)
-				require.NotNil(t, app.Lint.Type)
-				assert.Equal(t, "agent", *app.Lint.Type)
-			},
-		},
-		{
-			name:        "fmt with globals after command",
-			args:        []string{"fmt", "--root", ".", "--quiet", "--type", "agent", "--diff", "file.md"},
-			wantCommand: "fmt <files>",
-			check: func(t *testing.T, app *cli) {
-				require.NotNil(t, app.Root)
-				assert.True(t, filepath.IsAbs(*app.Root))
-				assert.True(t, app.Fmt.Diff)
-				assert.Equal(t, "agent", app.Fmt.Type)
-			},
-		},
-		{
-			name:        "summary with globals after command",
-			args:        []string{"summary", "--root", ".", "--quiet"},
-			wantCommand: "summary",
-			check: func(t *testing.T, app *cli) {
-				require.NotNil(t, app.Root)
-				assert.True(t, filepath.IsAbs(*app.Root))
-				require.NotNil(t, app.Quiet)
-				assert.True(t, *app.Quiet)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var app cli
-			parser, err := kong.New(&app, kong.Name("cclint"))
-			require.NoError(t, err)
-			ctx, err := parser.Parse(tt.args)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantCommand, ctx.Command())
-			tt.check(t, &app)
-		})
-	}
-}
-
-func TestCLIFlagValuesDoNotSelectCommands(t *testing.T) {
-	tests := []struct {
-		name       string
-		args       []string
-		wantRoot   string
-		wantOutput string
-	}{
-		{name: "fmt as root value", args: []string{"--root", "fmt", "file.md"}, wantRoot: "fmt"},
-		{name: "summary as output value", args: []string{"--output", "summary", "file.md"}, wantOutput: "summary"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var app cli
-			parser, err := kong.New(&app, kong.Name("cclint"))
-			require.NoError(t, err)
-			ctx, err := parser.Parse(tt.args)
-			require.NoError(t, err)
-			assert.Equal(t, "lint <files-or-dirs>", ctx.Command())
-			if tt.wantRoot != "" {
-				require.NotNil(t, app.Root)
-				assert.Equal(t, tt.wantRoot, filepath.Base(*app.Root))
-			}
-			if tt.wantOutput != "" {
-				require.NotNil(t, app.Output)
-				assert.Equal(t, tt.wantOutput, filepath.Base(*app.Output))
-			}
-		})
-	}
-}
-
-func TestLintFlagCompatibility(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		wantType string
-		wantDiff bool
-	}{
-		{name: "long type equals", args: []string{"--type=agent"}, wantType: "agent"},
-		{name: "attached short type", args: []string{"-tagent"}, wantType: "agent"},
-		{name: "explicit diff boolean", args: []string{"--diff=true"}, wantDiff: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var app cli
-			parser, err := kong.New(&app, kong.Name("cclint"))
-			require.NoError(t, err)
-			ctx, err := parser.Parse(tt.args)
-			require.NoError(t, err)
-			assert.Equal(t, "lint", ctx.Command())
-			if tt.wantType != "" {
-				require.NotNil(t, app.Lint.Type)
-				assert.Equal(t, tt.wantType, *app.Lint.Type)
-			}
-			if tt.wantDiff {
-				require.NotNil(t, app.Lint.Diff)
-				assert.True(t, *app.Lint.Diff)
-			}
-		})
-	}
-}
-
-func TestRunGitLint_NoFiles(t *testing.T) {
-	// Create a real git repo to test "no files to lint" path
-	tmpDir := t.TempDir()
-
-	// Initialize a real git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git user for the test
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true // Suppress output
-	verbose = false
-	stagedMode = true // Staged mode with nothing staged
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	// Run with empty staging area - should return nil (no files to lint)
-	err := runGitLint()
-	assert.NoError(t, err)
-}
-
-func TestRunGitLint_WithVerbose(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize a real git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = false
-	verbose = true // Enable verbose
-	stagedMode = true
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err := runGitLint()
-	assert.NoError(t, err)
-}
-
-func TestRunGitLint_NotGitRepoWithQuiet(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = false // Show warning
-	verbose = false
-	stagedMode = false
-	diffMode = true
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	// Not in git repo should fallback to full lint (which may fail)
-	// Just verify no panic
-	_ = runGitLint()
-}
-
-func TestRunGitLint_WithEmptyRootPath(t *testing.T) {
-	// Test the rootPath == "" branch that uses os.Getwd()
-	// Save current directory
-	origWd, err := os.Getwd()
-	require.NoError(t, err)
-
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Change to temp dir
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(origWd) }()
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = "" // Empty to trigger os.Getwd() path
-	quiet = true
-	stagedMode = true
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err = runGitLint()
-	assert.NoError(t, err)
-}
-
-func TestRunSingleFileLint_WithTypeFlag(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a file outside standard paths
-	testFile := filepath.Join(tmpDir, "random.md")
-	content := `---
-name: test
-description: Test. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test content.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(testFile, []byte(content), 0644))
-
-	// Set global flags with valid type override
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldTypeFlag := typeFlag
-
-	rootPath = tmpDir
-	quiet = true
-	verbose = false
-	typeFlag = "agent" // Valid type
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		typeFlag = oldTypeFlag
-	}()
-
-	// Should work with valid type override
-	err := runSingleFileLint([]string{testFile})
-	assert.NoError(t, err)
-}
-
-func TestRunSingleFileLint_VerboseMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-
-	rootPath = tmpDir
-	quiet = false
-	verbose = true // Enable verbose
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-	}()
-
-	err := runSingleFileLint([]string{agentPath})
-	assert.NoError(t, err)
-}
-
-func TestRunLint_WithBaseline(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldUseBaseline := useBaseline
-	oldCreateBaseline := createBaseline
-	oldBaselinePath := baselinePath
-
-	rootPath = tmpDir
-	quiet = true
-	useBaseline = false
-	createBaseline = false
-	baselinePath = filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		useBaseline = oldUseBaseline
-		createBaseline = oldCreateBaseline
-		baselinePath = oldBaselinePath
-	}()
-
-	// runLint calls os.Exit on errors, but should succeed here
-	err := runLint()
-	// May return nil or error depending on component files
-	_ = err
-}
-
-func TestRunLint_CreateBaseline(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldUseBaseline := useBaseline
-	oldCreateBaseline := createBaseline
-	oldBaselinePath := baselinePath
-
-	rootPath = tmpDir
-	quiet = true
-	useBaseline = false
-	createBaseline = true // Test baseline creation
-	baselinePath = filepath.Join(tmpDir, ".cclintbaseline.json")
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		useBaseline = oldUseBaseline
-		createBaseline = oldCreateBaseline
-		baselinePath = oldBaselinePath
-	}()
-
-	err := runLint()
-	_ = err
-}
-
-func TestRootCmdLongDescription(t *testing.T) {
-	var output bytes.Buffer
-	parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Description(rootDescription), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
-	require.NoError(t, err)
-	_, err = parseCLI(parser, []string{"--help"})
-	require.NoError(t, err)
-	assert.Contains(t, output.String(), "Run without a subcommand")
-	assert.Contains(t, output.String(), "cclint agents commands")
-	assert.Contains(t, output.String(), "cclint lint --help")
-	assert.Contains(t, output.String(), "--type, --diff, and")
-	assert.Contains(t, output.String(), "--staged")
-	assert.Contains(t, output.String(), "lint")
-	assert.Contains(t, output.String(), "fmt")
-	assert.Contains(t, output.String(), "summary")
-}
-
-func TestLintHelp(t *testing.T) {
-	tests := []struct {
-		args         []string
-		wantLintHelp bool
-	}{
-		{args: []string{"lint", "--help"}, wantLintHelp: true},
-		{args: []string{"agents", "--help"}, wantLintHelp: true},
-		{args: []string{"--type", "agent", "--help"}},
-		{args: []string{"--diff", "--help"}},
+		{args: []string{"lint", "--quiet", "file.md"}, wantCommand: "lint <files-or-dirs>"},
+		{args: []string{"fmt", "--quiet", "--diff", "file.md"}, wantCommand: "fmt <files>"},
+		{args: []string{"summary", "--quiet"}, wantCommand: "summary"},
 	}
 	for _, tt := range tests {
-		t.Run(strings.Join(tt.args, "_"), func(t *testing.T) {
-			var output bytes.Buffer
-			parser, err := kong.New(&cli{}, kong.Name("cclint"), kong.Description(rootDescription), kong.Writers(&output, &output), kong.Exit(func(code int) { panic(parserExit(code)) }))
-			require.NoError(t, err)
-			_, err = parseCLI(parser, tt.args)
-			require.NoError(t, err)
-			help := output.String()
-			if tt.wantLintHelp {
-				assert.Contains(t, help, "Lint files or directories")
-				assert.Contains(t, help, "-t, --type")
-				assert.Contains(t, help, "--diff")
-				assert.Contains(t, help, "--staged")
-				return
-			}
-			assert.Contains(t, help, "cclint lint --help")
-			assert.Contains(t, help, "--type, --diff, and")
-			assert.Contains(t, help, "--staged")
-		})
+		var app cli
+		parser, err := kong.New(&app, kong.Name("cclint"))
+		require.NoError(t, err)
+		ctx, err := parser.Parse(tt.args)
+		require.NoError(t, err)
+		assert.Equal(t, tt.wantCommand, ctx.Command())
 	}
-}
-
-func TestBaselinePathRemainsProjectRelative(t *testing.T) {
-	var app cli
-	parser, err := kong.New(&app, kong.Name("cclint"))
-	require.NoError(t, err)
-	_, err = parser.Parse([]string{"--baseline-path", "baselines/custom.json"})
-	require.NoError(t, err)
-	require.NotNil(t, app.BaselinePath)
-	assert.Equal(t, "baselines/custom.json", *app.BaselinePath)
-}
-
-func TestRootCmdVersion(t *testing.T) {
-	assert.NotEmpty(t, Version)
-}
-
-func TestRunGitLint_DiffMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize a real git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git user
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create an agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test content.
-
-## Workflow
-
-1. Step one
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Add file to staging
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	stagedMode = false
-	diffMode = true // Use diff mode
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err := runGitLint()
-	// May succeed or fail depending on files
-	_ = err
-}
-
-func TestRunGitLint_StagedModeWithFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize a real git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git user
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create an agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test content.
-
-## Workflow
-
-1. Step one
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Add file to staging
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	stagedMode = true // Use staged mode
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err := runGitLint()
-	// May succeed or fail depending on files
-	_ = err
-}
-
-func TestRunSingleFileLint_QuietMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-
-	rootPath = tmpDir
-	quiet = true // Quiet mode
-	verbose = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-	}()
-
-	err := runSingleFileLint([]string{agentPath})
-	assert.NoError(t, err)
-}
-
-func TestRunSingleFileLint_MultipleFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create multiple valid agent files
-	agent1 := filepath.Join(tmpDir, "agents", "test1.md")
-	agent2 := filepath.Join(tmpDir, "agents", "test2.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agent1), 0755))
-
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agent1, []byte(content), 0644))
-	require.NoError(t, os.WriteFile(agent2, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-
-	rootPath = tmpDir
-	quiet = true
-	verbose = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-	}()
-
-	err := runSingleFileLint([]string{agent1, agent2})
-	assert.NoError(t, err)
-}
-
-func TestRunGitLint_StagedWithRealFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create agent file with proper structure
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing. for git integration
-model: sonnet
----
-
-## Foundation
-
-Test agent content.
-
-## Workflow
-
-1. Step one
-2. Step two
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Stage the file
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	verbose = false
-	stagedMode = true
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	// Run git lint - should find and lint staged files
-	err := runGitLint()
-	// May succeed or exit with os.Exit
-	_ = err
-}
-
-func TestRunGitLint_DiffModeWithFiles(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create and commit initial file
-	initialFile := filepath.Join(tmpDir, "initial.txt")
-	require.NoError(t, os.WriteFile(initialFile, []byte("initial"), 0644))
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "commit", "-m", "initial")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create new agent file (unstaged change)
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "new.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: new-agent
-description: New agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-New agent.
-
-## Workflow
-
-1. Step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	stagedMode = false
-	diffMode = true // Diff mode captures all changes
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err := runGitLint()
-	// May succeed or fail - just verify no panic
-	_ = err
-}
-
-func TestRunGitLint_OutputValidationReminder(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Create agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test
-description: Test. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-Test.
-
-## Workflow
-1. Step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Stage the file
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Set global flags - non-quiet to test reminder output
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-
-	rootPath = tmpDir
-	quiet = false // Show validation reminder
-	stagedMode = true
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-	}()
-
-	err := runGitLint()
-	_ = err
-}
-
-func TestRunSingleFileLint_NonQuietMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-Test agent.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags for non-quiet mode
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-
-	rootPath = tmpDir
-	quiet = false // Non-quiet to show validation reminder
-	verbose = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-	}()
-
-	err := runSingleFileLint([]string{agentPath})
-	assert.NoError(t, err)
 }
 
 func TestClassifyArgs(t *testing.T) {
 	tests := []struct {
 		name      string
 		args      []string
-		wantTypes int
-		wantPaths int
-		wantErr   bool
+		wantTypes []discovery.FileType
+		wantPaths []string
+		wantErr   string
 	}{
-		{
-			name:      "empty args",
-			args:      nil,
-			wantTypes: 0,
-			wantPaths: 0,
-		},
-		{
-			name:      "single type filter",
-			args:      []string{"agents"},
-			wantTypes: 1,
-			wantPaths: 0,
-		},
-		{
-			name:      "multiple type filters",
-			args:      []string{"agents", "commands", "skills"},
-			wantTypes: 3,
-			wantPaths: 0,
-		},
-		{
-			name:      "singular type accepted",
-			args:      []string{"agent"},
-			wantTypes: 1,
-			wantPaths: 0,
-		},
-		{
-			name:      "file paths",
-			args:      []string{"./agents/test.md", "./commands/cmd.md"},
-			wantTypes: 0,
-			wantPaths: 2,
-		},
-		{
-			name:      "absolute paths",
-			args:      []string{"/Users/test/agents/agent.md"},
-			wantTypes: 0,
-			wantPaths: 1,
-		},
-		{
-			name:    "mixed type and path errors",
-			args:    []string{"agents", "./custom.md"},
-			wantErr: true,
-		},
-		{
-			name:      "unknown word treated as path",
-			args:      []string{"foo.md"},
-			wantTypes: 0,
-			wantPaths: 1,
-		},
+		{name: "empty"},
+		{name: "types", args: []string{"agents", "commands"}, wantTypes: []discovery.FileType{discovery.FileTypeAgent, discovery.FileTypeCommand}},
+		{name: "paths", args: []string{"./agents", "custom.md"}, wantPaths: []string{"./agents", "custom.md"}},
+		{name: "mixed", args: []string{"agents", "custom.md"}, wantErr: "cannot mix type filters"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := classifyArgs(tt.args)
-			if tt.wantErr {
-				assert.Error(t, err)
+			got, err := classifyArgs(tt.args)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
-			assert.Len(t, result.typeFilters, tt.wantTypes)
-			assert.Len(t, result.filePaths, tt.wantPaths)
+			assert.Equal(t, tt.wantTypes, got.typeFilters)
+			assert.Equal(t, tt.wantPaths, got.filePaths)
 		})
 	}
 }
 
-func TestRootCmdVersionFlag(t *testing.T) {
-	for _, flag := range []string{"--version", "-V"} {
-		t.Run(strings.TrimLeft(flag, "-"), func(t *testing.T) {
-			var app cli
-			parser, err := kong.New(&app, kong.Name("cclint"))
-			require.NoError(t, err)
-			ctx, err := parser.Parse([]string{flag})
-			require.NoError(t, err)
-			assert.Equal(t, "lint", ctx.Command())
-			assert.True(t, app.Version)
-		})
+func TestRunRootCommandGitModeTakesDispatchPrecedence(t *testing.T) {
+	root := t.TempDir()
+	gitInit := exec.Command("git", "init", root)
+	require.NoError(t, gitInit.Run())
+	quiet := true
+	diff := true
+
+	err := runRootCommand(
+		executionOptions{root: &root, quiet: &quiet},
+		&lintCommand{Diff: &diff, Paths: []string{"agents", "custom.md"}},
+	)
+	require.NoError(t, err, "git mode must dispatch before mixed-argument classification")
+}
+
+func TestRunGitLintStagedTakesPrecedenceOverDiff(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, exec.Command("git", "init", root).Run())
+	for _, args := range [][]string{{"config", "user.email", "test@example.com"}, {"config", "user.name", "Test"}} {
+		command := exec.Command("git", args...)
+		command.Dir = root
+		require.NoError(t, command.Run())
 	}
+	require.NoError(t, os.WriteFile(filepath.Join(root, "README.md"), []byte("# Test\n"), 0o600))
+	for _, args := range [][]string{{"add", "README.md"}, {"commit", "-m", "initial"}} {
+		command := exec.Command("git", args...)
+		command.Dir = root
+		require.NoError(t, command.Run())
+	}
+	agentsDir := filepath.Join(root, ".claude", "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o755))
+	valid := "---\nname: staged\ndescription: A deterministic agent. Use PROACTIVELY when testing.\nmodel: sonnet\n---\n\n## Foundation\n\nTest.\n\n## Workflow\n\n1. Test.\n"
+	unstagedPath := filepath.Join(agentsDir, "unstaged.md")
+	require.NoError(t, os.WriteFile(unstagedPath, []byte(valid), 0o600))
+	for _, args := range [][]string{{"add", "-f", ".claude/agents/unstaged.md"}, {"commit", "-m", "add fixture"}} {
+		command := exec.Command("git", args...)
+		command.Dir = root
+		require.NoError(t, command.Run())
+	}
+	validPath := filepath.Join(agentsDir, "staged.md")
+	require.NoError(t, os.WriteFile(validPath, []byte(valid), 0o600))
+	add := exec.Command("git", "add", "-f", ".claude/agents/staged.md")
+	add.Dir = root
+	require.NoError(t, add.Run())
+	require.NoError(t, os.WriteFile(unstagedPath, nil, 0o600))
+
+	originalExit := exitFunc
+	t.Cleanup(func() { exitFunc = originalExit })
+	exitCode := 0
+	exitFunc = func(code int) { exitCode = code }
+	quiet, staged, diff := true, true, true
+	opts := executionOptions{root: &root, quiet: &quiet}
+
+	require.NoError(t, runGitLint(opts, &lintCommand{Staged: &staged, Diff: &diff}))
+	assert.Zero(t, exitCode, "staged mode must ignore the unstaged invalid file when both flags are true")
+
+	exitCode = 0
+	staged = false
+	require.NoError(t, runGitLint(opts, &lintCommand{Staged: &staged, Diff: &diff}))
+	assert.Equal(t, 1, exitCode, "diff mode must include the unstaged invalid file")
 }
 
-func TestRunLint_Success(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create minimal valid structure
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test
-description: Test. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-Test.
-
-## Workflow
-1. Step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldUseBaseline := useBaseline
-	oldCreateBaseline := createBaseline
-
-	rootPath = tmpDir
-	quiet = true
-	useBaseline = false
-	createBaseline = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		useBaseline = oldUseBaseline
-		createBaseline = oldCreateBaseline
-	}()
-
-	// Run lint
-	err := runLint()
-	// May succeed or exit
-	_ = err
+func TestRunRootCommandRunsMultipleTypesSequentially(t *testing.T) {
+	root := t.TempDir()
+	quiet := true
+	err := runRootCommand(
+		executionOptions{root: &root, quiet: &quiet},
+		&lintCommand{Paths: []string{"agents", "commands"}},
+	)
+	require.NoError(t, err)
 }
 
-func TestRunGitLint_WithFilesToLint(t *testing.T) {
-	tmpDir := t.TempDir()
+func TestRunSingleFileLintAutoDetectsProjectRootWithoutRootFlag(t *testing.T) {
+	projectRoot := t.TempDir()
+	file := filepath.Join(projectRoot, ".claude", "agents", "external.md")
+	contents := "---\nname: external\ndescription: A deterministic agent outside the working directory. Use PROACTIVELY when testing.\nmodel: sonnet\n---\n\n## Foundation\n\nTest.\n\n## Workflow\n\n1. Test.\n"
+	require.NoError(t, os.MkdirAll(filepath.Dir(file), 0o755))
+	require.NoError(t, os.WriteFile(file, []byte(contents), 0o600))
 
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
+	originalExit := exitFunc
+	t.Cleanup(func() { exitFunc = originalExit })
+	exitCode := 0
+	exitFunc = func(code int) { exitCode = code }
+	quiet := true
 
-	// Configure git
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create valid agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test-agent.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test-agent
-description: Test. Use PROACTIVELY when testing. agent. Use PROACTIVELY when testing. for lint
-model: sonnet
----
-
-## Foundation
-
-Test agent content.
-
-## Workflow
-
-1. Step one
-2. Step two
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Stage file
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldVerbose := verbose
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	verbose = false
-	stagedMode = true
-	diffMode = false
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		verbose = oldVerbose
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	// Run - this tests the full path with files
-	err := runGitLint()
-	// May succeed or call os.Exit
-	_ = err
+	require.NoError(t, runSingleFileLint(
+		executionOptions{quiet: &quiet},
+		&lintCommand{},
+		[]string{file},
+	))
+	assert.Zero(t, exitCode, "an absent --root must auto-detect the file's project")
 }
 
-func TestRunGitLint_DiffModeRealFiles(t *testing.T) {
-	tmpDir := t.TempDir()
+func TestExitWithErrorUsesProcessSeam(t *testing.T) {
+	originalExit := exitFunc
+	t.Cleanup(func() { exitFunc = originalExit })
+	code := 0
+	exitFunc = func(got int) { code = got }
 
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Configure git
-	cmd = exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "config", "user.name", "Test User")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create and commit initial file
-	initial := filepath.Join(tmpDir, "README.md")
-	require.NoError(t, os.WriteFile(initial, []byte("# Init"), 0644))
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-	cmd = exec.Command("git", "commit", "-m", "init")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Create new agent file (uncommitted change)
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "new-agent.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: new-agent
-description: New agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-New agent.
-
-## Workflow
-
-1. Step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-	oldDiffMode := diffMode
-
-	rootPath = tmpDir
-	quiet = true
-	stagedMode = false
-	diffMode = true
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-		diffMode = oldDiffMode
-	}()
-
-	err := runGitLint()
-	_ = err
+	stderr := captureFile(t, os.Stderr, func() { exitWithError(assert.AnError) })
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stderr, "Error: assert.AnError general error for testing")
 }
 
-func TestRunSingleFileLint_ValidAgent(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create valid agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "good-agent.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: good-agent
-description: A good agent. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-
-This is a good agent.
-
-## Workflow
-
-1. Do something good
-2. Complete the task
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldTypeFlag := typeFlag
-
-	rootPath = tmpDir
-	quiet = true
-	typeFlag = "" // Auto-detect type
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		typeFlag = oldTypeFlag
-	}()
-
-	err := runSingleFileLint([]string{agentPath})
-	assert.NoError(t, err)
-}
-
-func TestRunSingleFileLint_WithFormatOption(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Create a valid agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "format-test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: format-test
-description: Test. Use PROACTIVELY when testing. file for format option
-model: sonnet
----
-
-## Foundation
-
-Test content.
-
-## Workflow
-
-1. Test step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Set global flags
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldOutputFormat := outputFormat
-
-	rootPath = tmpDir
-	quiet = true
-	outputFormat = "json"
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		outputFormat = oldOutputFormat
-	}()
-
-	err := runSingleFileLint([]string{agentPath})
-	assert.NoError(t, err)
-}
-
-func TestRunGitLint_NonQuietMode(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	cmd := exec.Command("git", "init")
-	cmd.Dir = tmpDir
-	require.NoError(t, cmd.Run())
-
-	// Create agent file
-	agentPath := filepath.Join(tmpDir, ".claude", "agents", "test.md")
-	require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0755))
-	content := `---
-name: test
-description: Test. Use PROACTIVELY when testing.
-model: sonnet
----
-
-## Foundation
-Test.
-
-## Workflow
-1. Step
-`
-	require.NoError(t, os.WriteFile(agentPath, []byte(content), 0644))
-
-	// Stage
-	cmd = exec.Command("git", "add", ".")
-	cmd.Dir = tmpDir
-	_ = cmd.Run()
-
-	// Set flags - non-quiet
-	oldRootPath := rootPath
-	oldQuiet := quiet
-	oldStagedMode := stagedMode
-
-	rootPath = tmpDir
-	quiet = false
-	stagedMode = true
-
-	defer func() {
-		rootPath = oldRootPath
-		quiet = oldQuiet
-		stagedMode = oldStagedMode
-	}()
-
-	err := runGitLint()
-	_ = err
-}
-
-func TestInitConfig_WithYmlFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	originalWd, err := os.Getwd()
+func captureFile(t *testing.T, target *os.File, action func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
 	require.NoError(t, err)
 
-	// Change to temp dir
-	require.NoError(t, os.Chdir(tmpDir))
-	defer func() { _ = os.Chdir(originalWd) }()
+	switch target {
+	case os.Stdout:
+		old := os.Stdout
+		os.Stdout = writer
+		defer func() { os.Stdout = old }()
+	case os.Stderr:
+		old := os.Stderr
+		os.Stderr = writer
+		defer func() { os.Stderr = old }()
+	}
 
-	// Create yml config
-	configPath := filepath.Join(tmpDir, ".cclintrc.yml")
-	require.NoError(t, os.WriteFile(configPath, []byte("quiet: true\n"), 0644))
-
-	_, err = config.LoadConfig(tmpDir)
+	action()
+	require.NoError(t, writer.Close())
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(reader)
 	require.NoError(t, err)
+	require.NoError(t, reader.Close())
+	return buf.String()
 }

@@ -15,16 +15,11 @@ import (
 
 // LintRules runs linting on .claude/rules/*.md files using the generic linter.
 func LintRules(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewRuleLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeRule)
 }
 
 // RuleLinter implements ComponentLinter for .claude/rules/*.md files.
 type RuleLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance checks

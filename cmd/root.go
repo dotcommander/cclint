@@ -17,28 +17,9 @@ import (
 //	go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0"
 var Version = "dev"
 
-var (
-	rootPath         string
-	quiet            bool
-	verbose          bool
-	showScores       bool
-	showImprovements bool
-	outputFormat     = "console"
-	outputFile       string
-	failOn           = "error"
-	typeFlag         string                   // Force component type (--type flag)
-	diffMode         bool                     // Lint only changed files (--diff)
-	stagedMode       bool                     // Lint only staged files (--staged)
-	noCycleCheck     bool                     // Disable circular dependency detection
-	useBaseline      bool                     // Use baseline filtering
-	createBaseline   bool                     // Create/update baseline file
-	baselinePath     = ".cclintbaseline.json" // Custom baseline file path
-	cliChanged       map[string]bool
-
-	// exitFunc is the function called to exit the program.
-	// It can be overridden in tests to prevent actual process termination.
-	exitFunc = os.Exit
-)
+// exitFunc is the function called to exit the program.
+// It can be overridden in tests to prevent actual process termination.
+var exitFunc = os.Exit
 
 // shouldFail checks if the lint run should exit with failure based on the --fail-on level.
 func shouldFail(cfg *config.Config, errors, warnings, suggestions int) bool {
@@ -94,13 +75,13 @@ func startSpinner(cfg *config.Config) func() {
 	}
 }
 
-func runLint() error {
-	cfg, err := loadCLIConfig()
+func runLint(opts executionOptions) error {
+	cfg, err := loadCLIConfig(opts)
 	if err != nil {
 		return err
 	}
 
-	result, err := runOrchestratedLint(cfg, nil)
+	result, err := runOrchestratedLint(cfg, opts, nil)
 	if err != nil {
 		return err
 	}
@@ -111,33 +92,33 @@ func runLint() error {
 
 	printBaselineSummary(result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored, cfg.Quiet)
 	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions)
+	applyFailurePolicy(cfg, opts, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions)
 
 	return nil
 }
 
-func runRootCommand(args []string) error {
-	if diffMode || stagedMode {
-		return runGitLint()
+func runRootCommand(opts executionOptions, cmd *lintCommand) error {
+	if boolValue(cmd.Diff) || boolValue(cmd.Staged) {
+		return runGitLint(opts, cmd)
 	}
 
-	classified, err := classifyArgs(args)
+	classified, err := classifyArgs(cmd.Paths)
 	if err != nil {
 		return err
 	}
 
 	switch {
 	case len(classified.filePaths) > 0:
-		return runSingleFileLint(classified.filePaths)
+		return runSingleFileLint(opts, cmd, classified.filePaths)
 	case len(classified.typeFilters) > 0:
 		for _, ft := range classified.typeFilters {
-			if err := runTypeLint(ft); err != nil {
+			if err := runTypeLint(opts, ft); err != nil {
 				return err
 			}
 		}
 		return nil
 	default:
-		return runLint()
+		return runLint(opts)
 	}
 }
 
@@ -179,13 +160,13 @@ func classifyArgs(args []string) (*classifiedArgs, error) {
 //   - 0: All files passed (no errors)
 //   - 1: One or more files had lint errors
 //   - 2: Invocation error (file not found, invalid type, etc.)
-func runSingleFileLint(files []string) error {
-	cfg, err := loadCLIConfig()
+func runSingleFileLint(opts executionOptions, cmd *lintCommand, files []string) error {
+	cfg, err := loadCLIConfig(opts)
 	if err != nil {
 		return err
 	}
 
-	summary, err := lint.LintFiles(files, rootPath, typeFlag, cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(files, stringValue(opts.root), stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
@@ -195,21 +176,21 @@ func runSingleFileLint(files []string) error {
 	}
 
 	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
+	applyFailurePolicy(cfg, opts, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }
 
 // runGitLint lints files based on git status (--diff or --staged)
-func runGitLint() error {
-	cfg, err := loadCLIConfig()
+func runGitLint(opts executionOptions, cmd *lintCommand) error {
+	cfg, err := loadCLIConfig(opts)
 	if err != nil {
 		return err
 	}
 
 	// Determine git root (use current directory if rootPath not specified)
 	gitRoot := cfg.Root
-	if rootPath == "" {
+	if opts.root == nil {
 		// Use current working directory for git operations
 		gitRoot, err = os.Getwd()
 		if err != nil {
@@ -222,14 +203,14 @@ func runGitLint() error {
 		if !cfg.Quiet {
 			fmt.Fprintf(os.Stderr, "Warning: Not in a git repository. Falling back to full lint.\n\n")
 		}
-		return runLint()
+		return runLint(opts)
 	}
 
 	// Get files from git
 	var files []string
-	if stagedMode {
+	if boolValue(cmd.Staged) {
 		files, err = git.GetStagedFiles(gitRoot)
-	} else if diffMode {
+	} else if boolValue(cmd.Diff) {
 		files, err = git.GetChangedFiles(gitRoot)
 	}
 	if err != nil {
@@ -253,7 +234,7 @@ func runGitLint() error {
 	}
 
 	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
+	applyFailurePolicy(cfg, opts, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }

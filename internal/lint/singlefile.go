@@ -190,7 +190,7 @@ func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext
 	// Initialize CUE validator
 	validator := cue.NewValidator()
 	var warnings []cue.ValidationError
-	if err := validator.LoadSchemas(""); err != nil {
+	if err := validator.LoadSchemas(); err != nil {
 		warnings = append(warnings, cue.ValidationError{
 			File:     relPath,
 			Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", err),
@@ -316,28 +316,11 @@ func lintSingleFileRequest(req SingleFileRequest) (*LintSummary, error) {
 		StartTime:   time.Now(),
 	}
 
-	// Route to appropriate linter based on type
-	var result LintResult
-	switch ctx.File.Type {
-	case discovery.FileTypeAgent:
-		result = lintSingleAgent(ctx)
-	case discovery.FileTypeCommand:
-		result = lintSingleCommand(ctx)
-	case discovery.FileTypeSkill:
-		result = lintSingleSkill(ctx)
-	case discovery.FileTypeSettings:
-		result = lintSingleSettings(ctx)
-	case discovery.FileTypeContext:
-		result = lintSingleContext(ctx)
-	case discovery.FileTypePlugin:
-		result = lintSinglePlugin(ctx)
-	case discovery.FileTypeOutputStyle:
-		result = lintSingleOutputStyle(ctx)
-	case discovery.FileTypeRule:
-		result = lintSingleRule(ctx)
-	default:
+	entry, ok := LinterForType(ctx.File.Type)
+	if !ok {
 		return nil, fmt.Errorf("unsupported file type: %s", ctx.File.Type.String())
 	}
+	result := lintComponent(ctx, entry.New(ctx.RootPath))
 	result.Warnings = append(result.Warnings, ctx.Warnings...)
 	result.Success = len(result.Errors) == 0
 
@@ -510,44 +493,4 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 	summary.Duration = time.Since(summary.StartTime).Milliseconds()
 
 	return summary, nil
-}
-
-// lintSingleAgent lints a single agent file using the generic linter.
-func lintSingleAgent(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewAgentLinter())
-}
-
-// lintSingleCommand lints a single command file using the generic linter.
-func lintSingleCommand(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewCommandLinter())
-}
-
-// lintSingleSkill lints a single skill file using the generic linter.
-func lintSingleSkill(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewSkillLinter())
-}
-
-// lintSingleSettings lints a single settings file using the generic linter.
-func lintSingleSettings(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewSettingsLinter())
-}
-
-// lintSingleContext lints a single CLAUDE.md context file using the generic linter.
-func lintSingleContext(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewContextLinter())
-}
-
-// lintSinglePlugin lints a single plugin.json file using the generic linter.
-func lintSinglePlugin(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewPluginLinter(ctx.RootPath))
-}
-
-// lintSingleOutputStyle lints a single output style file using the generic linter.
-func lintSingleOutputStyle(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewOutputStyleLinter())
-}
-
-// lintSingleRule lints a single rule file using the generic linter.
-func lintSingleRule(ctx *SingleFileLinterContext) LintResult {
-	return lintComponent(ctx, NewRuleLinter())
 }

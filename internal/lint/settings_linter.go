@@ -9,7 +9,6 @@ import (
 // It implements only the core ComponentLinter interface - no optional capabilities.
 // Settings files don't need scoring, improvements, cross-file validation, etc.
 type SettingsLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance check

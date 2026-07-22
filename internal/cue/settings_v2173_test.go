@@ -10,7 +10,7 @@ func TestSettingsV2173Fields(t *testing.T) {
 	t.Parallel()
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 

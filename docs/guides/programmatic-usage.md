@@ -36,7 +36,7 @@ import "github.com/dotcommander/cclint/internal/cue"
 
 // Create validator
 validator := cue.NewValidator()
-validator.LoadSchemas("")
+validator.LoadSchemas()
 
 // Parse frontmatter
 fm, err := cue.ParseFrontmatter(markdownContent)
@@ -114,7 +114,7 @@ func main() {
     }
 
     validator := cue.NewValidator()
-    validator.LoadSchemas("")
+    validator.LoadSchemas()
 
     errors, err := validator.ValidateFile(
         "agents/my-agent.md",

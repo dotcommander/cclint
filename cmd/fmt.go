@@ -11,14 +11,6 @@ import (
 	"github.com/dotcommander/cclint/internal/format"
 )
 
-var (
-	fmtCheck bool
-	fmtWrite bool
-	fmtDiff  bool
-	fmtFiles []string // Explicit file paths
-	fmtType  string   // Force component type
-)
-
 type fmtCommand struct {
 	Check bool     `help:"Exit 1 if files would change."`
 	Write bool     `short:"w" help:"Write changes in place."`
@@ -28,21 +20,17 @@ type fmtCommand struct {
 	Args  []string `arg:"" optional:"" name:"files"`
 }
 
-func (cmd *fmtCommand) apply() {
-	fmtCheck, fmtWrite, fmtDiff, fmtFiles, fmtType = cmd.Check, cmd.Write, cmd.Diff, cmd.Files, cmd.Type
-}
+func (cmd *fmtCommand) Run(opts executionOptions) error { return runFmt(opts, cmd) }
 
-func (cmd *fmtCommand) Run() error { return runFmt(cmd.Args) }
-
-func runFmt(args []string) error {
+func runFmt(opts executionOptions, cmd *fmtCommand) error {
 	// Load configuration
-	cfg, err := config.LoadConfig(rootPath)
+	cfg, err := config.LoadConfig(stringValue(opts.root))
 	if err != nil {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
 	// Determine which files to format
-	filesToFormat, err := collectFilesToFormat(args, cfg.Root)
+	filesToFormat, err := collectFilesToFormat(cmd, cfg.Root)
 	if err != nil {
 		return err
 	}
@@ -56,7 +44,7 @@ func runFmt(args []string) error {
 	totalFiles := len(filesToFormat)
 
 	for _, filePath := range filesToFormat {
-		changed, fmtErr := formatOneFile(filePath, cfg.Root)
+		changed, fmtErr := formatOneFile(opts, cmd, filePath, cfg.Root)
 		if fmtErr != nil {
 			return fmtErr
 		}
@@ -65,10 +53,10 @@ func runFmt(args []string) error {
 		}
 	}
 
-	printFmtSummary(totalFiles, len(needsFormatting))
+	printFmtSummary(opts, cmd, totalFiles, len(needsFormatting))
 
 	// Check mode: exit 1 if files need formatting
-	if fmtCheck && len(needsFormatting) > 0 {
+	if cmd.Check && len(needsFormatting) > 0 {
 		exitFunc(1)
 	}
 
@@ -77,16 +65,16 @@ func runFmt(args []string) error {
 
 // formatOneFile validates, reads, formats, and outputs a single file.
 // Returns true if the file needed formatting, or an error for fatal failures.
-func formatOneFile(filePath, root string) (bool, error) {
+func formatOneFile(opts executionOptions, cmd *fmtCommand, filePath, root string) (bool, error) {
 	absPath, err := discovery.ValidateFilePath(filePath)
 	if err != nil {
-		if !quiet {
+		if !boolValue(opts.quiet) {
 			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", filePath, err)
 		}
 		return false, nil
 	}
 
-	fileType, skip, err := resolveFileType(absPath, filePath, root)
+	fileType, skip, err := resolveFileType(opts, cmd, absPath, filePath, root)
 	if err != nil {
 		return false, err
 	}
@@ -95,7 +83,7 @@ func formatOneFile(filePath, root string) (bool, error) {
 	}
 
 	if !strings.HasSuffix(strings.ToLower(absPath), ".md") {
-		if verbose {
+		if boolValue(opts.verbose) {
 			fmt.Fprintf(os.Stderr, "Skipping %s: not a markdown file\n", filePath)
 		}
 		return false, nil
@@ -103,7 +91,7 @@ func formatOneFile(filePath, root string) (bool, error) {
 
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		if !quiet {
+		if !boolValue(opts.quiet) {
 			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filePath, err)
 		}
 		return false, nil
@@ -112,33 +100,33 @@ func formatOneFile(filePath, root string) (bool, error) {
 	formatter := format.NewComponentFormatter(fileType.String())
 	formatted, err := formatter.Format(string(content))
 	if err != nil {
-		if !quiet {
+		if !boolValue(opts.quiet) {
 			fmt.Fprintf(os.Stderr, "Error formatting %s: %v\n", filePath, err)
 		}
 		return false, nil
 	}
 
 	if string(content) == formatted {
-		if verbose {
+		if boolValue(opts.verbose) {
 			fmt.Printf("%s already formatted\n", filePath)
 		}
 		return false, nil
 	}
 
-	return true, emitFormatted(absPath, filePath, string(content), formatted)
+	return true, emitFormatted(opts, cmd, absPath, filePath, string(content), formatted)
 }
 
 // resolveFileType determines the component type for a file. If the type cannot
 // be resolved (and is not a fatal error), skip is returned as true.
-func resolveFileType(absPath, displayPath, root string) (discovery.FileType, bool, error) {
-	if fmtType != "" {
-		ft, err := discovery.ParseFileType(fmtType)
+func resolveFileType(opts executionOptions, cmd *fmtCommand, absPath, displayPath, root string) (discovery.FileType, bool, error) {
+	if cmd.Type != "" {
+		ft, err := discovery.ParseFileType(cmd.Type)
 		return ft, false, err
 	}
 
 	ft, err := discovery.DetectFileType(absPath, root)
 	if err != nil {
-		if !quiet {
+		if !boolValue(opts.quiet) {
 			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", displayPath, err)
 		}
 		return 0, true, nil
@@ -147,19 +135,19 @@ func resolveFileType(absPath, displayPath, root string) (discovery.FileType, boo
 }
 
 // emitFormatted writes or displays the formatted output based on the active mode.
-func emitFormatted(absPath, displayPath, original, formatted string) error {
+func emitFormatted(opts executionOptions, cmd *fmtCommand, absPath, displayPath, original, formatted string) error {
 	switch {
-	case fmtCheck:
-		if !quiet {
+	case cmd.Check:
+		if !boolValue(opts.quiet) {
 			fmt.Printf("%s needs formatting\n", displayPath)
 		}
-	case fmtDiff:
+	case cmd.Diff:
 		fmt.Print(format.Diff(original, formatted, displayPath))
-	case fmtWrite:
+	case cmd.Write:
 		if err := os.WriteFile(absPath, []byte(formatted), 0600); err != nil {
 			return fmt.Errorf("error writing %s: %w", absPath, err)
 		}
-		if !quiet {
+		if !boolValue(opts.quiet) {
 			fmt.Printf("Formatted %s\n", displayPath)
 		}
 	default:
@@ -169,8 +157,8 @@ func emitFormatted(absPath, displayPath, original, formatted string) error {
 }
 
 // printFmtSummary prints the formatting summary when multiple files were processed.
-func printFmtSummary(totalFiles, changedCount int) {
-	if quiet || totalFiles <= 1 {
+func printFmtSummary(opts executionOptions, cmd *fmtCommand, totalFiles, changedCount int) {
+	if boolValue(opts.quiet) || totalFiles <= 1 {
 		return
 	}
 
@@ -179,7 +167,7 @@ func printFmtSummary(totalFiles, changedCount int) {
 		return
 	}
 
-	if fmtWrite {
+	if cmd.Write {
 		fmt.Printf("\nFormatted %d of %d files\n", changedCount, totalFiles)
 	} else {
 		fmt.Printf("\n%d of %d files need formatting\n", changedCount, totalFiles)
@@ -187,17 +175,17 @@ func printFmtSummary(totalFiles, changedCount int) {
 }
 
 // collectFilesToFormat determines which files to format based on args and flags.
-func collectFilesToFormat(args []string, rootPath string) ([]string, error) {
+func collectFilesToFormat(cmd *fmtCommand, rootPath string) ([]string, error) {
 	// 1. Explicit --file flag
-	if len(fmtFiles) > 0 {
-		return fmtFiles, nil
+	if len(cmd.Files) > 0 {
+		return cmd.Files, nil
 	}
 
 	// 2. Check args for file paths
 	var pathArgs []string
 	var componentTypeArg string
 
-	for _, arg := range args {
+	for _, arg := range cmd.Args {
 		// Check if it's a component type (agents, commands, skills)
 		if isComponentType(arg) {
 			componentTypeArg = arg

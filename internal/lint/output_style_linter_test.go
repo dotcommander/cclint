@@ -221,7 +221,7 @@ func TestOutputStyleLinterIntegration(t *testing.T) {
 	// Test the full linting pipeline via lintFileCore
 	linter := NewOutputStyleLinter()
 	validator := cue.NewValidator()
-	_ = validator.LoadSchemas("")
+	_ = validator.LoadSchemas()
 
 	tests := []struct {
 		name        string

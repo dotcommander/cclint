@@ -6,59 +6,55 @@ import (
 
 	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/lint"
-	"github.com/dotcommander/cclint/internal/outputters"
+	"github.com/dotcommander/cclint/internal/output"
 )
 
-func loadCLIConfig() (*config.Config, error) {
-	cfg, err := config.LoadConfig(rootPath)
+func loadCLIConfig(opts executionOptions) (*config.Config, error) {
+	cfg, err := config.LoadConfig(stringValue(opts.root))
 	if err != nil {
 		return nil, fmt.Errorf("error loading configuration: %w", err)
 	}
 
-	applyCLIOverrides(cfg)
+	applyCLIOverrides(cfg, opts)
 	return cfg, nil
 }
 
-func applyCLIOverrides(cfg *config.Config) {
+func applyCLIOverrides(cfg *config.Config, opts executionOptions) {
 	cfg.Version = Version
-	changed := func(name string) bool { return cliChanged == nil || cliChanged[name] }
-
-	if rootPath != "" && changed("root") {
-		cfg.Root = rootPath
+	if opts.root != nil {
+		cfg.Root = *opts.root
 	}
-
-	if changed("quiet") {
-		cfg.Quiet = quiet
+	if opts.quiet != nil {
+		cfg.Quiet = *opts.quiet
 	}
-	if changed("verbose") {
-		cfg.Verbose = verbose
+	if opts.verbose != nil {
+		cfg.Verbose = *opts.verbose
 	}
-	if changed("scores") {
-		cfg.ShowScores = showScores
+	if opts.scores != nil {
+		cfg.ShowScores = *opts.scores
 	}
-	if changed("improvements") {
-		cfg.ShowImprovements = showImprovements
+	if opts.improvements != nil {
+		cfg.ShowImprovements = *opts.improvements
 	}
-	if changed("format") {
-		cfg.Format = outputFormat
+	if opts.format != nil {
+		cfg.Format = *opts.format
 	}
-	if changed("output") {
-		cfg.Output = outputFile
+	if opts.output != nil {
+		cfg.Output = *opts.output
 	}
-	if changed("fail-on") {
-		cfg.FailOn = failOn
+	if opts.failOn != nil {
+		cfg.FailOn = *opts.failOn
 	}
-	if changed("no-cycle-check") {
-		cfg.NoCycleCheck = noCycleCheck
+	if opts.noCycleCheck != nil {
+		cfg.NoCycleCheck = *opts.noCycleCheck
 	}
 }
 
-func runOrchestratedLint(cfg *config.Config, linters []lint.LinterEntry) (*lint.Result, error) {
+func runOrchestratedLint(cfg *config.Config, opts executionOptions, linters []lint.LinterEntry) (*lint.Result, error) {
 	orchestrator := lint.NewOrchestrator(cfg, lint.OrchestratorConfig{
-		RootPath:       rootPath,
-		UseBaseline:    useBaseline,
-		CreateBaseline: createBaseline,
-		BaselinePath:   baselinePath,
+		UseBaseline:    boolValue(opts.baseline),
+		CreateBaseline: boolValue(opts.baselineCreate),
+		BaselinePath:   stringValueOr(opts.baselinePath, ".cclintbaseline.json"),
 	})
 	if linters != nil {
 		orchestrator.WithLinters(linters)
@@ -75,11 +71,11 @@ func runOrchestratedLint(cfg *config.Config, linters []lint.LinterEntry) (*lint.
 }
 
 func formatSummaryOutput(cfg *config.Config, summary *lint.LintSummary) error {
-	return outputters.NewOutputter(cfg).Format(summary, cfg.Format)
+	return output.FormatSummary(cfg, summary)
 }
 
 func formatFullRunOutput(cfg *config.Config, result *lint.Result) error {
-	return outputters.NewOutputter(cfg).FormatAll(result.Summaries, result.StartTime)
+	return output.FormatAll(cfg, result.Summaries, result.StartTime)
 }
 
 func printBaselineSummary(total, errors, suggestions int, quiet bool) {
@@ -98,12 +94,30 @@ func printValidationReminder(cfg *config.Config) {
 	fmt.Fprintln(os.Stderr, "\n  Validate suggestions against docs.anthropic.com or docs.claude.com")
 }
 
-func applyFailurePolicy(cfg *config.Config, errors, warnings, suggestions int) {
-	if createBaseline {
+func applyFailurePolicy(cfg *config.Config, opts executionOptions, errors, warnings, suggestions int) {
+	if boolValue(opts.baselineCreate) {
 		return
 	}
 
 	if shouldFail(cfg, errors, warnings, suggestions) {
 		exitFunc(1)
 	}
+}
+
+func boolValue(value *bool) bool {
+	return value != nil && *value
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func stringValueOr(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }

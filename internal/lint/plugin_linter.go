@@ -10,7 +10,6 @@ import (
 // PluginLinter implements ComponentLinter for plugin.json files.
 // It also implements Scorable and Improvable for quality scoring.
 type PluginLinter struct {
-	BaseLinter
 	// RootPath is the project root directory, used to resolve relative paths
 	// for filesystem existence checks. Empty string disables path existence validation.
 	RootPath string

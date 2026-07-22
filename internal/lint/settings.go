@@ -6,15 +6,12 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 )
 
 // LintSettings runs linting on settings files using the generic linter.
 func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewSettingsLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeSettings)
 }
 
 // Valid hook events according to Anthropic documentation

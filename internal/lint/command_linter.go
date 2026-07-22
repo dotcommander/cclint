@@ -12,7 +12,6 @@ import (
 // It also implements optional interfaces for best practices,
 // cross-file validation, scoring, and improvements.
 type CommandLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance checks

@@ -303,7 +303,6 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 		applyResultToSummary(summary, result)
 
 		summary.Results = append(summary.Results, result)
-		ctx.LogProcessed(file.RelPath, len(result.Errors))
 	}
 
 	// Call post-processor if the linter implements it
@@ -361,28 +360,4 @@ func parseJSONContent(contents string) (map[string]any, string, error) {
 		return nil, "", fmt.Errorf("invalid JSON: %v", err)
 	}
 	return data, "", nil
-}
-
-// =============================================================================
-// Base Linter Implementation
-// =============================================================================
-
-// BaseLinter is an empty struct that component-specific linters can embed.
-// With the ISP refactoring, optional capabilities are now separate interfaces
-// that linters implement only when needed. This struct remains for embedding
-// to signal "I'm a component linter" but provides no default methods.
-//
-// Optional interfaces a linter can implement:
-//   - PreValidator: for filename/empty content checks
-//   - BestPracticeValidator: for best practice checks
-//   - CrossFileValidatable: for cross-file reference validation
-//   - Scorable: for quality scoring
-//   - Improvable: for improvement recommendations
-//   - PostProcessable: for result post-processing
-//   - BatchPostProcessor: for batch-level post-processing (cycle detection)
-type BaseLinter struct{}
-
-// ValidateAllowedToolsShared is a shared helper for tool validation.
-func ValidateAllowedToolsShared(data map[string]any, filePath, contents string) []cue.ValidationError {
-	return textutil.ValidateAllowedTools(data, filePath, contents)
 }

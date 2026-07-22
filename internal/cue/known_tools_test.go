@@ -96,7 +96,7 @@ func TestKnownToolUnionInjectedValidates(t *testing.T) {
 	t.Parallel()
 
 	v := NewValidator()
-	if err := v.LoadSchemas(""); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("LoadSchemas: %v", err)
 	}
 

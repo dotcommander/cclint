@@ -53,7 +53,7 @@ func NewValidator() *Validator {
 }
 
 // LoadSchemas loads all CUE schema files from the embedded filesystem
-func (v *Validator) LoadSchemas(schemaDir string) error {
+func (v *Validator) LoadSchemas() error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 

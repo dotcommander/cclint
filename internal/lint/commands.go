@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/textutil"
 )
 
@@ -16,11 +17,7 @@ const frontmatterDelimiter = "---"
 
 // LintCommands runs linting on command files using the generic linter.
 func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool, exclude []string) (*LintSummary, error) {
-	ctx, err := NewLinterContext(rootPath, quiet, verbose, noCycleCheck, exclude)
-	if err != nil {
-		return nil, err
-	}
-	return lintBatch(ctx, NewCommandLinter()), nil
+	return lintStandalone(rootPath, quiet, verbose, noCycleCheck, exclude, discovery.FileTypeCommand)
 }
 
 // knownCommandFields lists valid frontmatter fields per Anthropic docs
@@ -474,12 +471,12 @@ func checkPositionalArgSequence(positionalNums []int, filePath, contents string)
 	maxArg := positionalNums[len(positionalNums)-1]
 	if maxArg >= 10 {
 		issues = append(issues, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("High positional argument $%d detected. Commands with 10+ arguments are likely unintended. Consider using $ARGUMENTS instead.", maxArg),
-				Severity: cue.SeverityWarning,
-				Source:   cue.SourceCClintObserve,
-				Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", maxArg)),
-			})
+			File:     filePath,
+			Message:  fmt.Sprintf("High positional argument $%d detected. Commands with 10+ arguments are likely unintended. Consider using $ARGUMENTS instead.", maxArg),
+			Severity: cue.SeverityWarning,
+			Source:   cue.SourceCClintObserve,
+			Line:     findSubstitutionLine(contents, fmt.Sprintf("$%d", maxArg)),
+		})
 	}
 	return issues
 }

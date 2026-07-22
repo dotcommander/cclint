@@ -25,7 +25,7 @@ func TestNewValidator(t *testing.T) {
 // TestLoadSchemas tests loading embedded CUE schemas
 func TestLoadSchemas(t *testing.T) {
 	v := NewValidator()
-	err := v.LoadSchemas("schemas")
+	err := v.LoadSchemas()
 
 	if err != nil {
 		t.Errorf("LoadSchemas failed: %v", err)
@@ -37,18 +37,6 @@ func TestLoadSchemas(t *testing.T) {
 		if _, ok := v.schemas[name]; !ok {
 			t.Errorf("Expected schema %q to be loaded", name)
 		}
-	}
-}
-
-// TestLoadSchemas_InvalidDir tests LoadSchemas with invalid directory
-func TestLoadSchemas_InvalidDir(t *testing.T) {
-	v := NewValidator()
-	// This should still succeed because we use embedded FS
-	err := v.LoadSchemas("nonexistent")
-
-	// Should still load from embedded schemas
-	if err != nil {
-		t.Errorf("LoadSchemas should use embedded FS: %v", err)
 	}
 }
 
@@ -392,7 +380,7 @@ func TestValidateAgent(t *testing.T) {
 	}
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -541,7 +529,7 @@ func TestValidateCommand(t *testing.T) {
 	}
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -733,7 +721,7 @@ func TestValidateSkill(t *testing.T) {
 	}
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1161,7 +1149,7 @@ func TestValidateSettings(t *testing.T) {
 	}
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1262,7 +1250,7 @@ func TestValidateClaudeMD(t *testing.T) {
 	}
 
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1535,7 +1523,7 @@ Body content`,
 func TestValidateFile(t *testing.T) {
 	t.Parallel()
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1664,7 +1652,7 @@ model: sonnet
 // TestExtractErrorsFromCUE tests error extraction from CUE validation
 func TestExtractErrorsFromCUE(t *testing.T) {
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1709,7 +1697,7 @@ func TestSourceConstants(t *testing.T) {
 // TestValidateAgainstSchema_InvalidData tests encoding errors
 func TestValidateAgainstSchema_InvalidData(t *testing.T) {
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1738,7 +1726,7 @@ func TestValidateAgainstSchema_InvalidData(t *testing.T) {
 // TestValidateAgainstSchema_MissingDefinition tests non-existent schema definition
 func TestValidateAgainstSchema_MissingDefinition(t *testing.T) {
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1763,7 +1751,7 @@ func TestValidateAgainstSchema_MissingDefinition(t *testing.T) {
 // TestValidateAgainstSchema_ConcreteValidation tests concrete value validation
 func TestValidateAgainstSchema_ConcreteValidation(t *testing.T) {
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1788,7 +1776,7 @@ func TestValidateAgainstSchema_ConcreteValidation(t *testing.T) {
 // TestValidateAgent_EdgeCases tests edge cases for agent validation
 func TestValidateAgent_EdgeCases(t *testing.T) {
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 
@@ -1892,7 +1880,7 @@ func TestValidateAgent_EdgeCases(t *testing.T) {
 func TestExtractErrorsFromCUE_PerFieldErrors(t *testing.T) {
 	t.Parallel()
 	v := NewValidator()
-	if err := v.LoadSchemas("schemas"); err != nil {
+	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
 

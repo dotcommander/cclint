@@ -229,7 +229,6 @@ func TestParseJSONContent(t *testing.T) {
 
 // Mock linter for testing generic linter infrastructure
 type mockLinter struct {
-	BaseLinter
 	typeStr       string
 	fileType      discovery.FileType
 	parseErr      error
@@ -273,7 +272,7 @@ func (m *mockLinter) PostProcess(result *LintResult) {
 func TestLintComponent(t *testing.T) {
 	tmpDir := t.TempDir()
 	validator := cue.NewValidator()
-	_ = validator.LoadSchemas("")
+	_ = validator.LoadSchemas()
 
 	tests := []struct {
 		name         string
@@ -433,16 +432,6 @@ func TestDetectSwallowedFields(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestValidateAllowedToolsShared(t *testing.T) {
-	// This is a wrapper function, test it exists
-	data := map[string]any{
-		"allowed-tools": "Read, Write",
-	}
-	errors := ValidateAllowedToolsShared(data, "test.md", "")
-	// Verify function exists and returns without panic
-	_ = errors
 }
 
 // TestRunPreValidationAbortFlag verifies the abort short-circuit is driven by

@@ -15,7 +15,6 @@ import (
 // It also implements optional interfaces for pre-validation, best practices,
 // cross-file validation, scoring, improvements, and batch post-processing.
 type SkillLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance checks

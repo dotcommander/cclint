@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/lint"
 )
 
@@ -28,17 +29,26 @@ type ScoredComponent struct {
 	Tier  string
 }
 
-func runSummary() error {
-	cfg, err := loadCLIConfig()
+func runSummary(opts executionOptions) error {
+	cfg, err := loadCLIConfig(opts)
 	if err != nil {
 		return err
 	}
 
-	result, err := runOrchestratedLint(cfg, []lint.LinterEntry{
-		{Name: "agents", Linter: lint.LintAgents},
-		{Name: "commands", Linter: lint.LintCommands},
-		{Name: "skills", Linter: lint.LintSkills},
-	})
+	entries := make([]lint.LinterEntry, 0, 3)
+	for _, fileType := range []discovery.FileType{
+		discovery.FileTypeAgent,
+		discovery.FileTypeCommand,
+		discovery.FileTypeSkill,
+	} {
+		entry, ok := lint.LinterForType(fileType)
+		if !ok {
+			return fmt.Errorf("no linter for type %s", fileType)
+		}
+		entries = append(entries, entry)
+	}
+
+	result, err := runOrchestratedLint(cfg, opts, entries)
 	if err != nil {
 		return fmt.Errorf("error building summary: %w", err)
 	}

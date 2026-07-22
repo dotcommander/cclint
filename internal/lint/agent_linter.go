@@ -15,7 +15,6 @@ import (
 // It also implements optional interfaces for cross-file validation,
 // scoring, improvements, and batch post-processing (cycle detection).
 type AgentLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance checks

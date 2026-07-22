@@ -18,9 +18,6 @@ type Formatter interface {
 	Format(content string) (string, error)
 }
 
-// ComponentFormatter provides base formatting for all component types.
-type ComponentFormatter struct{}
-
 // NewComponentFormatter creates a formatter for a specific component type.
 func NewComponentFormatter(componentType string) Formatter {
 	switch componentType {

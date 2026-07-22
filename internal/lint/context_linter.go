@@ -15,7 +15,6 @@ import (
 // It implements only the core ComponentLinter interface - no optional capabilities.
 // Context files don't need scoring, improvements, or cross-file validation.
 type ContextLinter struct {
-	BaseLinter
 }
 
 // Compile-time interface compliance check
