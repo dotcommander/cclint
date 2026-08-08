@@ -411,12 +411,30 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			wantErrCount: 1,
 		},
 		{
-			name: "valid background literal and numeric forms (v2.1.218)",
+			name: "valid background literal form (v2.1.218)",
 			data: map[string]any{
 				"name":       "test",
 				"background": "off",
 			},
 			contents:     "---\nname: test\nbackground: off\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "valid background numeric one form (v2.1.218)",
+			data: map[string]any{
+				"name":       "test",
+				"background": 1,
+			},
+			contents:     "---\nname: test\nbackground: 1\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
+			name: "valid background numeric zero form (v2.1.218)",
+			data: map[string]any{
+				"name":       "test",
+				"background": 0,
+			},
+			contents:     "---\nname: test\nbackground: 0\n---\nContent",
 			wantErrCount: 0,
 		},
 		{

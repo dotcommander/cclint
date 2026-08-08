@@ -186,6 +186,7 @@ hooks:
 | `argument-hint` | string | e.g., `[issue-number]` | Hint shown during autocomplete |
 | `disable-model-invocation` | bool | `false` (default) | Prevent Claude from auto-loading this skill |
 | `user-invocable` | bool | `true` (default) | Include in slash command menu |
+| `background` | bool | `true`/`false`, or Claude boolean literals `yes`/`no`/`on`/`off`/`1`/`0` | Run the skill in the background (v2.1.218+) |
 | `allowed-tools` | `*`, string, array | `*` for all, or tool names | Tools available (skills use `allowed-tools:` not `tools:`) |
 | `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit`, or full model name | Model preference |
 | `context` | string | `fork` | Run in forked sub-agent context |
@@ -254,6 +255,15 @@ hooks:
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
+| `sandbox.network.strictAllowlist` | bool | Require an explicit network allowlist - v2.1.219+ |
+| `sandbox.credentials.files[].mode` | string | `deny` or `mask` for credential-file handling - `mask` v2.1.221+ |
+| `sandbox.credentials.files[]` masking fields | object fields | `extract`, `onExtractNoMatch`, `decode: "jwt"`, and `maskClaims` - v2.1.224+ |
+| `sandbox.credentials.envVars[]` masking fields | object fields | `mode`, `extract`, `onExtractNoMatch`, `decode`, and `maskClaims` - v2.1.224+ |
+| `sandbox.credentials.awsPairs` | array of objects | Required `accessKeyIdVar` and `secretAccessKeyVar`, optional `sessionTokenVar` - v2.1.224+ |
+| `sandbox.credentials.sigv4` | object | `streaming`, `presigned`, and `sigv4a`: `deny` or `passthrough` - v2.1.224+ |
+| `crossSessionInbound` | string | `accept`, `hold`, or `refuse` - v2.1.224+ |
+| `dialogExpiry` | string | `60s`, `5m`, `10m`, or `never` - v2.1.224+ |
+| `strictKnownMarketplaces` | `[...#MarketplaceSource]` | Managed marketplace source allowlist |
 | `allowManagedHooksOnly` | bool | When set, only hooks from managed/enterprise settings and force-enabled plugins run - v2.1.101+ |
 | `allowManagedDomainsOnly` | bool | When set, `sandbox.network.allowedDomains` from non-managed sources are ignored - v2.1.126+ |
 | `allowManagedReadPathsOnly` | bool | When set, `sandbox.allowedReadPaths` from non-managed sources are ignored - v2.1.126+ |
@@ -290,7 +300,7 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
 }
 ```
 
-**Hook Events**: `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`, `MessageDisplay`
+**Hook Events**: `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`, `DirectoryAdded`, `PermissionDenied`, `Setup`, `MessageDisplay`
 
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
@@ -330,8 +340,13 @@ Standard model names:
 - `sonnet[1m]` - Extended context
 - `opusplan` - Planning mode
 - `inherit` - Use parent model
+- `claude-opus-5` - Claude Opus 5 alias (v2.1.219+)
 
 Full model names are also accepted (e.g., `claude-sonnet-4-20250514`).
+
+### Marketplace Source Values
+
+Marketplace sources include `github`, `git`, `git-subdir`, `url`, `npm`, `file`, `directory`, `hostPattern`, `settings`, and `archive` (v2.1.224+).
 
 ### Color Values (Agents Only)
 
