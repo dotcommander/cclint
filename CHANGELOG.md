@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.53.1 (2026-08-08)
+
+### Features
+
+- model Claude Code v2.1.218-v2.1.226 settings and skill fields.
+- recognize `DirectoryAdded` as a valid settings hook event.
+- recognize `claude-opus-5` as a valid full model ID.
+
+### Changed
+
+- validate Claude Code settings for archive marketplace sources, credential masking, AWS credential pairs, SigV4 policies, strict network allowlists, cross-session inbound handling, and dialog expiry.
+- accept Claude Code boolean literals (`yes`/`no`, `on`/`off`, and `1`/`0`) for skill fields.
+
+### Docs
+
+- synchronize the settings and schema reference inventories with the updated Claude Code surface.
+
 ## v0.53.0 (2026-07-22)
 
 ### Features
