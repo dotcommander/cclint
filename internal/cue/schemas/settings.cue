@@ -77,9 +77,31 @@ package schemas
 
 // Marketplace source configuration (v2.1.45+)
 #MarketplaceSource: {
-	source: "github" | "git" | "git-subdir" | "url" | "npm" | "file" | "directory" | "hostPattern" | "settings"
+	source: "github" | "git" | "git-subdir" | "url" | "npm" | "file" | "directory" | "hostPattern" | "settings" | "archive"
 	// Type-specific fields (repo, url, path, package, hostPattern, ref, headers, skipLfs)
 	...
+}
+
+// Credential masking fields added in v2.1.224.
+#CredentialMaskFields: {
+	extract?:          string
+	onExtractNoMatch?: "warn" | "deny" | "error"
+	decode?:           "jwt"
+	maskClaims?:       [...string]
+}
+
+// Explicit AWS credential variable grouping for SigV4 re-signing (v2.1.224+).
+#AwsCredentialPair: {
+	accessKeyIdVar:     string
+	secretAccessKeyVar: string
+	sessionTokenVar?:   string
+}
+
+// SigV4 request-shape policies (v2.1.224+).
+#SigV4Policy: {
+	streaming?: "deny" | "passthrough"
+	presigned?: "deny" | "passthrough"
+	sigv4a?:    "deny" | "passthrough"
 }
 
 // Claude Code settings.json schema
@@ -181,21 +203,27 @@ package schemas
 
 		// Credential file / secret-env blocking for sandboxed commands (v2.1.187+)
 		credentials?: {
-			// Credential file paths to block (mode is always "deny")
+			// Credential file paths to block or mask (v2.1.221+)
 			files?: [...{
 				path: string
-				mode: "deny"
+				mode: "deny" | "mask"
+				#CredentialMaskFields
 				...
 			}]
 			// Secret environment variables to deny or mask
 			envVars?: [...{
 				name:         string
 				mode:         "deny" | "mask"
+				#CredentialMaskFields
 				injectHosts?: [...string]
 				...
 			}]
 			// Permit injecting secrets in plaintext
 			allowPlaintextInject?: bool
+			// Explicit groupings for non-standard AWS credential variable names (v2.1.224+)
+			awsPairs?: [...#AwsCredentialPair]
+			// Policy for SigV4 request shapes the proxy cannot re-sign (v2.1.224+)
+			sigv4?: #SigV4Policy
 			...
 		}
 
@@ -208,6 +236,8 @@ package schemas
 		network?: {
 			allowedDomains?: [...string]
 			deniedDomains?: [...string]
+			// Deterministically deny non-allowlisted hosts instead of prompting (v2.1.219+)
+			strictAllowlist?: bool
 			...
 		}
 		// Filesystem isolation controls (v2.1.216+)
@@ -409,6 +439,9 @@ package schemas
 	// Remote control.
 	remoteControlAtStartup?: bool
 	disableRemoteControl?:   bool
+	// Cross-session message handling and remote-dialog expiry (v2.1.224+).
+	crossSessionInbound?: "accept" | "hold" | "refuse"
+	dialogExpiry?:        "60s" | "5m" | "10m" | "never"
 
 	// Permission-prompt skips (user-accepted dialogs).
 	skipDangerousModePermissionPrompt?: bool

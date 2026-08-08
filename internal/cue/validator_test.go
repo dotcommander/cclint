@@ -827,8 +827,9 @@ func TestValidateSettings(t *testing.T) {
 			data: map[string]any{
 				"sandbox": map[string]any{
 					"network": map[string]any{
-						"allowedDomains": []string{"*.anthropic.com"},
-						"deniedDomains":  []string{"evil.example.com"},
+						"allowedDomains":  []string{"*.anthropic.com"},
+						"deniedDomains":   []string{"evil.example.com"},
+						"strictAllowlist": true,
 					},
 				},
 			},
@@ -847,6 +848,48 @@ func TestValidateSettings(t *testing.T) {
 							{"name": "DATABASE_URL", "mode": "deny"},
 						},
 						"allowPlaintextInject": false,
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with credential masking and SigV4 controls (v2.1.221-v2.1.224)",
+			data: map[string]any{
+				"crossSessionInbound": "hold",
+				"dialogExpiry":        "10m",
+				"sandbox": map[string]any{
+					"credentials": map[string]any{
+						"files": []map[string]any{
+							{
+								"path":             "~/.aws/credentials",
+								"mode":             "mask",
+								"extract":          `(?m)^aws_access_key_id\s*=\s*(\S+)$`,
+								"onExtractNoMatch": "deny",
+								"decode":           "jwt",
+								"maskClaims":       []string{"sub", "email"},
+							},
+						},
+						"envVars": []map[string]any{
+							{
+								"name":             "DATABASE_URL",
+								"mode":             "mask",
+								"extract":          `://([^@]+)@`,
+								"onExtractNoMatch": "warn",
+							},
+						},
+						"awsPairs": []map[string]any{
+							{
+								"accessKeyIdVar":     "AWS_ACCESS_KEY_ID",
+								"secretAccessKeyVar": "AWS_SECRET_ACCESS_KEY",
+								"sessionTokenVar":    "AWS_SESSION_TOKEN",
+							},
+						},
+						"sigv4": map[string]any{
+							"streaming": "deny",
+							"presigned": "passthrough",
+							"sigv4a":    "deny",
+						},
 					},
 				},
 			},
@@ -939,6 +982,15 @@ func TestValidateSettings(t *testing.T) {
 			data: map[string]any{
 				"strictKnownMarketplaces": []map[string]any{
 					{"source": "github", "repo": "acme-corp/approved-plugins"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces archive entry (v2.1.224)",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "archive", "url": "https://example.com/plugins.zip"},
 				},
 			},
 			wantError: false,

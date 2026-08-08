@@ -37,36 +37,63 @@ func validateSkillContextField(data map[string]any, filePath, contents string) [
 }
 
 // validateSkillBooleanFields validates boolean fields in skill frontmatter.
+// Claude Code also accepts yes/no/on/off/1/0 (case-insensitive) for these
+// frontmatter booleans as of v2.1.218.
 func validateSkillBooleanFields(data map[string]any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	// Validate user-invocable field: must be boolean
-	if uiVal, ok := data["user-invocable"]; ok {
-		if _, isBool := uiVal.(bool); !isBool {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("user-invocable field must be a boolean (got '%v')", uiVal),
-				Severity: cue.SeverityError,
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "user-invocable"),
-			})
+	for _, field := range []string{"user-invocable", "disable-model-invocation", "background"} {
+		value, ok := data[field]
+		if !ok || isClaudeBoolean(value) {
+			continue
 		}
-	}
 
-	// Validate disable-model-invocation field: must be boolean
-	if dmiVal, ok := data["disable-model-invocation"]; ok {
-		if _, isBool := dmiVal.(bool); !isBool {
-			errors = append(errors, cue.ValidationError{
-				File:     filePath,
-				Message:  fmt.Sprintf("disable-model-invocation field must be a boolean (got '%v')", dmiVal),
-				Severity: cue.SeverityError,
-				Source:   cue.SourceAnthropicDocs,
-				Line:     textutil.FindFrontmatterFieldLine(contents, "disable-model-invocation"),
-			})
-		}
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("%s field must be a boolean or one of yes/no/on/off/1/0 (got '%v')", field, value),
+			Severity: cue.SeverityError,
+			Source:   cue.SourceAnthropicDocs,
+			Line:     textutil.FindFrontmatterFieldLine(contents, field),
+		})
 	}
 
 	return errors
+}
+
+func isClaudeBoolean(value any) bool {
+	switch v := value.(type) {
+	case bool:
+		return true
+	case int:
+		return v == 0 || v == 1
+	case int8:
+		return v == 0 || v == 1
+	case int16:
+		return v == 0 || v == 1
+	case int32:
+		return v == 0 || v == 1
+	case int64:
+		return v == 0 || v == 1
+	case uint:
+		return v == 0 || v == 1
+	case uint8:
+		return v == 0 || v == 1
+	case uint16:
+		return v == 0 || v == 1
+	case uint32:
+		return v == 0 || v == 1
+	case uint64:
+		return v == 0 || v == 1
+	case string:
+		switch strings.ToLower(strings.TrimSpace(v)) {
+		case "yes", "no", "on", "off", "1", "0":
+			return true
+		default:
+			return false
+		}
+	default:
+		return false
+	}
 }
 
 // validateSkillArgumentHint validates the argument-hint field in skill frontmatter.

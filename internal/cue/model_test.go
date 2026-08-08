@@ -56,6 +56,18 @@ func TestClaudeMDAcceptsFullModelID(t *testing.T) {
 	errs, err = v.ValidateAgent(map[string]any{
 		"name":        "test-agent",
 		"description": "test",
+		"model":       "claude-opus-5",
+	})
+	if err != nil {
+		t.Fatalf("ValidateAgent(claude-opus-5): unexpected error: %v", err)
+	}
+	if len(errs) != 0 {
+		t.Fatalf("ValidateAgent(claude-opus-5): expected no errors, got %d: %v", len(errs), errs)
+	}
+
+	errs, err = v.ValidateAgent(map[string]any{
+		"name":        "test-agent",
+		"description": "test",
 		"model":       "notamodel",
 	})
 	if err != nil {

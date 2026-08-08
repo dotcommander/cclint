@@ -38,6 +38,7 @@ func TestValidateHooksValidEvents(t *testing.T) {
 		{"valid TaskCreated hook", hook("TaskCreated", cmd("echo task created")), 0},
 		{"valid WorktreeRemove hook", hook("WorktreeRemove", cmd("echo worktree removed")), 0},
 		{"valid InstructionsLoaded hook", hook("InstructionsLoaded", cmd("echo instructions loaded")), 0},
+		{"valid DirectoryAdded hook (v2.1.219+)", hook("DirectoryAdded", cmd("echo directory added")), 0},
 		{"valid agent hook", hook("PreToolUse", map[string]any{"type": "agent"}), 0},
 		{"valid http hook with url", hook("PreToolUse", map[string]any{"type": "http", "url": "https://example.com/hook"}), 0},
 		{"valid mcp_tool hook type accepted (v2.1.118+)", hook("PreToolUse", map[string]any{"type": "mcp_tool"}), 0},

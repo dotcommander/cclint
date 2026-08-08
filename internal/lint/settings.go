@@ -41,6 +41,7 @@ var validHookEvents = map[string]bool{
 	"StopFailure":        true, // API error stop event (v2.1.78+)
 	"CwdChanged":         true, // working directory change event (v2.1.83+)
 	"FileChanged":        true, // file change event (v2.1.83+)
+	"DirectoryAdded":     true, // working directory registration event (v2.1.219+)
 	"TaskCreated":        true, // task creation event (v2.1.84+)
 	"PermissionDenied":   true, // auto mode denial event (v2.1.88+)
 	"Setup":              true, // repo setup hook with init/maintenance triggers (v2.1.100+)

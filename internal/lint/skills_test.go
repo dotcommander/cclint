@@ -375,12 +375,21 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid user-invocable Claude boolean literal",
+			data: map[string]any{
+				"name":           "test",
+				"user-invocable": "YES",
+			},
+			contents:     "---\nname: test\nuser-invocable: \"YES\"\n---\nContent",
+			wantErrCount: 0,
+		},
+		{
 			name: "invalid user-invocable type string",
 			data: map[string]any{
 				"name":           "test",
-				"user-invocable": "yes",
+				"user-invocable": "maybe",
 			},
-			contents:     "---\nname: test\nuser-invocable: \"yes\"\n---\nContent",
+			contents:     "---\nname: test\nuser-invocable: \"maybe\"\n---\nContent",
 			wantErrCount: 1,
 		},
 		{
@@ -400,6 +409,15 @@ func TestSkillLinterValidateSpecific(t *testing.T) {
 			},
 			contents:     "---\nname: test\ndisable-model-invocation: \"true\"\n---\nContent",
 			wantErrCount: 1,
+		},
+		{
+			name: "valid background literal and numeric forms (v2.1.218)",
+			data: map[string]any{
+				"name":       "test",
+				"background": "off",
+			},
+			contents:     "---\nname: test\nbackground: off\n---\nContent",
+			wantErrCount: 0,
 		},
 		{
 			name: "valid argument-hint",
