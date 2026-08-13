@@ -996,6 +996,33 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with strictKnownMarketplaces command entry (v2.1.229)",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "command", "command": "ide-print-plugin-dir", "mode": "link"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces pathPattern entry",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "pathPattern", "pathPattern": "^/opt/plugins/.*$"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with strictKnownMarketplaces skills-dir entry",
+			data: map[string]any{
+				"strictKnownMarketplaces": []map[string]any{
+					{"source": "skills-dir"},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid settings with strictKnownMarketplaces npm entry",
 			data: map[string]any{
 				"strictKnownMarketplaces": []map[string]any{

@@ -77,7 +77,7 @@ package schemas
 
 // Marketplace source configuration (v2.1.45+)
 #MarketplaceSource: {
-	source: "github" | "git" | "git-subdir" | "url" | "npm" | "file" | "directory" | "hostPattern" | "settings" | "archive"
+	source: "github" | "git" | "git-subdir" | "url" | "npm" | "file" | "directory" | "hostPattern" | "settings" | "archive" | "command" | "pathPattern" | "skills-dir"
 	// Type-specific fields (repo, url, path, package, hostPattern, ref, headers, skipLfs)
 	...
 }
