@@ -159,6 +159,18 @@ package schemas
 	// shape as strictKnownMarketplaces. Also checked BEFORE downloading.
 	blockedMarketplaces?: [...#MarketplaceSource]
 
+	// Friendlier alias for extraKnownMarketplaces (v2.1.232+)
+	// Read exactly as if spelled extraKnownMarketplaces; do not set both in one file.
+	additionalMarketplaces?: {
+		[string]: {
+			source: #MarketplaceSource
+		}
+	}
+
+	// Friendlier alias for strictKnownMarketplaces (managed settings only, v2.1.232+)
+	// Read exactly as if spelled strictKnownMarketplaces; do not set both in one file.
+	allowedMarketplaces?: [...#MarketplaceSource]
+
 	// Disable all hooks (v2.1.49+)
 	// Non-managed settings cannot disable managed hooks set by enterprise policy
 	disableAllHooks?: bool
@@ -506,6 +518,18 @@ package schemas
 	// Skill-listing budget tuning.
 	skillListingBudgetFraction?: number
 	skillListingMaxDescChars?:   number
+
+	// Spell checking of the prompt input (v2.1.235+)
+	// Uses an installed aspell, hunspell, or ispell; checker "auto" picks the
+	// first found on PATH. color takes a terminal color spec; language is
+	// checker-specific and validated at runtime, not here.
+	spellcheck?: {
+		enabled?:  bool
+		checker?:  "aspell" | "hunspell" | "ispell" | "auto"
+		language?: string
+		color?:    string
+		...
+	}
 
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold

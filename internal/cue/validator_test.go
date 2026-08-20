@@ -903,6 +903,35 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with spellcheck (v2.1.235)",
+			data: map[string]any{
+				"spellcheck": map[string]any{
+					"enabled":  true,
+					"checker":  "hunspell",
+					"language": "en_GB",
+					"color":    "magenta",
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid settings with marketplace aliases (v2.1.232)",
+			data: map[string]any{
+				"additionalMarketplaces": map[string]any{
+					"acme": map[string]any{
+						"source": map[string]any{
+							"source": "github",
+							"repo":   "acme-corp/approved-plugins",
+						},
+					},
+				},
+				"allowedMarketplaces": []map[string]any{
+					{"source": "github", "repo": "anthropics/claude-code"},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "valid settings with workflowSizeGuideline (v2.1.202)",
 			data: map[string]any{
 				"workflowSizeGuideline": "medium",
