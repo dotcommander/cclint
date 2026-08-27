@@ -587,6 +587,132 @@ func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
 	}
 }
 
+func TestFilterRelevantChanges_ReportsRelevantDeletion(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	changes, err := filterRelevantChanges("skills/deleted/SKILL.md\nREADME.md", tmpDir)
+	if err != nil {
+		t.Fatalf("filterRelevantChanges failed: %v", err)
+	}
+	if !changes.HasRelevantDeletion() {
+		t.Fatal("relevant deletion was not reported")
+	}
+	if len(changes.DeletedFiles) != 1 || changes.DeletedFiles[0] != "skills/deleted/SKILL.md" {
+		t.Fatalf("deleted files = %v", changes.DeletedFiles)
+	}
+	if len(changes.Files) != 0 {
+		t.Fatalf("files = %v, want none", changes.Files)
+	}
+}
+
+func TestParseNameStatusChangesUsesExplicitStatus(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	modified := filepath.Join(tmpDir, "agents", "modified.md")
+	if err := os.MkdirAll(filepath.Dir(modified), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(modified, []byte("modified"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	output := []byte("D\x00skills/old/SKILL.md\x00M\x00agents/modified.md\x00A\x00notes.txt\x00")
+	changes, err := parseNameStatusChanges(output, tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes.DeletedFiles) != 1 || changes.DeletedFiles[0] != "skills/old/SKILL.md" {
+		t.Fatalf("deleted files = %v", changes.DeletedFiles)
+	}
+	if len(changes.Files) != 1 || changes.Files[0] != modified {
+		t.Fatalf("files = %v", changes.Files)
+	}
+}
+
+func TestGetStagedChangesDoesNotInferDeletionFromWorktree(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	cmd := exec.Command("git", "init", root)
+	if err := cmd.Run(); err != nil {
+		t.Skipf("git init: %v", err)
+	}
+	for _, args := range [][]string{{"config", "user.email", "test@example.com"}, {"config", "user.name", "Test"}} {
+		cmd = exec.Command("git", args...)
+		cmd.Dir = root
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "agents", "modified.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("original"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "agents/modified.md"}, {"commit", "-m", "fixture"}} {
+		cmd = exec.Command("git", args...)
+		cmd.Dir = root
+		if err := cmd.Run(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(path, []byte("staged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "add", "agents/modified.md")
+	cmd.Dir = root
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	changes, err := GetStagedChanges(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changes.HasRelevantDeletion() {
+		t.Fatalf("staged modification misclassified as deletion: %v", changes.DeletedFiles)
+	}
+}
+
+func TestGetChangedFileChangesUnbornAdditionRemovedFromWorktree(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	cmd := exec.Command("git", "init", root)
+	if err := cmd.Run(); err != nil {
+		t.Skipf("git init: %v", err)
+	}
+	path := filepath.Join(root, "agents", "added.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("added"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command("git", "add", "agents/added.md")
+	cmd.Dir = root
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	changes, err := GetChangedFileChanges(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changes.HasRelevantDeletion() {
+		t.Fatalf("unborn staged addition misclassified as deletion: %v", changes.DeletedFiles)
+	}
+	if len(changes.Files) != 0 {
+		t.Fatalf("files = %v, want none for absent staged addition", changes.Files)
+	}
+}
+
 func TestFilterRelevantFiles_WhitespaceHandling(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

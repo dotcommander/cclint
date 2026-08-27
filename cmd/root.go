@@ -80,7 +80,10 @@ func runLint(opts executionOptions) error {
 	if err != nil {
 		return err
 	}
+	return runLintWithConfig(cfg, opts)
+}
 
+func runLintWithConfig(cfg *config.Config, opts executionOptions) error {
 	result, err := runOrchestratedLint(cfg, opts, nil)
 	if err != nil {
 		return err
@@ -207,24 +210,29 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 	}
 
 	// Get files from git
-	var files []string
+	var changes git.FileChanges
 	if boolValue(cmd.Staged) {
-		files, err = git.GetStagedFiles(gitRoot)
+		changes, err = git.GetStagedChanges(gitRoot)
 	} else if boolValue(cmd.Diff) {
-		files, err = git.GetChangedFiles(gitRoot)
+		changes, err = git.GetChangedFileChanges(gitRoot)
 	}
 	if err != nil {
 		return fmt.Errorf("error getting git files: %w", err)
 	}
 
-	if len(files) == 0 {
+	if changes.HasRelevantDeletion() {
+		cfg.Exclude = append(append([]string(nil), cfg.Exclude...), changes.DeletedFiles...)
+		return runLintWithConfig(cfg, opts)
+	}
+
+	if len(changes.Files) == 0 {
 		if !cfg.Quiet {
 			fmt.Println("No files to lint")
 		}
 		return nil
 	}
 
-	summary, err := lint.LintFiles(files, gitRoot, "", cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(changes.Files, gitRoot, "", cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}

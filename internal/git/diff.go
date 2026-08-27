@@ -52,27 +52,52 @@ func gitTimeoutError(op string, err error, output []byte) error {
 // Only returns files with extensions matching Claude Code components (.md, .json).
 // Returns empty slice if not in a git repository.
 func GetStagedFiles(rootPath string) ([]string, error) {
+	changes, err := GetStagedChanges(rootPath)
+	return changes.Files, err
+}
+
+// FileChanges contains lintable changed files and deletion metadata that can
+// require project-wide validation even when no changed file remains to lint.
+type FileChanges struct {
+	Files        []string
+	DeletedFiles []string
+}
+
+// HasRelevantDeletion reports whether the selected Git tree deletes at least
+// one Claude Code component.
+func (c FileChanges) HasRelevantDeletion() bool { return len(c.DeletedFiles) > 0 }
+
+// GetStagedChanges returns staged lintable files and whether a relevant
+// component was deleted.
+func GetStagedChanges(rootPath string) (FileChanges, error) {
 	if !IsGitRepo(rootPath) {
-		return []string{}, nil
+		return FileChanges{}, nil
 	}
 
 	// Get staged files relative to git root
-	cmd, cancel := gitCommand(rootPath, "diff", "--name-only", "--staged")
+	cmd, cancel := gitCommand(rootPath, "diff", "--name-status", "-z", "--no-renames", "--staged")
 	defer cancel()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, gitTimeoutError("diff --staged", err, output)
+		return FileChanges{}, gitTimeoutError("diff --staged", err, output)
 	}
 
-	return filterRelevantFiles(string(output), rootPath)
+	return parseNameStatusChanges(output, rootPath)
 }
 
 // GetChangedFiles returns absolute paths of all uncommitted changes (staged + unstaged).
 // Only returns files with extensions matching Claude Code components (.md, .json).
 // Returns empty slice if not in a git repository.
 func GetChangedFiles(rootPath string) ([]string, error) {
+	changes, err := GetChangedFileChanges(rootPath)
+	return changes.Files, err
+}
+
+// GetChangedFileChanges returns all uncommitted lintable files and whether a
+// relevant tracked component was deleted.
+func GetChangedFileChanges(rootPath string) (FileChanges, error) {
 	if !IsGitRepo(rootPath) {
-		return []string{}, nil
+		return FileChanges{}, nil
 	}
 
 	// Check if there are any commits
@@ -81,32 +106,55 @@ func GetChangedFiles(rootPath string) ([]string, error) {
 	cancelCheck()
 	if checkErr != nil {
 		if errors.Is(checkErr, context.DeadlineExceeded) {
-			return nil, gitTimeoutError("rev-parse HEAD", checkErr, nil)
+			return FileChanges{}, gitTimeoutError("rev-parse HEAD", checkErr, nil)
 		}
-		// No commits yet - show all tracked and untracked files.
-		cmd, cancel := gitCommand(rootPath, "ls-files", "--cached", "--others", "--exclude-standard")
+		// No commits yet: preserve staged addition status against the empty tree,
+		// then add untracked files separately. Worktree absence is not deletion.
+		cmd, cancel := gitCommand(rootPath, "diff", "--cached", "--name-status", "-z", "--no-renames")
 		defer cancel()
 		output, err := cmd.CombinedOutput()
 		if err != nil {
-			return nil, gitTimeoutError("ls-files", err, output)
+			return FileChanges{}, gitTimeoutError("diff --cached", err, output)
 		}
-		return filterRelevantFiles(string(output), rootPath)
+		changes, err := parseNameStatusChanges(output, rootPath)
+		if err != nil {
+			return FileChanges{}, err
+		}
+		untracked, err := getUntrackedFiles(rootPath)
+		if err != nil {
+			return FileChanges{}, err
+		}
+		untrackedFiles, err := filterRelevantFiles(untracked, rootPath)
+		if err != nil {
+			return FileChanges{}, err
+		}
+		changes.Files = append(changes.Files, untrackedFiles...)
+		return changes, nil
 	}
 
 	// Get all changed files (staged + unstaged) relative to git root
-	cmd, cancel := gitCommand(rootPath, "diff", "--name-only", "HEAD")
+	cmd, cancel := gitCommand(rootPath, "diff", "--name-status", "-z", "--no-renames", "HEAD")
 	defer cancel()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, gitTimeoutError("diff HEAD", err, output)
+		return FileChanges{}, gitTimeoutError("diff HEAD", err, output)
 	}
 
 	untracked, err := getUntrackedFiles(rootPath)
 	if err != nil {
-		return nil, err
+		return FileChanges{}, err
 	}
 
-	return filterRelevantFiles(combineGitOutputs(string(output), untracked), rootPath)
+	changes, err := parseNameStatusChanges(output, rootPath)
+	if err != nil {
+		return FileChanges{}, err
+	}
+	untrackedFiles, err := filterRelevantFiles(untracked, rootPath)
+	if err != nil {
+		return FileChanges{}, err
+	}
+	changes.Files = append(changes.Files, untrackedFiles...)
+	return changes, nil
 }
 
 // IsGitRepo checks if the given directory is within a git repository.
@@ -151,7 +199,13 @@ func combineGitOutputs(outputs ...string) string {
 //
 // Returns absolute paths.
 func filterRelevantFiles(gitOutput, rootPath string) ([]string, error) {
+	changes, err := filterRelevantChanges(gitOutput, rootPath)
+	return changes.Files, err
+}
+
+func filterRelevantChanges(gitOutput, rootPath string) (FileChanges, error) {
 	var files []string
+	var deletedFiles []string
 	lines := strings.Split(strings.TrimSpace(gitOutput), "\n")
 
 	for _, line := range lines {
@@ -160,23 +214,54 @@ func filterRelevantFiles(gitOutput, rootPath string) ([]string, error) {
 			continue
 		}
 
+		if !isRelevantFile(line) {
+			continue
+		}
+
 		// Convert to absolute path
 		absPath := filepath.Join(rootPath, line)
 
 		// Check if file exists (git reports deletions too)
 		if _, err := os.Stat(absPath); os.IsNotExist(err) {
-			continue
-		}
-
-		// Filter by extension and path
-		if !isRelevantFile(line) {
+			deletedFiles = append(deletedFiles, filepath.ToSlash(line))
 			continue
 		}
 
 		files = append(files, absPath)
 	}
 
-	return files, nil
+	return FileChanges{Files: files, DeletedFiles: deletedFiles}, nil
+}
+
+func parseNameStatusChanges(output []byte, rootPath string) (FileChanges, error) {
+	var changes FileChanges
+	fields := strings.Split(strings.TrimSuffix(string(output), "\x00"), "\x00")
+	if len(fields) == 1 && fields[0] == "" {
+		return changes, nil
+	}
+	if len(fields)%2 != 0 {
+		return FileChanges{}, fmt.Errorf("malformed git name-status output")
+	}
+	for i := 0; i < len(fields); i += 2 {
+		status, relPath := fields[i], fields[i+1]
+		if status == "" || relPath == "" {
+			return FileChanges{}, fmt.Errorf("malformed git name-status entry")
+		}
+		if !isRelevantFile(relPath) {
+			continue
+		}
+		if status[0] == 'D' {
+			changes.DeletedFiles = append(changes.DeletedFiles, filepath.ToSlash(relPath))
+			continue
+		}
+		absPath := filepath.Join(rootPath, relPath)
+		if _, err := os.Stat(absPath); err == nil {
+			changes.Files = append(changes.Files, absPath)
+		} else if !os.IsNotExist(err) {
+			return FileChanges{}, fmt.Errorf("stat changed file %s: %w", relPath, err)
+		}
+	}
+	return changes, nil
 }
 
 // isRelevantFile checks if a file path is relevant for Claude Code linting.

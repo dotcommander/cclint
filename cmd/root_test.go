@@ -175,6 +175,67 @@ func TestRunGitLintStagedTakesPrecedenceOverDiff(t *testing.T) {
 	assert.Equal(t, 1, exitCode, "diff mode must include the unstaged invalid file")
 }
 
+func TestRunGitLintRelevantDeletionRunsCrossFileValidation(t *testing.T) {
+	tests := []struct {
+		name     string
+		staged   bool
+		recreate bool
+		rename   bool
+	}{
+		{name: "diff"},
+		{name: "staged", staged: true},
+		{name: "staged delete with worktree recreation", staged: true, recreate: true},
+		{name: "diff rename to irrelevant path", rename: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, exec.Command("git", "init", root).Run())
+			for _, args := range [][]string{{"config", "user.email", "test@example.com"}, {"config", "user.name", "Test"}} {
+				command := exec.Command("git", args...)
+				command.Dir = root
+				require.NoError(t, command.Run())
+			}
+
+			agentPath := filepath.Join(root, ".claude", "agents", "consumer.md")
+			skillPath := filepath.Join(root, ".claude", "skills", "deleted-skill", "SKILL.md")
+			require.NoError(t, os.MkdirAll(filepath.Dir(agentPath), 0o755))
+			require.NoError(t, os.MkdirAll(filepath.Dir(skillPath), 0o755))
+			agent := "---\nname: consumer\ndescription: Uses the deleted skill for validation.\nmodel: sonnet\n---\n\n## Foundation\n\nSkill: deleted-skill\n\n## Workflow\n\n1. Validate.\n"
+			skill := "---\nname: deleted-skill\ndescription: A fixture skill used for deletion validation.\n---\n\n# Deleted Skill\n"
+			require.NoError(t, os.WriteFile(agentPath, []byte(agent), 0o600))
+			require.NoError(t, os.WriteFile(skillPath, []byte(skill), 0o600))
+			for _, args := range [][]string{{"add", "-f", "."}, {"commit", "-m", "add fixtures"}} {
+				command := exec.Command("git", args...)
+				command.Dir = root
+				require.NoError(t, command.Run())
+			}
+			if tt.rename {
+				require.NoError(t, os.Rename(skillPath, filepath.Join(root, "deleted-skill.txt")))
+			} else {
+				require.NoError(t, os.Remove(skillPath))
+			}
+			if tt.staged {
+				command := exec.Command("git", "add", "-u")
+				command.Dir = root
+				require.NoError(t, command.Run())
+			}
+			if tt.recreate {
+				require.NoError(t, os.WriteFile(skillPath, []byte(skill), 0o600))
+			}
+
+			originalExit := exitFunc
+			t.Cleanup(func() { exitFunc = originalExit })
+			exitCode := 0
+			exitFunc = func(code int) { exitCode = code }
+			quiet, diff := true, !tt.staged
+			opts := executionOptions{root: &root, quiet: &quiet}
+			require.NoError(t, runGitLint(opts, &lintCommand{Staged: &tt.staged, Diff: &diff}))
+			assert.Equal(t, 1, exitCode, "relevant deletion must expose the dangling skill reference")
+		})
+	}
+}
+
 func TestRunRootCommandRunsMultipleTypesSequentially(t *testing.T) {
 	root := t.TempDir()
 	quiet := true
