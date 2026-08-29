@@ -10,7 +10,7 @@ import (
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
-var reflectSlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+){3,9}\.md$`)
+var reflectSlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+){1,9}\.md$`)
 
 // Non-entry markdown files that legitimately live under kb/ but are not
 // /dc:reflect entries — exempt from slug/source/size rules.
@@ -41,7 +41,14 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 		if err != nil {
 			return nil
 		}
-		if d.IsDir() || !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+		if d.IsDir() {
+			if strings.HasPrefix(d.Name(), ".") {
+				// Hidden scratch trees (e.g. kb/.work/) are not entries.
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
 			return nil
 		}
 		if reflectSkipNames[strings.ToLower(d.Name())] {
@@ -56,7 +63,7 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 		if !reflectSlugPattern.MatchString(d.Name()) {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
-				Message:  "KB filename '" + d.Name() + "' must be a 4-10 word lowercase-hyphenated slug (e.g. 'race-condition-in-channel-close.md')",
+				Message:  "KB filename '" + d.Name() + "' must be a 2-10 word lowercase-hyphenated slug (e.g. 'race-condition-in-channel-close.md')",
 				Severity: cue.SeverityWarning,
 				Source:   cue.SourceCClintObserve,
 			})
@@ -77,10 +84,13 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 			})
 		}
 		if !strings.Contains(content, "(source:") {
+			// Advisory: curated kb trees (book/course-derived notes with no URL
+			// provenance) never carry (source: — only /dc:reflect-mined entries
+			// do, and nothing else distinguishes them. Surfaces with -v only.
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry is missing a source attribution (a line containing '(source:')",
-				Severity: cue.SeverityWarning,
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

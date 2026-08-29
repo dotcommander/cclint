@@ -14,18 +14,20 @@ func TestCheckReflectOutput(t *testing.T) {
 		"(source: https://example.com/post)\n"
 
 	tests := []struct {
-		name         string
-		fileName     string
-		content      string
-		wantWarnings int
+		name            string
+		fileName        string
+		content         string
+		wantWarnings    int
+		wantSuggestions int
 	}{
-		{"good slug and source", "race-condition-in-channel-close.md", goodBody, 0},
-		{"bad slug too few words", "oops.md", goodBody, 1},
-		{"bad slug uppercase", "Race-Condition-In-Close.md", goodBody, 1},
-		{"missing source", "a-valid-four-word-slug.md", strings.Replace(goodBody, "(source: https://example.com/post)\n", "no attribution here\n", 1), 1},
-		{"missing h1", "another-valid-four-word.md", strings.Replace(goodBody, "# Race condition in channel close\n", "Race condition (no H1)\n", 1), 1},
-		{"too short body", "short-fold-candidate-entry.md", "# Title\n\n(source: x)\n", 1},
-		{"too long body", "long-split-candidate-entry.md", "# Title\n\n(source: x)\n" + strings.Repeat("body line\n", 510), 1},
+		{"good slug and source", "race-condition-in-channel-close.md", goodBody, 0, 0},
+		{"two word slug ok", "sqlite-production.md", goodBody, 0, 0},
+		{"bad slug too few words", "oops.md", goodBody, 1, 0},
+		{"bad slug uppercase", "Race-Condition-In-Close.md", goodBody, 1, 0},
+		{"missing source", "a-valid-four-word-slug.md", strings.Replace(goodBody, "(source: https://example.com/post)\n", "no attribution here\n", 1), 0, 1},
+		{"missing h1", "another-valid-four-word.md", strings.Replace(goodBody, "# Race condition in channel close\n", "Race condition (no H1)\n", 1), 1, 0},
+		{"too short body", "short-fold-candidate-entry.md", "# Title\n\n(source: x)\n", 1, 0},
+		{"too long body", "long-split-candidate-entry.md", "# Title\n\n(source: x)\n" + strings.Repeat("body line\n", 510), 1, 0},
 	}
 
 	for _, tt := range tests {
@@ -39,19 +41,52 @@ func TestCheckReflectOutput(t *testing.T) {
 				t.Fatal(err)
 			}
 			errors := CheckReflectOutput(tmpDir)
-			warnCount := 0
+			warnCount, suggestCount := 0, 0
 			for _, e := range errors {
-				if e.Severity == "warning" {
+				switch e.Severity {
+				case "warning":
 					warnCount++
+				case "suggestion":
+					suggestCount++
 				}
 			}
-			if warnCount != tt.wantWarnings {
-				t.Errorf("CheckReflectOutput() warnings = %d, want %d", warnCount, tt.wantWarnings)
+			if warnCount != tt.wantWarnings || suggestCount != tt.wantSuggestions {
+				t.Errorf("CheckReflectOutput() warnings = %d, want %d; suggestions = %d, want %d", warnCount, tt.wantWarnings, suggestCount, tt.wantSuggestions)
 				for _, e := range errors {
 					t.Logf("  %s: %s — %s", e.Severity, e.File, e.Message)
 				}
 			}
 		})
+	}
+}
+
+// Hidden scratch trees under kb/ (e.g. kb/.work/) are not entries — the walker
+// must skip them entirely while still descending into normal subdirectories.
+func TestCheckReflectOutput_SkipsDotDirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	dotWork := filepath.Join(tmpDir, "kb", ".work")
+	if err := os.MkdirAll(dotWork, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Bad name AND bad content: if the walker descended, this would flag.
+	if err := os.WriteFile(filepath.Join(dotWork, "scratch.md"), []byte("no h1, no source, short\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	normal := filepath.Join(tmpDir, "kb", "go")
+	if err := os.MkdirAll(normal, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(normal, "oops.md"), []byte("# T\n(source: x)\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	errors := CheckReflectOutput(tmpDir)
+	if len(errors) == 0 {
+		t.Fatal("CheckReflectOutput() should still flag kb/go/oops.md, got 0 errors")
+	}
+	for _, e := range errors {
+		if strings.Contains(e.File, ".work") {
+			t.Errorf("CheckReflectOutput() linted a dotdir: %s: %s", e.File, e.Message)
+		}
 	}
 }
 

@@ -223,6 +223,9 @@ func (o *Orchestrator) runMemoryChecks() {
 	// Check /dc:reflect KB output (walks <root>/kb/ directly — not in discovery)
 	reflectWarnings := CheckReflectOutput(o.cfg.Root)
 	for _, w := range reflectWarnings {
-		fmt.Fprintf(os.Stderr, "warning: %s: %s\n", w.File, w.Message)
+		if w.Severity == cue.SeveritySuggestion && !o.cfg.Verbose {
+			continue // advisory findings surface only under -v
+		}
+		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", w.Severity, w.File, w.Message)
 	}
 }
