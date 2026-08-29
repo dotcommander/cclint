@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.54.0 (2026-08-29)
+
+### Features
+
+- model Claude Code v2.1.232-v2.1.237 settings, spellcheck, and marketplace alias keys.
+
+### Changed
+
+- preserve deletion semantics in lint modes.
+
 ## v0.53.1 (2026-08-08)
 
 ### Features
