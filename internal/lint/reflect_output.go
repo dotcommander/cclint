@@ -96,18 +96,21 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 		}
 
 		n := countNonEmptyLines(content)
+		// Advisory: entry length is a judgment call (the corpus deliberately
+		// holds both one-liner principle entries and long references), not a
+		// defect. Surfaces with -v only.
 		if n < ReflectMinBodyLines {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry has only " + strconv.Itoa(n) + " non-empty lines (< " + strconv.Itoa(ReflectMinBodyLines) + ") — candidate to fold into another entry",
-				Severity: cue.SeverityWarning,
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		} else if n > ReflectMaxBodyLines {
 			errors = append(errors, cue.ValidationError{
 				File:     rel,
 				Message:  "KB entry has " + strconv.Itoa(n) + " non-empty lines (> " + strconv.Itoa(ReflectMaxBodyLines) + ") — candidate to split",
-				Severity: cue.SeverityWarning,
+				Severity: cue.SeveritySuggestion,
 				Source:   cue.SourceCClintObserve,
 			})
 		}

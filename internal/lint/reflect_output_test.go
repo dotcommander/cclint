@@ -26,8 +26,8 @@ func TestCheckReflectOutput(t *testing.T) {
 		{"bad slug uppercase", "Race-Condition-In-Close.md", goodBody, 1, 0},
 		{"missing source", "a-valid-four-word-slug.md", strings.Replace(goodBody, "(source: https://example.com/post)\n", "no attribution here\n", 1), 0, 1},
 		{"missing h1", "another-valid-four-word.md", strings.Replace(goodBody, "# Race condition in channel close\n", "Race condition (no H1)\n", 1), 1, 0},
-		{"too short body", "short-fold-candidate-entry.md", "# Title\n\n(source: x)\n", 1, 0},
-		{"too long body", "long-split-candidate-entry.md", "# Title\n\n(source: x)\n" + strings.Repeat("body line\n", 510), 1, 0},
+		{"too short body", "short-fold-candidate-entry.md", "# Title\n\n(source: x)\n", 0, 1},
+		{"too long body", "long-split-candidate-entry.md", "# Title\n\n(source: x)\n" + strings.Repeat("body line\n", 510), 0, 1},
 	}
 
 	for _, tt := range tests {
