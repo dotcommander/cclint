@@ -300,7 +300,7 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
 }
 ```
 
-**Hook Events**: `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`, `DirectoryAdded`, `PermissionDenied`, `Setup`, `MessageDisplay`
+**Hook Events**: `PreToolUse`, `PermissionRequest`, `PostToolUse`, `PostToolUseFailure`, `Notification`, `UserPromptSubmit`, `Stop`, `StopFailure`, `SubagentStart`, `SubagentStop`, `PreCompact`, `SessionStart`, `SessionEnd`, `TeammateIdle`, `TaskCompleted`, `TaskCreated`, `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`, `InstructionsLoaded`, `PostCompact`, `Elicitation`, `ElicitationResult`, `CwdChanged`, `FileChanged`, `DirectoryAdded`, `PermissionDenied`, `Setup`, `MessageDisplay`, `PreModelSwitch`, `PostModelSwitch`
 
 **Hook Fields**:
 - `matcher`: Pattern to match (optional for some events)
