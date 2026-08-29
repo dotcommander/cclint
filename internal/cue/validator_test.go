@@ -915,6 +915,53 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings with v2.1.238-v2.1.251 sweep keys",
+			data: map[string]any{
+				"keybindingFlavor":                "readline",
+				"claudeMdExcludes":                []string{"vendor/CLAUDE.md"},
+				"promptCacheTtl":                  "1h",
+				"subagentPromptCacheTtl":          "5m",
+				"desktopSessionCleanupPeriodDays": 30,
+				"feedbackDrafts":                  "quiet",
+				"spinnerTipsOverride": map[string]any{
+					"tipsFile": "/etc/claude/tips.json",
+					"label":    "acme",
+					"tips": []any{
+						"plain string tip",
+						map[string]any{"id": "tip-1", "text": "object tip", "cooldownSessions": 3, "priority": 10},
+					},
+				},
+				"modelPicker": map[string]any{
+					"options": []map[string]any{
+						{"model": "claude-opus-5", "label": "Opus"},
+					},
+					"replaceBuiltInOptions": true,
+				},
+				"modelPricing": map[string]any{
+					"multiplier": 0.8,
+					"overrides": map[string]any{
+						"claude-opus-5": map[string]any{"input": 1.0, "output": 5.0, "cacheRead": 0.1, "cacheWrite": 1.25},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name:      "invalid keybindingFlavor member",
+			data:      map[string]any{"keybindingFlavor": "emacs"},
+			wantError: true,
+		},
+		{
+			name:      "invalid promptCacheTtl member",
+			data:      map[string]any{"promptCacheTtl": "2h"},
+			wantError: true,
+		},
+		{
+			name:      "invalid feedbackDrafts member",
+			data:      map[string]any{"feedbackDrafts": "loud"},
+			wantError: true,
+		},
+		{
 			name: "valid settings with marketplace aliases (v2.1.232)",
 			data: map[string]any{
 				"additionalMarketplaces": map[string]any{

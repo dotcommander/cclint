@@ -125,11 +125,24 @@ package schemas
 	plansDirectory?: string
 
 	// Spinner tips customization (v2.1.45+)
-	// Configure tips with an array of custom tip strings.
+	// tips: custom tip strings or {id, text, cooldownSessions?, priority?}
+	//       objects (object entries v2.1.247+; cooldownSessions waits N sessions
+	//       before repeating, priority is a tie-break weight).
+	// tipsFile loads tips from a file; label rotates org tips alongside the
+	// built-ins (both v2.1.247+).
 	// Set excludeDefault: true to show only custom tips instead of built-in ones.
 	spinnerTipsOverride?: {
-		tips: [...string] & [_, ...]
+		tips?: [...string | {
+			id:                 string
+			text:               string
+			cooldownSessions?:  number
+			priority?:          number
+			...
+		}] & [_, ...]
+		tipsFile?:       string
+		label?:          string
 		excludeDefault?: *false | bool
+		...
 	}
 
 	// Plugin enablement (v2.1.45+)
@@ -530,6 +543,54 @@ package schemas
 		color?:    string
 		...
 	}
+
+	// Model-drafted feedback via the SendFeedback tool (v2.1.247+)
+	// notify (default) shows a one-line notice when a draft is queued;
+	// quiet shows only the feedback card; off disables drafting.
+	feedbackDrafts?: "notify" | "quiet" | "off"
+
+	// Retention ceiling in days for sessions written by Claude Desktop
+	// while they are open in the app (v2.1.248+)
+	desktopSessionCleanupPeriodDays?: number & >=0
+
+	// Curate the /model picker (v2.1.243+)
+	// options is an ordered row list; replaceBuiltInOptions swaps out the
+	// built-in lineup when true.
+	modelPicker?: {
+		options: [...{
+			model:        string
+			label?:       string
+			description?: string
+			...
+		}]
+		replaceBuiltInOptions?: bool
+	}
+
+	// Prompt cache TTL (v2.1.243+): "5m" or "1h" per scope
+	promptCacheTtl?:         "5m" | "1h"
+	subagentPromptCacheTtl?: "5m" | "1h"
+
+	// Contracted per-model rates for /cost, status line, and telemetry
+	// (managed, v2.1.243+); multiplier is a discount factor above 0 and at
+	// most 1; overrides carry per-model prices.
+	modelPricing?: {
+		multiplier?: number & >0 & <=1
+		overrides?: {[string]: {
+			input:      number
+			output:     number
+			cacheRead:  number
+			cacheWrite: number
+			...
+		}}
+		...
+	}
+
+	// Prompt keybinding behavior (v2.1.238+)
+	keybindingFlavor?: "classic" | "readline"
+
+	// Glob patterns or absolute paths of CLAUDE.md files to exclude
+	// (backfill: referenced by v2.1.239 fixes, never previously modeled)
+	claudeMdExcludes?: [...string]
 
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
