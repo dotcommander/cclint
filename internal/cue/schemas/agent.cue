@@ -78,6 +78,12 @@ import (
 	requiredMcpServers?: [...string]                          // agent only runs when these MCP servers are connected (v2.1.156)
 	criticalSystemReminder_EXPERIMENTAL?: string             // experimental: reminder re-injected as a system message (v2.1.156)
 
+	// Experimental agent features (v2.1.248+)
+	experimental?: {
+		cacheTtl?: "5m" | "1h" // per-agent prompt cache TTL when no subagent TTL setting is configured
+		...
+	}
+
 	// Allow additional fields
 	...
 }

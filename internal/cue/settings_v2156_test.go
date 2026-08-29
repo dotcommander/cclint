@@ -136,6 +136,24 @@ func TestValidateAgent_v2156Frontmatter(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid experimental cacheTtl",
+			data: map[string]any{
+				"name":         "test-agent",
+				"description":  "Agent with cache TTL",
+				"experimental": map[string]any{"cacheTtl": "1h"},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid experimental cacheTtl member",
+			data: map[string]any{
+				"name":         "test-agent",
+				"description":  "Agent with bad cache TTL",
+				"experimental": map[string]any{"cacheTtl": "30m"},
+			},
+			wantError: true,
+		},
+		{
 			name: "valid criticalSystemReminder_EXPERIMENTAL string",
 			data: map[string]any{
 				"name":                                "test-agent",
