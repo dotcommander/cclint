@@ -28,6 +28,8 @@ func TestValidateHooksValidEvents(t *testing.T) {
 		wantErrorCount int
 	}{
 		{"valid MessageDisplay hook", hook("MessageDisplay", cmd("echo display")), 0},
+		{"valid PreModelSwitch hook", hook("PreModelSwitch", cmd("echo pre-switch")), 0},
+		{"valid PostModelSwitch hook", hook("PostModelSwitch", cmd("echo post-switch")), 0},
 		{"valid StopFailure hook", hook("StopFailure", cmd("echo stop failed")), 0},
 		{"valid SubagentStart hook", hook("SubagentStart", cmd("echo subagent started")), 0},
 		{"valid PostToolUseFailure hook", hook("PostToolUseFailure", cmd("echo tool failed")), 0},

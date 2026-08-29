@@ -22,6 +22,8 @@ var validHookEvents = map[string]bool{
 	"PostToolUseFailure": true,
 	"Notification":       true,
 	"MessageDisplay":     true, // transforms/hides assistant message text (v2.1.152+)
+	"PreModelSwitch":     true, // block, confirm, or annotate a model switch (v2.1.251)
+	"PostModelSwitch":    true, // fires after a model switch completes (v2.1.251)
 	"UserPromptSubmit":   true,
 	"Stop":               true,
 	"SubagentStart":      true,
