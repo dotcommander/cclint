@@ -309,6 +309,8 @@ var KnownTools = map[string]bool{
 	"ScheduleWakeup": true, "PushNotification": true, "REPL": true,
 	// Conversation control (v2.1.214)
 	"EndConversation": true,
+	// Session feedback (v2.1.247)
+	"SendFeedback": true,
 	// Wildcards
 	"*": true,
 }
