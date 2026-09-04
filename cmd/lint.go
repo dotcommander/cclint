@@ -36,13 +36,11 @@ func runComponentLint(opts executionOptions, entry lint.LinterEntry) error {
 		summary = result.Summaries[0]
 	}
 
-	if err := formatSummaryOutput(cfg, summary); err != nil {
+	if err := reportLintOutcome(cfg, opts, componentLintOutcome(result, summary), func() error {
+		return formatSummaryOutput(cfg, summary)
+	}); err != nil {
 		return err
 	}
-
-	printBaselineSummary(result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored, cfg.Quiet)
-	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, opts, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }

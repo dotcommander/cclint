@@ -89,13 +89,12 @@ func runLintWithConfig(cfg *config.Config, opts executionOptions) error {
 		return err
 	}
 
-	if err := formatFullRunOutput(cfg, result); err != nil {
+	err = reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error {
+		return formatFullRunOutput(cfg, result)
+	})
+	if err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
-
-	printBaselineSummary(result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored, cfg.Quiet)
-	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, opts, result.TotalErrors, result.TotalWarnings, result.TotalSuggestions)
 
 	return nil
 }
@@ -174,12 +173,11 @@ func runSingleFileLint(opts executionOptions, cmd *lintCommand, files []string) 
 		return err
 	}
 
-	if err := formatSummaryOutput(cfg, summary); err != nil {
+	if err := reportLintOutcome(cfg, opts, summaryLintOutcome(summary), func() error {
+		return formatSummaryOutput(cfg, summary)
+	}); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
-
-	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, opts, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }
@@ -237,12 +235,11 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		return err
 	}
 
-	if err := formatSummaryOutput(cfg, summary); err != nil {
+	if err := reportLintOutcome(cfg, opts, summaryLintOutcome(summary), func() error {
+		return formatSummaryOutput(cfg, summary)
+	}); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
 	}
-
-	printValidationReminder(cfg)
-	applyFailurePolicy(cfg, opts, summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions)
 
 	return nil
 }
