@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.55.0 (2026-09-04)
+
+### Features
+
+- model Claude Code v2.1.238-v2.1.260 settings, hooks, agent fields, and tools.
+- validate managed HTTP/SSE MCP server entries and expanded permission settings.
+
+### Changed
+
+- centralize CLI lint outcome reporting across full, component, file, and git modes.
+- calibrate knowledge-base reflection advisories for canonical entry corpora.
+
 ## v0.54.0 (2026-08-29)
 
 ### Features
