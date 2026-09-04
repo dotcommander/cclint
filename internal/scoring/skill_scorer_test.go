@@ -234,7 +234,7 @@ Scoring formula: points / maxPoints
 				"description": "Large skill",
 			},
 			bodyContent: strings.Repeat("Line of content\n", 600),
-			wantCompMin:  0,
+			wantCompMin: 0,
 		},
 		{
 			name: "Excellent size skill - under 250 lines",
@@ -243,8 +243,8 @@ Scoring formula: points / maxPoints
 				"description": strings.Repeat("Good description here. ", 5),
 			},
 			bodyContent: strings.Repeat("Line\n", 200) + "\n```\ncode\n```\n```\nmore\n```\n```\nyet more\n```",
-			wantCompMin:  8,
-			wantDocMin:   8,
+			wantCompMin: 8,
+			wantDocMin:  8,
 		},
 	}
 
@@ -288,8 +288,8 @@ func TestSkillScorer_MethodologyDetection(t *testing.T) {
 	scorer := NewSkillScorer()
 
 	tests := []struct {
-		name         string
-		bodyContent  string
+		name          string
+		bodyContent   string
 		isMethodology bool
 	}{
 		{
@@ -1034,13 +1034,13 @@ Score = quality * completeness
 	score := scorer.Score(content, frontmatter, bodyContent)
 
 	expectedMetrics := map[string]bool{
-		"Semantic routing table":       true,
-		"Phase-based workflow":         true,
-		"Anti-patterns table format":   true,
-		"HARD GATE markers":            true,
-		"Success criteria checkboxes":  true,
-		"References to references/":    true,
-		"Scoring formula":              true,
+		"Semantic routing table":      true,
+		"Phase-based workflow":        true,
+		"Anti-patterns table format":  true,
+		"HARD GATE markers":           true,
+		"Success criteria checkboxes": true,
+		"References to references/":   true,
+		"Scoring formula":             true,
 	}
 
 	for metricName, shouldPass := range expectedMetrics {

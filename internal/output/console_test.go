@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/scoring"
 	"github.com/dotcommander/cclint/internal/textutil"
 )

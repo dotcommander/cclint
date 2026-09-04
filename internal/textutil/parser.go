@@ -8,8 +8,8 @@ import (
 
 // Frontmatter represents parsed frontmatter data
 type Frontmatter struct {
-	Data  map[string]any
-	Body  string
+	Data map[string]any
+	Body string
 }
 
 // ParseYAMLFrontmatter extracts YAML frontmatter from markdown content.

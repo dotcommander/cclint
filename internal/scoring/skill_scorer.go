@@ -313,11 +313,11 @@ func isThinRouter(bodyContent string, lineCount int) bool {
 
 // Pre-compiled patterns for thin router scoring.
 var (
-	thinRouterRoutingTablePattern = regexp.MustCompile(`\|.*\|.*Read\(references/`)
-	thinRouterRefsPattern         = regexp.MustCompile(`references/\w+`)
-	thinRouterDecisionPattern     = regexp.MustCompile(`(?i)(\|\s*Intent\s*\||\|\s*Decision\s*\||\|\s*When\s*\||\|\s*User Question\s*\|)`)
-	thinRouterAntiPatternsPattern = regexp.MustCompile(`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`)
-	thinRouterSuccessPattern      = regexp.MustCompile(`(?i)(## Success Criteria|success criteria|- \[ \])`)
+	thinRouterRoutingTablePattern  = regexp.MustCompile(`\|.*\|.*Read\(references/`)
+	thinRouterRefsPattern          = regexp.MustCompile(`references/\w+`)
+	thinRouterDecisionPattern      = regexp.MustCompile(`(?i)(\|\s*Intent\s*\||\|\s*Decision\s*\||\|\s*When\s*\||\|\s*User Question\s*\|)`)
+	thinRouterAntiPatternsPattern  = regexp.MustCompile(`(?i)(## Anti-Patterns?|### Anti-Patterns?|\| Anti-Pattern)`)
+	thinRouterSuccessPattern       = regexp.MustCompile(`(?i)(## Success Criteria|success criteria|- \[ \])`)
 	thinRouterRelatedSkillsPattern = regexp.MustCompile(`(?i)(related skills|see also|cross-link|## Related)`)
 )
 

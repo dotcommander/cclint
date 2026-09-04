@@ -26,9 +26,9 @@ func TestCommandScorer_Score(t *testing.T) {
 		{
 			name: "Perfect command",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Read", "Write", "Task"},
-				"description":    "Comprehensive command that does many things effectively",
-				"argument-hint":  "file-path",
+				"allowed-tools": []string{"Read", "Write", "Task"},
+				"description":   "Comprehensive command that does many things effectively",
+				"argument-hint": "file-path",
 			},
 			bodyContent: `
 Task(agent-type: "general-purpose", prompt: "Do work")
@@ -66,9 +66,9 @@ command --flag value
 		{
 			name: "Command with Task delegation",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command",
+				"argument-hint": "input",
 			},
 			bodyContent: `
 Task(agent-type: "test-specialist", prompt: "Run tests")
@@ -80,9 +80,9 @@ Task(agent-type: "report-generator", prompt: "Generate report")
 		{
 			name: "Command with success criteria",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command",
+				"argument-hint": "input",
 			},
 			bodyContent: `
 ## Success Criteria
@@ -98,9 +98,9 @@ Task(agent-type: "test", prompt: "test")
 		{
 			name: "Command with checkboxes format",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test",
+				"argument-hint": "input",
 			},
 			bodyContent: `
 - [ ] First criteria
@@ -113,9 +113,9 @@ Task(test)
 		{
 			name: "Command with flags documentation",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test",
+				"argument-hint": "input",
 			},
 			bodyContent: `
 ## Flags
@@ -130,9 +130,9 @@ Task(test)
 		{
 			name: "Command with inline flags",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test",
+				"argument-hint": "input",
 			},
 			bodyContent: `
 Use --verbose for detailed output.
@@ -145,43 +145,43 @@ Task(test)
 		{
 			name: "Large command - over 55 lines",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Large command",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Large command",
+				"argument-hint": "input",
 			},
 			bodyContent: strings.Repeat("Line of content\n", 60),
-			wantCompMin:  0, // Over limit
+			wantCompMin: 0, // Over limit
 		},
 		{
 			name: "Small command - under 30 lines",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Concise command with good description length here",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Concise command with good description length here",
+				"argument-hint": "input",
 			},
 			bodyContent: "Task(test)\n\n" + strings.Repeat("Line\n", 5),
-			wantCompMin:  8,
-			wantDocMin:   3, // Description >= 50 chars gives 5 points, no code examples = 3 total
+			wantCompMin: 8,
+			wantDocMin:  3, // Description >= 50 chars gives 5 points, no code examples = 3 total
 		},
 		{
 			name: "Command with code examples",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command with examples and good description",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command with examples and good description",
+				"argument-hint": "input",
 			},
 			bodyContent: "```bash\ncommand arg\n```\n\nTask(test)",
-			wantDocMin:   8, // Description (3 for <50 chars) + Code examples (5)
+			wantDocMin:  8, // Description (3 for <50 chars) + Code examples (5)
 		},
 		{
 			name: "Command with generic code block",
 			frontmatter: map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command with great description goes here now",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command with great description goes here now",
+				"argument-hint": "input",
 			},
 			bodyContent: "```\ncode here\n```\n\nTask(test)",
-			wantDocMin:   8, // Description (3) + Code examples (5)
+			wantDocMin:  8, // Description (3) + Code examples (5)
 		},
 	}
 
@@ -239,9 +239,9 @@ func TestCommandScorer_TaskDelegationDetection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			scorer := NewCommandScorer()
 			frontmatter := map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test",
+				"argument-hint": "input",
 			}
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
@@ -318,9 +318,9 @@ func TestCommandScorer_DescriptionQuality(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			frontmatter := map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    tt.desc,
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   tt.desc,
+				"argument-hint": "input",
 			}
 			content := generateFullContent(frontmatter, "Task(test)")
 			score := scorer.Score(content, frontmatter, "Task(test)")
@@ -363,21 +363,21 @@ func TestCommandScorer_CompositionScoring(t *testing.T) {
 		wantPoints int
 		wantPassed bool
 	}{
-		{"Excellent - 25 lines", 20, 10, true},   // 22 lines counted, ≤30
-		{"Good - under 45", 40, 8, true},         // 42 lines counted, ≤45
-		{"Good boundary - 45", 43, 8, true},      // 45 lines counted, =45
-		{"OK - 50 lines", 48, 6, true},           // 50 lines counted, ≤55
-		{"OK boundary - 54", 52, 6, true},        // 54 lines counted, ≤55
-		{"Over limit - 60", 58, 3, false},        // 60 lines counted
-		{"Fat command - 100", 98, 0, false},      // 100 lines counted
+		{"Excellent - 25 lines", 20, 10, true}, // 22 lines counted, ≤30
+		{"Good - under 45", 40, 8, true},       // 42 lines counted, ≤45
+		{"Good boundary - 45", 43, 8, true},    // 45 lines counted, =45
+		{"OK - 50 lines", 48, 6, true},         // 50 lines counted, ≤55
+		{"OK boundary - 54", 52, 6, true},      // 54 lines counted, ≤55
+		{"Over limit - 60", 58, 3, false},      // 60 lines counted
+		{"Fat command - 100", 98, 0, false},    // 100 lines counted
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			frontmatter := map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command",
+				"argument-hint": "input",
 			}
 			bodyContent := "Task(test)\n" + strings.Repeat("Line\n", tt.repeats)
 			content := generateFullContent(frontmatter, bodyContent)
@@ -475,9 +475,9 @@ Task(test)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			frontmatter := map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test",
+				"argument-hint": "input",
 			}
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)
@@ -534,9 +534,9 @@ func TestCommandScorer_CodeExamples(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			frontmatter := map[string]any{
-				"allowed-tools":  []string{"Task"},
-				"description":    "Test command with good description",
-				"argument-hint":  "input",
+				"allowed-tools": []string{"Task"},
+				"description":   "Test command with good description",
+				"argument-hint": "input",
 			}
 			content := generateFullContent(frontmatter, tt.bodyContent)
 			score := scorer.Score(content, frontmatter, tt.bodyContent)

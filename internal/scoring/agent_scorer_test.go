@@ -128,7 +128,7 @@ Skills:
 				"model":       "claude-3-5-sonnet-20241022",
 				"tools":       []string{"Read"},
 			},
-			bodyContent: "Content",
+			bodyContent:  "Content",
 			wantPractMin: 5, // Third-person description
 		},
 		{
@@ -150,7 +150,7 @@ Skills:
 				"model":       "claude-3-5-sonnet-20241022",
 				"tools":       []string{"Read"},
 			},
-			bodyContent: "Content",
+			bodyContent:  "Content",
 			wantPractMin: 10, // Third-person (5) + WHEN trigger (5)
 		},
 		{
@@ -161,7 +161,7 @@ Skills:
 				"model":       "claude-3-5-sonnet-20241022",
 				"tools":       []string{"Read"},
 			},
-			bodyContent: "Content",
+			bodyContent:  "Content",
 			wantPractMin: 10,
 		},
 		{
@@ -173,7 +173,7 @@ Skills:
 				"tools":       []string{"Read"},
 			},
 			bodyContent: strings.Repeat("Line of content\n", 250),
-			wantCompMin:  0, // Over limit
+			wantCompMin: 0, // Over limit
 		},
 		{
 			name: "Well-structured agent - many sections",
@@ -346,11 +346,11 @@ func TestAgentScorer_SectionStructure(t *testing.T) {
 	scorer := NewAgentScorer()
 
 	tests := []struct {
-		name         string
-		bodyContent  string
-		wantPoints   int
-		wantNote     string
-		wantPassed   bool
+		name        string
+		bodyContent string
+		wantPoints  int
+		wantNote    string
+		wantPassed  bool
 	}{
 		{
 			name:        "Well-structured (>=6 sections)",
@@ -430,13 +430,13 @@ func TestAgentScorer_CompositionScoring(t *testing.T) {
 		wantPoints int
 		wantPassed bool
 	}{
-		{"Excellent - under 120 lines", 100, 10, true},  // 101 lines counted, ≤120
-		{"Good - under 180 lines", 170, 8, true},        // 171 lines counted, ≤180
-		{"Good boundary - 179 lines", 179, 8, true},     // 180 lines counted, =180
-		{"OK - 200 lines counted", 199, 6, true},        // 200 lines counted, ≤220
-		{"OK boundary - 219 lines", 219, 6, true},       // 220 lines counted, =220
-		{"Over limit - 250 lines", 250, 3, false},       // 251 lines counted, ≤275
-		{"Fat agent - 300 lines", 300, 0, false},        // 301 lines counted, >275
+		{"Excellent - under 120 lines", 100, 10, true}, // 101 lines counted, ≤120
+		{"Good - under 180 lines", 170, 8, true},       // 171 lines counted, ≤180
+		{"Good boundary - 179 lines", 179, 8, true},    // 180 lines counted, =180
+		{"OK - 200 lines counted", 199, 6, true},       // 200 lines counted, ≤220
+		{"OK boundary - 219 lines", 219, 6, true},      // 220 lines counted, =220
+		{"Over limit - 250 lines", 250, 3, false},      // 251 lines counted, ≤275
+		{"Fat agent - 300 lines", 300, 0, false},       // 301 lines counted, >275
 	}
 
 	for _, tt := range tests {
