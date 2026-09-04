@@ -82,6 +82,17 @@ package schemas
 	...
 }
 
+// HTTP/SSE MCP server entries deliverable through managed settings (v2.1.259+).
+// Managed entries intentionally cannot name a local program to run.
+#ManagedMcpServer: {
+	type: "http" | "sse"
+	url: string
+	headers?: {[string]: string}
+	command?: _|_ // managed entries cannot launch a local process
+	args?:    _|_
+	...
+}
+
 // Credential masking fields added in v2.1.224.
 #CredentialMaskFields: {
 	extract?:          string
@@ -110,6 +121,16 @@ package schemas
 	// Events map to arrays of hook configurations
 	hooks?: {
 		[string]: [...#Hook]
+	}
+
+	// Permission rules and directory-read policy.
+	permissions?: {
+		allow?: [...string]
+		deny?: [...string]
+		ask?: [...string]
+		defaultMode?: string // modeled permissively; bypassPermissions is runtime-tier-gated
+		blockReadsOutsideWorkingDirectories?: bool // v2.1.257+
+		...
 	}
 
 	// Language setting (v2.1.0+)
@@ -183,6 +204,12 @@ package schemas
 	// Friendlier alias for strictKnownMarketplaces (managed settings only, v2.1.232+)
 	// Read exactly as if spelled strictKnownMarketplaces; do not set both in one file.
 	allowedMarketplaces?: [...#MarketplaceSource]
+
+	// HTTP/SSE MCP servers supplied by an organization (managed settings only,
+	// v2.1.259+). Entries use the .mcp.json server-entry shape, keyed by name.
+	managedMcpServers?: {
+		[string]: #ManagedMcpServer
+	}
 
 	// Disable all hooks (v2.1.49+)
 	// Non-managed settings cannot disable managed hooks set by enterprise policy
@@ -375,6 +402,13 @@ package schemas
 	// TUI rendering mode (v2.1.110+)
 	// Controls rendering mode for the CLI; "/tui fullscreen" switches to flicker-free fullscreen rendering.
 	tui?: string
+
+	// Clock format for UI timestamps (v2.1.257+): "auto", "12-hour",
+	// "24-hour", "24-hour-utc", or a strftime pattern containing "%".
+	timeFormat?: string
+
+	// IANA time zone for UI timestamps (v2.1.257+); unknown names fall back at runtime.
+	timeZone?: string
 
 	// Conversation auto-scroll toggle (v2.1.110+)
 	// Disable auto-scroll in fullscreen mode (default: true)

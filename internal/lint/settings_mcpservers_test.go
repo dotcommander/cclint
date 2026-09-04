@@ -215,3 +215,69 @@ func TestValidateMCPServers(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateManagedMCPServers(t *testing.T) {
+	tests := []struct {
+		name       string
+		mcpServers any
+		wantErrors int
+	}{
+		{
+			name: "valid HTTP entry",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "http", "url": "https://example.com/mcp"},
+			},
+		},
+		{
+			name: "valid SSE entry",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "sse", "url": "https://example.com/sse"},
+			},
+		},
+		{
+			name:       "not an object",
+			mcpServers: []any{"company-tools"},
+			wantErrors: 1,
+		},
+		{
+			name: "unsupported transport",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "stdio", "url": "https://example.com"},
+			},
+			wantErrors: 1,
+		},
+		{
+			name: "missing URL",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "http"},
+			},
+			wantErrors: 1,
+		},
+		{
+			name: "command rejected",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "http", "url": "https://example.com", "command": "run"},
+			},
+			wantErrors: 1,
+		},
+		{
+			name: "args rejected",
+			mcpServers: map[string]any{
+				"company-tools": map[string]any{"type": "http", "url": "https://example.com", "args": []any{}},
+			},
+			wantErrors: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := validateManagedMCPServers(tt.mcpServers, "settings.json")
+			if len(errs) != tt.wantErrors {
+				t.Errorf("validateManagedMCPServers() error count = %d, want %d", len(errs), tt.wantErrors)
+				for _, err := range errs {
+					t.Logf("  - [%s] %s", err.Severity, err.Message)
+				}
+			}
+		})
+	}
+}

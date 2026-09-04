@@ -117,6 +117,12 @@ func validateSettingsSpecific(data map[string]any, filePath string) []cue.Valida
 		errors = append(errors, validateMCPServers(mcpServers, filePath)...)
 	}
 
+	// Check managed MCP servers separately: they are remote HTTP/SSE entries,
+	// unlike user/project mcpServers which may name a command.
+	if managedMcpServers, ok := data["managedMcpServers"]; ok {
+		errors = append(errors, validateManagedMCPServers(managedMcpServers, filePath)...)
+	}
+
 	// Check rules array if present
 	if rules, ok := data["rules"]; ok {
 		errors = append(errors, validateRules(rules, filePath)...)

@@ -70,6 +70,16 @@ func TestValidateSettingsSpecific(t *testing.T) {
 			wantErrorCount: 1,
 		},
 		{
+			name: "valid permission mode and read block",
+			data: map[string]any{
+				"permissions": map[string]any{
+					"defaultMode":                         "acceptEdits",
+					"blockReadsOutsideWorkingDirectories": true,
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
 			name: "valid hooks and valid permissions together",
 			data: map[string]any{
 				"hooks": map[string]any{
@@ -116,6 +126,31 @@ func TestValidateSettingsSpecific(t *testing.T) {
 				"mcpServers": map[string]any{
 					"bad-server": map[string]any{
 						"args": []any{"--flag"},
+					},
+				},
+			},
+			wantErrorCount: 1,
+		},
+		{
+			name: "valid managed HTTP MCP server",
+			data: map[string]any{
+				"managedMcpServers": map[string]any{
+					"company-tools": map[string]any{
+						"type": "http",
+						"url":  "https://example.com/mcp",
+					},
+				},
+			},
+			wantErrorCount: 0,
+		},
+		{
+			name: "managed MCP server command rejected",
+			data: map[string]any{
+				"managedMcpServers": map[string]any{
+					"company-tools": map[string]any{
+						"type":    "http",
+						"url":     "https://example.com/mcp",
+						"command": "npx",
 					},
 				},
 			},

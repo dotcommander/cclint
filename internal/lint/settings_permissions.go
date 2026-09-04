@@ -9,7 +9,8 @@ import (
 )
 
 // validatePermissions validates the permissions section of settings.json.
-// Expected structure: {"allow": ["Bash(npm*)", ...], "deny": ["Bash(rm*)", ...], "ask": ["Bash(rm*)", ...]}
+// Expected structure: optional allow/deny/ask arrays, defaultMode string, and
+// blockReadsOutsideWorkingDirectories boolean.
 func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -25,6 +26,28 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	}
 
 	for key, val := range permsMap {
+		if key == "defaultMode" {
+			if _, ok := val.(string); !ok {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  "permissions.defaultMode must be a string",
+					Severity: cue.SeverityError,
+					Source:   cue.SourceAnthropicDocs,
+				})
+			}
+			continue
+		}
+		if key == "blockReadsOutsideWorkingDirectories" {
+			if _, ok := val.(bool); !ok {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  "permissions.blockReadsOutsideWorkingDirectories must be a boolean",
+					Severity: cue.SeverityError,
+					Source:   cue.SourceAnthropicDocs,
+				})
+			}
+			continue
+		}
 		if key != "allow" && key != "deny" && key != "ask" {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,

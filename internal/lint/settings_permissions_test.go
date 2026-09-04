@@ -67,10 +67,34 @@ func TestValidatePermissions(t *testing.T) {
 			wantErrors: 0,
 		},
 		{
+			name: "valid defaultMode and read block",
+			perms: map[string]any{
+				"defaultMode":                         "acceptEdits",
+				"blockReadsOutsideWorkingDirectories": true,
+			},
+			wantErrors: 0,
+		},
+		{
 			name: "unknown key in permissions",
 			perms: map[string]any{
 				"allow":  []any{"Read"},
 				"permit": []any{"Write"},
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
+			name: "defaultMode not a string",
+			perms: map[string]any{
+				"defaultMode": 42,
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
+			name: "read block not a boolean",
+			perms: map[string]any{
+				"blockReadsOutsideWorkingDirectories": "true",
 			},
 			wantErrors:   1,
 			wantSeverity: "error",

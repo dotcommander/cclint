@@ -153,3 +153,77 @@ func validateMCPServerEnv(serverName string, envVal any, filePath string) []cue.
 	}
 	return errors
 }
+
+// validateManagedMCPServers validates the v2.1.259+ managed-settings map.
+// Unlike user/project mcpServers, managed entries are remote HTTP/SSE servers
+// and cannot name a program to run.
+func validateManagedMCPServers(managedMcpServers any, filePath string) []cue.ValidationError {
+	serversMap, ok := managedMcpServers.(map[string]any)
+	if !ok {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "managedMcpServers must be an object mapping server names to HTTP/SSE configurations",
+			Severity: cue.SeverityError,
+			Source:   cue.SourceAnthropicDocs,
+		}}
+	}
+
+	var errors []cue.ValidationError
+	for serverName, serverConfig := range serversMap {
+		if serverName == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  "managedMcpServers: server name must not be empty",
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		serverMap, ok := serverConfig.(map[string]any)
+		if !ok {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("managedMcpServers '%s': server configuration must be an object", serverName),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+			continue
+		}
+
+		transport, _ := serverMap["type"].(string)
+		if transport != "http" && transport != "sse" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("managedMcpServers '%s': type must be \"http\" or \"sse\"", serverName),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+		if url, ok := serverMap["url"].(string); !ok || url == "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("managedMcpServers '%s': url must be a non-empty string", serverName),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+		if _, exists := serverMap["command"]; exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("managedMcpServers '%s': managed servers cannot use command", serverName),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+		if _, exists := serverMap["args"]; exists {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("managedMcpServers '%s': managed servers cannot use args", serverName),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+	}
+	return errors
+}
