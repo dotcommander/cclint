@@ -9,14 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsComponentType(t *testing.T) {
-	for _, value := range []string{"agents", "commands", "skills", "settings", "context", "plugins", "rules", "AGENTS"} {
-		assert.True(t, isComponentType(value), value)
-	}
-	assert.False(t, isComponentType("output-styles"))
-	assert.False(t, isComponentType("unknown"))
-}
-
 func TestCollectFilesToFormatPrecedence(t *testing.T) {
 	root := t.TempDir()
 	explicit := filepath.Join(root, "explicit.md")
@@ -34,6 +26,27 @@ func TestCollectFilesToFormatPrecedence(t *testing.T) {
 	got, err = collectFilesToFormat(&fmtCommand{Args: []string{"agents", argument}}, root)
 	require.NoError(t, err)
 	assert.Equal(t, []string{argument}, got, "path arguments must take precedence over component types")
+}
+
+func TestCollectFilesToFormatUsesFormatterCapability(t *testing.T) {
+	root := t.TempDir()
+	agentDir := filepath.Join(root, ".claude", "agents")
+	outputStyleDir := filepath.Join(root, ".claude", "output-styles")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.MkdirAll(outputStyleDir, 0o755))
+	agent := filepath.Join(agentDir, "agent.md")
+	outputStyle := filepath.Join(outputStyleDir, "style.md")
+	require.NoError(t, os.WriteFile(agent, []byte("# Agent\n"), 0o600))
+	require.NoError(t, os.WriteFile(outputStyle, []byte("# Style\n"), 0o600))
+
+	got, err := collectFilesToFormat(&fmtCommand{Args: []string{"agents"}}, root)
+	require.NoError(t, err)
+	assert.Equal(t, []string{agent}, got, "component selection must use the formatter capability registry")
+
+	_, err = collectFilesToFormat(&fmtCommand{Args: []string{"output-styles"}}, root)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot access output-styles",
+		"output styles must remain filesystem arguments rather than formatter component selectors")
 }
 
 func TestCollectFilesToFormatExpandsDirectories(t *testing.T) {

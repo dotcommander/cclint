@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/dotcommander/cclint/internal/discovery"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,18 +19,43 @@ type Formatter interface {
 	Format(content string) (string, error)
 }
 
+// componentFormatterFactories is the formatter-owned capability registry.
+// Generic Markdown component types retain the historical SkillFormatter.
+// Output styles are intentionally absent: positional fmt arguments have never
+// selected them.
+var componentFormatterFactories = map[discovery.FileType]func() Formatter{ //nolint:gochecknoglobals // Immutable formatter capability registry.
+	discovery.FileTypeAgent:    func() Formatter { return &AgentFormatter{} },
+	discovery.FileTypeCommand:  func() Formatter { return &CommandFormatter{} },
+	discovery.FileTypeSkill:    func() Formatter { return &SkillFormatter{} },
+	discovery.FileTypeSettings: func() Formatter { return &SkillFormatter{} },
+	discovery.FileTypeContext:  func() Formatter { return &SkillFormatter{} },
+	discovery.FileTypePlugin:   func() Formatter { return &SkillFormatter{} },
+	discovery.FileTypeRule:     func() Formatter { return &SkillFormatter{} },
+}
+
+// CanFormatComponent reports whether componentType names a component selected
+// by positional fmt arguments. Singular and plural discovery aliases are valid.
+func CanFormatComponent(componentType string) bool {
+	_, ok := formatterFor(componentType)
+	return ok
+}
+
+// formatterFor resolves the formatter factory registered for a component type.
+func formatterFor(componentType string) (func() Formatter, bool) {
+	fileType, err := discovery.ParseFileType(componentType)
+	if err != nil {
+		return nil, false
+	}
+	factory, ok := componentFormatterFactories[fileType]
+	return factory, ok
+}
+
 // NewComponentFormatter creates a formatter for a specific component type.
 func NewComponentFormatter(componentType string) Formatter {
-	switch componentType {
-	case "agent":
-		return &AgentFormatter{}
-	case "command":
-		return &CommandFormatter{}
-	case "skill":
-		return &SkillFormatter{}
-	default:
-		return &SkillFormatter{}
+	if factory, ok := formatterFor(componentType); ok {
+		return factory()
 	}
+	return &SkillFormatter{}
 }
 
 // parseResult holds the result of parsing frontmatter from content.

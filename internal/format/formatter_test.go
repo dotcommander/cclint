@@ -2,6 +2,7 @@ package format
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -455,6 +456,44 @@ func TestNewComponentFormatter(t *testing.T) {
 			_ = actualType
 			_ = expectedShort
 		})
+	}
+}
+
+func TestCanFormatComponent(t *testing.T) {
+	formatters := map[string]Formatter{
+		"agent":    &AgentFormatter{},
+		"agents":   &AgentFormatter{},
+		"AGENTS":   &AgentFormatter{},
+		"command":  &CommandFormatter{},
+		"commands": &CommandFormatter{},
+		"skill":    &SkillFormatter{},
+		"skills":   &SkillFormatter{},
+		"settings": &SkillFormatter{},
+		"context":  &SkillFormatter{},
+		"plugin":   &SkillFormatter{},
+		"plugins":  &SkillFormatter{},
+		"rule":     &SkillFormatter{},
+		"rules":    &SkillFormatter{},
+	}
+	for componentType, want := range formatters {
+		t.Run(componentType, func(t *testing.T) {
+			if !CanFormatComponent(componentType) {
+				t.Fatalf("CanFormatComponent(%q) = false, want true", componentType)
+			}
+			if got := NewComponentFormatter(componentType); reflect.TypeOf(got) != reflect.TypeOf(want) {
+				t.Fatalf("NewComponentFormatter(%q) = %T, want %T", componentType, got, want)
+			}
+		})
+	}
+
+	for _, componentType := range []string{"output-style", "output-styles", "unknown", ""} {
+		if CanFormatComponent(componentType) {
+			t.Errorf("CanFormatComponent(%q) = true, want false", componentType)
+		}
+		formatter := NewComponentFormatter(componentType)
+		if _, ok := formatter.(*SkillFormatter); !ok {
+			t.Errorf("NewComponentFormatter(%q) = %T, want *SkillFormatter", componentType, formatter)
+		}
 	}
 }
 

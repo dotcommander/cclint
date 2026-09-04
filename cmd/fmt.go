@@ -186,8 +186,7 @@ func collectFilesToFormat(cmd *fmtCommand, rootPath string) ([]string, error) {
 	var componentTypeArg string
 
 	for _, arg := range cmd.Args {
-		// Check if it's a component type (agents, commands, skills)
-		if isComponentType(arg) {
+		if format.CanFormatComponent(arg) {
 			componentTypeArg = arg
 			continue
 		}
@@ -237,20 +236,6 @@ func resolvePathArgs(paths []string) ([]string, error) {
 	return files, nil
 }
 
-// isComponentType checks if arg is a component type name.
-func isComponentType(arg string) bool {
-	types := map[string]bool{
-		"agents":   true,
-		"commands": true,
-		"skills":   true,
-		"settings": true,
-		"context":  true,
-		"plugins":  true,
-		"rules":    true,
-	}
-	return types[strings.ToLower(arg)]
-}
-
 // discoverFilesInDir finds all .md files in a directory.
 func discoverFilesInDir(dirPath string) ([]string, error) {
 	var files []string
@@ -268,6 +253,11 @@ func discoverFilesInDir(dirPath string) ([]string, error) {
 
 // discoverFilesByType discovers files of a specific component type.
 func discoverFilesByType(rootPath, componentType string) ([]string, error) {
+	targetType, err := discovery.ParseFileType(componentType)
+	if err != nil || !format.CanFormatComponent(componentType) {
+		return nil, fmt.Errorf("unknown component type: %s", componentType)
+	}
+
 	discoverer := discovery.NewFileDiscovery(rootPath, false)
 	allFiles, err := discoverer.DiscoverFiles()
 	if err != nil {
@@ -275,27 +265,6 @@ func discoverFilesByType(rootPath, componentType string) ([]string, error) {
 	}
 
 	var files []string
-	var targetType discovery.FileType
-
-	switch componentType {
-	case "agents":
-		targetType = discovery.FileTypeAgent
-	case "commands":
-		targetType = discovery.FileTypeCommand
-	case "skills":
-		targetType = discovery.FileTypeSkill
-	case "settings":
-		targetType = discovery.FileTypeSettings
-	case "context":
-		targetType = discovery.FileTypeContext
-	case "plugins":
-		targetType = discovery.FileTypePlugin
-	case "rules":
-		targetType = discovery.FileTypeRule
-	default:
-		return nil, fmt.Errorf("unknown component type: %s", componentType)
-	}
-
 	for _, f := range allFiles {
 		if f.Type == targetType {
 			files = append(files, f.Path)
