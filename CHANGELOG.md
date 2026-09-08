@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.56.0 (2026-09-08)
+
+### Features
+
+- model Claude Code v2.1.261-v2.1.265 output-cap and gateway-login settings.
+- accept the `haiku[1m]`, `best[1m]`, and `opusplan[1m]` model aliases.
+
+### Changed
+
+- centralize component type names and formatter selection.
+- migrate lint settings and exclusions to the golangci-lint v2 schema.
+
 ## v0.55.0 (2026-09-04)
 
 ### Features
