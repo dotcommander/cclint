@@ -1,6 +1,9 @@
 # Inherited by all repos under ~/go/src/
 # Per-repo .golangci.yml overrides this file.
 # Source: ~/.claude/rules/go-lint-pack.md
+# Migrated to the golangci-lint v2 schema: linters-settings -> linters.settings,
+# issues.exclude-dirs/exclude-rules -> linters.exclusions.paths/rules. The v1
+# shapes were silently ignored by v2, which ran with default thresholds.
 
 version: "2"
 
@@ -27,83 +30,101 @@ linters:
     - gochecknoinits
     - gochecknoglobals
     - revive
-
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  gocognit:
-    min-complexity: 20
-  funlen:
-    lines: 80
-    statements: 50
-  nestif:
-    min-complexity: 4
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  dupl:
-    threshold: 100
-  gosec:
-    excludes:
-      - G104  # deferred .Close() on read-only file
-      - G304  # validated path variables
-  govet:
-    enable:
-      - shadow
-  revive:
+  settings:
+    gocyclo:
+      min-complexity: 15
+    gocognit:
+      min-complexity: 20
+    funlen:
+      lines: 80
+      statements: 50
+    nestif:
+      min-complexity: 4
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    dupl:
+      threshold: 100
+    gosec:
+      excludes:
+        - G104  # deferred .Close() on read-only file
+        - G304  # validated path variables
+    govet:
+      enable:
+        - shadow
+    revive:
+      rules:
+        - name: exported
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: var-naming
+        - name: argument-limit
+          arguments: [5]
+        - name: function-result-limit
+          arguments: [3]
+        - name: cognitive-complexity
+          arguments: [20]
+        - name: empty-block
+        - name: unnecessary-stmt
+        - name: confusing-naming
+        - name: confusing-results
+  exclusions:
+    # v2 equivalent of v1's default exclusion set (EXC0001-style nits)
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: exported
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: var-naming
-      - name: argument-limit
-        arguments: [5]
-      - name: function-result-limit
-        arguments: [3]
-      - name: cognitive-complexity
-        arguments: [20]
-      - name: empty-block
-      - name: unnecessary-stmt
-      - name: confusing-naming
-      - name: confusing-results
+      # Test files: table-driven tests are inherently long and complex
+      - path: _test\.go
+        linters:
+          - dupl
+          - goconst
+          - funlen
+          - gocognit
+          - gocyclo
+          - revive
+      # Test files: 0644 permissions are fine in temp dirs
+      - path: _test\.go
+        linters:
+          - gosec
+      # Cobra cmd/ dirs: globals and init() are idiomatic
+      - path: cmd/
+        linters:
+          - gochecknoglobals
+          - gochecknoinits
+      # Linter internal/lint: constant lookup maps are idiomatic
+      - path: internal/lint/
+        linters:
+          - gochecknoglobals
+      # Discovery: constant pattern registries
+      - path: internal/discovery/
+        linters:
+          - gochecknoglobals
+      # Output formatters: complex presentation logic is expected
+      - path: internal/output/
+        linters:
+          - gocognit
+          - nestif
+          - goconst
+    paths:
+      - vendor
+      - generated
+      - third_party
+      - third_party$
+      - builtin$
+      - examples$
 
 issues:
-  exclude-dirs:
-    - vendor
-    - generated
-    - third_party
-  exclude-rules:
-    # Test files: table-driven tests are inherently long and complex
-    - path: _test\.go
-      linters:
-        - dupl
-        - goconst
-        - funlen
-        - gocognit
-        - gocyclo
-        - revive
-    # Test files: 0644 permissions are fine in temp dirs
-    - path: _test\.go
-      linters:
-        - gosec
-    # Cobra cmd/ dirs: globals and init() are idiomatic
-    - path: cmd/
-      linters:
-        - gochecknoglobals
-        - gochecknoinits
-    # Linter internal/lint: constant lookup maps are idiomatic
-    - path: internal/lint/
-      linters:
-        - gochecknoglobals
-    # Discovery: constant pattern registries
-    - path: internal/discovery/
-      linters:
-        - gochecknoglobals
-    # Output formatters: complex presentation logic is expected
-    - path: internal/output/
-      linters:
-        - gocognit
-        - nestif
-        - goconst
   max-issues-per-linter: 0
   max-same-issues: 0
+
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
