@@ -159,6 +159,31 @@ func TestFormatAllQuietWritesNothing(t *testing.T) {
 	}
 }
 
+// TestPluralizeUsesDiscoveryVocabulary pins output pluralization to the
+// discovery name vocabulary, including the plural-less "context".
+func TestPluralizeUsesDiscoveryVocabulary(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		componentType string
+		want          string
+	}{
+		{"agent", "agents"},
+		{"command", "commands"},
+		{"skill", "skills"},
+		{"settings", "settings"},
+		{"context", "context"},
+		{"plugin", "plugins"},
+		{"rule", "rules"},
+		{"output-style", "output-styles"},
+		{"", "files"},
+	}
+	for _, tt := range tests {
+		if got := pluralize(tt.componentType); got != tt.want {
+			t.Errorf("pluralize(%q) = %q; want %q", tt.componentType, got, tt.want)
+		}
+	}
+}
+
 func captureBoundaryStdout(t *testing.T, fn func()) string {
 	t.Helper()
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/lint"
 	"golang.org/x/term"
 )
@@ -356,18 +357,17 @@ type errorEntry struct {
 	err           cue.ValidationError
 }
 
-// irregularPlurals maps component type names that don't pluralize by appending 's'.
-var irregularPlurals = map[string]string{
-	"":         "files",
-	"settings": "settings",
-}
-
-// pluralize returns the plural form of a component type name.
-func pluralize(s string) string {
-	if p, ok := irregularPlurals[s]; ok {
-		return p
+// pluralize returns the plural display form of a component type name, using
+// the discovery name vocabulary (which owns the irregular plural "settings"
+// and the plural-less "context").
+func pluralize(componentType string) string {
+	if ft, err := discovery.ParseFileType(componentType); err == nil {
+		return discovery.Plural(ft)
 	}
-	return s + "s"
+	if componentType == "" {
+		return "files"
+	}
+	return componentType + "s"
 }
 
 // pluralizeCount returns singular or plural form based on count.

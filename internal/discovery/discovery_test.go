@@ -2275,3 +2275,53 @@ func TestFileDiscoveryExcludePatterns(t *testing.T) {
 		})
 	}
 }
+
+// TestFileTypeNameVocabularyRoundTrip pins the invariant that every named
+// component type's singular and plural spellings both parse back to it.
+func TestFileTypeNameVocabularyRoundTrip(t *testing.T) {
+	t.Parallel()
+	named := []FileType{
+		FileTypeAgent, FileTypeCommand, FileTypeSkill, FileTypeSettings,
+		FileTypeContext, FileTypePlugin, FileTypeRule, FileTypeOutputStyle,
+	}
+	for _, ft := range named {
+		singular, plural := ft.String(), Plural(ft)
+		if singular == "unknown" || singular == "" {
+			t.Fatalf("FileType %d has no singular name", ft)
+		}
+		if plural == "" {
+			t.Fatalf("%s has no plural name", singular)
+		}
+		for _, spelling := range []string{singular, plural} {
+			parsed, err := ParseFileType(spelling)
+			if err != nil || parsed != ft {
+				t.Fatalf("ParseFileType(%q) = %v, %v; want %v", spelling, parsed, err, ft)
+			}
+		}
+	}
+}
+
+// TestParseFileTypeRejectsUnknownSpellings keeps rejected inputs explicit,
+// including the near-miss plurals the vocabulary deliberately does not accept.
+func TestParseFileTypeRejectsUnknownSpellings(t *testing.T) {
+	t.Parallel()
+	for _, spelling := range []string{"", "foo", "contexts", "agentss", "output_styles"} {
+		if _, err := ParseFileType(spelling); err == nil {
+			t.Fatalf("ParseFileType(%q) unexpectedly succeeded", spelling)
+		}
+	}
+}
+
+// TestValidTypeNamesMatchParseError pins the error message to the vocabulary
+// table so the two cannot drift apart.
+func TestValidTypeNamesMatchParseError(t *testing.T) {
+	t.Parallel()
+	_, err := ParseFileType("definitely-not-a-type")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	want := "invalid type \"definitely-not-a-type\": valid types are " + strings.Join(ValidTypeNames(), ", ")
+	if err.Error() != want {
+		t.Fatalf("error mismatch:\n got %q\nwant %q", err.Error(), want)
+	}
+}

@@ -19,14 +19,14 @@ type LinterEntry struct {
 }
 
 var linterRegistry = []LinterEntry{ //nolint:gochecknoglobals // Immutable canonical component registry.
-	{FileType: discovery.FileTypeAgent, Name: "agents", Default: true, New: func(string) ComponentLinter { return NewAgentLinter() }},
-	{FileType: discovery.FileTypeCommand, Name: "commands", Default: true, New: func(string) ComponentLinter { return NewCommandLinter() }},
-	{FileType: discovery.FileTypeSkill, Name: "skills", Default: true, New: func(string) ComponentLinter { return NewSkillLinter() }},
-	{FileType: discovery.FileTypeSettings, Name: "settings", Default: true, New: func(string) ComponentLinter { return NewSettingsLinter() }},
-	{FileType: discovery.FileTypeContext, Name: "context", Default: false, New: func(string) ComponentLinter { return NewContextLinter() }},
-	{FileType: discovery.FileTypeRule, Name: "rules", Default: true, New: func(string) ComponentLinter { return NewRuleLinter() }},
-	{FileType: discovery.FileTypeOutputStyle, Name: "output-styles", Default: true, New: func(string) ComponentLinter { return NewOutputStyleLinter() }},
-	{FileType: discovery.FileTypePlugin, Name: "plugins", Default: true, New: func(rootPath string) ComponentLinter { return NewPluginLinter(rootPath) }},
+	{FileType: discovery.FileTypeAgent, Name: discovery.Plural(discovery.FileTypeAgent), Default: true, New: func(string) ComponentLinter { return NewAgentLinter() }},
+	{FileType: discovery.FileTypeCommand, Name: discovery.Plural(discovery.FileTypeCommand), Default: true, New: func(string) ComponentLinter { return NewCommandLinter() }},
+	{FileType: discovery.FileTypeSkill, Name: discovery.Plural(discovery.FileTypeSkill), Default: true, New: func(string) ComponentLinter { return NewSkillLinter() }},
+	{FileType: discovery.FileTypeSettings, Name: discovery.Plural(discovery.FileTypeSettings), Default: true, New: func(string) ComponentLinter { return NewSettingsLinter() }},
+	{FileType: discovery.FileTypeContext, Name: discovery.Plural(discovery.FileTypeContext), Default: false, New: func(string) ComponentLinter { return NewContextLinter() }},
+	{FileType: discovery.FileTypeRule, Name: discovery.Plural(discovery.FileTypeRule), Default: true, New: func(string) ComponentLinter { return NewRuleLinter() }},
+	{FileType: discovery.FileTypeOutputStyle, Name: discovery.Plural(discovery.FileTypeOutputStyle), Default: true, New: func(string) ComponentLinter { return NewOutputStyleLinter() }},
+	{FileType: discovery.FileTypePlugin, Name: discovery.Plural(discovery.FileTypePlugin), Default: true, New: func(rootPath string) ComponentLinter { return NewPluginLinter(rootPath) }},
 }
 
 // DefaultLinters returns the component linters included in a full lint run.

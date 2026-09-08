@@ -285,55 +285,79 @@ const (
 	FileTypeOutputStyle
 )
 
-// String returns the human-readable name of the file type.
-func (ft FileType) String() string {
-	switch ft {
-	case FileTypeAgent:
-		return "agent"
-	case FileTypeCommand:
-		return "command"
-	case FileTypeSettings:
-		return "settings"
-	case FileTypeContext:
-		return "context"
-	case FileTypeSkill:
-		return "skill"
-	case FileTypePlugin:
-		return "plugin"
-	case FileTypeRule:
-		return "rule"
-	case FileTypeOutputStyle:
-		return "output-style"
-	default:
-		return "unknown"
-	}
+// fileTypeNames is the canonical component-type name vocabulary. The singular
+// and plural spellings of every lintable component type are owned here and
+// derived everywhere else (the CLI --type enum, ParseFileType, the linter
+// registry's display names, and output pluralization). FileTypeConfig is an
+// internal classification with no user-facing name and is deliberately absent.
+var fileTypeNames = []struct {
+	fileType FileType
+	singular string
+	plural   string
+}{
+	{FileTypeAgent, "agent", "agents"},
+	{FileTypeCommand, "command", "commands"},
+	{FileTypeSkill, "skill", "skills"},
+	{FileTypeSettings, "settings", "settings"},
+	{FileTypeContext, "context", "context"},
+	{FileTypePlugin, "plugin", "plugins"},
+	{FileTypeRule, "rule", "rules"},
+	{FileTypeOutputStyle, "output-style", "output-styles"},
 }
 
-// ParseFileType converts a string to a FileType.
-// Valid values: agent, command, skill, settings, context, plugin, rule.
-// Returns FileTypeUnknown and an error for invalid input.
-func ParseFileType(s string) (FileType, error) {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "agent", "agents":
-		return FileTypeAgent, nil
-	case "command", "commands":
-		return FileTypeCommand, nil
-	case "skill", "skills":
-		return FileTypeSkill, nil
-	case "settings":
-		return FileTypeSettings, nil
-	case "context":
-		return FileTypeContext, nil
-	case "plugin", "plugins":
-		return FileTypePlugin, nil
-	case "rule", "rules":
-		return FileTypeRule, nil
-	case "output-style", "output-styles":
-		return FileTypeOutputStyle, nil
-	default:
-		return FileTypeUnknown, fmt.Errorf(
-			"invalid type %q: valid types are agent, command, skill, settings, context, plugin, rule, output-style", s)
+// fileTypeNameLookups maps every accepted spelling (already lowercased) to its
+// FileType.
+var fileTypeNameLookups = buildFileTypeNameLookups()
+
+func buildFileTypeNameLookups() map[string]FileType {
+	lookups := make(map[string]FileType, len(fileTypeNames)*2)
+	for _, entry := range fileTypeNames {
+		lookups[entry.singular] = entry.fileType
+		lookups[entry.plural] = entry.fileType
 	}
+	return lookups
+}
+
+// String returns the human-readable name of the file type.
+func (ft FileType) String() string {
+	for _, entry := range fileTypeNames {
+		if entry.fileType == ft {
+			return entry.singular
+		}
+	}
+	return "unknown"
+}
+
+// Plural returns the plural display name of the file type ("agents",
+// "settings", "context"), or "" when the type has no vocabulary entry.
+func Plural(ft FileType) string {
+	for _, entry := range fileTypeNames {
+		if entry.fileType == ft {
+			return entry.plural
+		}
+	}
+	return ""
+}
+
+// ValidTypeNames returns the singular component-type names in canonical
+// order, matching the ParseFileType error message and the CLI --type enum.
+func ValidTypeNames() []string {
+	names := make([]string, 0, len(fileTypeNames))
+	for _, entry := range fileTypeNames {
+		names = append(names, entry.singular)
+	}
+	return names
+}
+
+// ParseFileType converts a string to a FileType, accepting the singular and
+// plural spelling of every component type (case-insensitive, whitespace
+// trimmed). Returns FileTypeUnknown and an error for invalid input.
+func ParseFileType(s string) (FileType, error) {
+	if ft, ok := fileTypeNameLookups[strings.ToLower(strings.TrimSpace(s))]; ok {
+		return ft, nil
+	}
+	return FileTypeUnknown, fmt.Errorf(
+		"invalid type %q: valid types are %s", s, strings.Join(ValidTypeNames(), ", "))
 }
 
 // FileDiscovery manages file discovery operations
