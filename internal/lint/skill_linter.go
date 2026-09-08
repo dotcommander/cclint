@@ -34,7 +34,7 @@ func NewSkillLinter() *SkillLinter {
 }
 
 func (l *SkillLinter) Type() string {
-	return cue.TypeSkill
+	return l.FileType().String()
 }
 
 func (l *SkillLinter) FileType() discovery.FileType {

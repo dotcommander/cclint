@@ -30,7 +30,7 @@ func NewPluginLinter(rootPath string) *PluginLinter {
 }
 
 func (l *PluginLinter) Type() string {
-	return "plugin"
+	return l.FileType().String()
 }
 
 func (l *PluginLinter) FileType() discovery.FileType {

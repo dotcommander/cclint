@@ -20,7 +20,7 @@ func NewSettingsLinter() *SettingsLinter {
 }
 
 func (l *SettingsLinter) Type() string {
-	return "settings"
+	return l.FileType().String()
 }
 
 func (l *SettingsLinter) FileType() discovery.FileType {

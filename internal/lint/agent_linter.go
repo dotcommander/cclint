@@ -32,7 +32,7 @@ func NewAgentLinter() *AgentLinter {
 }
 
 func (l *AgentLinter) Type() string {
-	return cue.TypeAgent
+	return l.FileType().String()
 }
 
 func (l *AgentLinter) FileType() discovery.FileType {

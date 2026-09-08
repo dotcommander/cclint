@@ -26,7 +26,7 @@ func NewContextLinter() *ContextLinter {
 }
 
 func (l *ContextLinter) Type() string {
-	return "context"
+	return l.FileType().String()
 }
 
 func (l *ContextLinter) FileType() discovery.FileType {

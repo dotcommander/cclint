@@ -40,7 +40,7 @@ func NewOutputStyleLinter() *OutputStyleLinter {
 }
 
 func (l *OutputStyleLinter) Type() string {
-	return "output-style"
+	return l.FileType().String()
 }
 
 func (l *OutputStyleLinter) FileType() discovery.FileType {

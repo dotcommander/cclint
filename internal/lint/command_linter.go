@@ -29,7 +29,7 @@ func NewCommandLinter() *CommandLinter {
 }
 
 func (l *CommandLinter) Type() string {
-	return cue.TypeCommand
+	return l.FileType().String()
 }
 
 func (l *CommandLinter) FileType() discovery.FileType {

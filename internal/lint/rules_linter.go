@@ -36,7 +36,7 @@ func NewRuleLinter() *RuleLinter {
 }
 
 func (l *RuleLinter) Type() string {
-	return cue.TypeRule
+	return l.FileType().String()
 }
 
 func (l *RuleLinter) FileType() discovery.FileType {
