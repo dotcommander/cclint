@@ -626,6 +626,16 @@ package schemas
 	// (backfill: referenced by v2.1.239 fixes, never previously modeled)
 	claudeMdExcludes?: [...string]
 
+	// Inline output caps (v2.1.261+): characters of Bash/PowerShell output
+	// Claude receives inline (default 30000) and of background-task TaskOutput
+	// output (default 32000). Positive ints; values clamp to 4000-128000.
+	bashOutputMaxChars?: number
+	taskOutputMaxChars?: number
+
+	// Cloud gateway URL pre-filled and auto-connected during login alongside
+	// forceLoginMethod: "gateway" (v2.1.265+, managed settings only)
+	forceLoginGatewayUrl?: string
+
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
 	// where N is the context window percentage (0-100)

@@ -77,3 +77,39 @@ func TestClaudeMDAcceptsFullModelID(t *testing.T) {
 		t.Fatalf("ValidateAgent(invalid model): expected a validation error, got none")
 	}
 }
+
+func TestModelUnionAcceptsSuffixAliases(t *testing.T) {
+	t.Parallel()
+
+	v := NewValidator()
+	if err := v.LoadSchemas(); err != nil {
+		t.Fatalf("LoadSchemas: %v", err)
+	}
+
+	for _, model := range []string{"opusplan[1m]", "haiku[1m]", "best[1m]"} {
+		errs, err := v.ValidateAgent(map[string]any{
+			"name":        "test-agent",
+			"description": "test",
+			"model":       model,
+		})
+		if err != nil {
+			t.Fatalf("model %q: unexpected error: %v", model, err)
+		}
+		if len(errs) != 0 {
+			t.Errorf("model %q: unexpected validation errors: %v", model, errs)
+		}
+	}
+
+	// Suffix is [1m]-only on aliases; other suffixes must still fail the union.
+	errs, err := v.ValidateAgent(map[string]any{
+		"name":        "test-agent",
+		"description": "test",
+		"model":       "opusplan[2m]",
+	})
+	if err != nil {
+		t.Fatalf("opusplan[2m]: unexpected error: %v", err)
+	}
+	if len(errs) == 0 {
+		t.Error("opusplan[2m]: expected validation errors, got none")
+	}
+}
