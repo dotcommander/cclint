@@ -56,7 +56,7 @@ func validateAgentName(name, filePath, contents string) []cue.ValidationError {
 // isKebabCase returns true if the string contains only lowercase letters, digits, and hyphens.
 func isKebabCase(s string) bool {
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-') {
+		if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
 			return false
 		}
 	}

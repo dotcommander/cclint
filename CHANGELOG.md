@@ -10,7 +10,7 @@
 ### Changed
 
 - centralize component type names and formatter selection.
-- migrate lint settings and exclusions to the golangci-lint v2 schema.
+- migrate lint settings and exclusions to the golangci-lint v2 schema with a v0.55.0 baseline for existing findings.
 
 ## v0.55.0 (2026-09-04)
 

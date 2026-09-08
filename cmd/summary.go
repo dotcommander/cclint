@@ -9,6 +9,21 @@ import (
 	"github.com/dotcommander/cclint/internal/lint"
 )
 
+const (
+	componentTypeAgent   = "agent"
+	componentTypeCommand = "command"
+	componentTypeSkill   = "skill"
+
+	issueOversized          = "Oversized component (fat)"
+	issueMissingFoundation = "Missing Foundation section"
+	issueMissingWorkflow   = "Missing Workflow section"
+	issueMissingAntiPattern = "Missing Anti-Patterns section"
+	issueMissingRouting    = "Missing semantic routing"
+	issueMissingTriggers   = "Missing or incomplete triggers"
+	issueMissingModel      = "Missing model specification"
+	issueOther             = "Other issues"
+)
+
 // ComponentSummary holds aggregated data for summary report
 type ComponentSummary struct {
 	TotalComponents int
@@ -60,11 +75,11 @@ func runSummary(opts executionOptions) error {
 
 	for _, componentSummary := range result.Summaries {
 		switch componentSummary.ComponentType {
-		case "agent":
+		case componentTypeAgent:
 			summary.AgentCount = componentSummary.TotalFiles
-		case "command":
+		case componentTypeCommand:
 			summary.CommandCount = componentSummary.TotalFiles
-		case "skill":
+		case componentTypeSkill:
 			summary.SkillCount = componentSummary.TotalFiles
 		}
 		aggregateResults(summary, componentSummary.Results)
@@ -111,15 +126,15 @@ func categorizeIssue(message string) string {
 	// Categorize issues into buckets for aggregation
 	switch {
 	case contains(message, "lines", "Best practice"):
-		return "Oversized component (fat)"
+		return issueOversized
 	case contains(message, "Foundation"):
-		return "Missing Foundation section"
+		return issueMissingFoundation
 	case contains(message, "Workflow"):
-		return "Missing Workflow section"
+		return issueMissingWorkflow
 	case contains(message, "Anti-Pattern"):
-		return "Missing Anti-Patterns section"
+		return issueMissingAntiPattern
 	case contains(message, "Quick Reference", "semantic routing"):
-		return "Missing semantic routing"
+		return issueMissingRouting
 	case contains(message, "Success Criteria"):
 		return "Missing Success Criteria"
 	case contains(message, "Expected Output"):
@@ -127,15 +142,15 @@ func categorizeIssue(message string) string {
 	case contains(message, "Skill()", "methodology"):
 		return "Embedded methodology (should extract)"
 	case contains(message, "triggers"):
-		return "Missing or incomplete triggers"
+		return issueMissingTriggers
 	case contains(message, "PROACTIVELY"):
 		return "Missing PROACTIVELY pattern"
 	case contains(message, "model"):
-		return "Missing model specification"
+		return issueMissingModel
 	case contains(message, "description"):
 		return "Missing or poor description"
 	default:
-		return "Other issues"
+		return issueOther
 	}
 }
 

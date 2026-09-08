@@ -40,9 +40,9 @@ func (f *MarkdownFormatter) Format(summary *lint.LintSummary) error {
 
 func (f *MarkdownFormatter) writeHeader(builder *strings.Builder, summary *lint.LintSummary) {
 	builder.WriteString("# CCLint Report\n\n")
-	builder.WriteString(fmt.Sprintf("**Generated:** %s\n\n", time.Now().Format("2006-01-02 15:04:05")))
-	builder.WriteString(fmt.Sprintf("**Project:** %s\n\n", detectProjectRootForMarkdown()))
-	builder.WriteString(fmt.Sprintf("**Duration:** %v\n\n", time.Since(summary.StartTime).Round(time.Millisecond)))
+	fmt.Fprintf(builder, "**Generated:** %s\n\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(builder, "**Project:** %s\n\n", detectProjectRootForMarkdown())
+	fmt.Fprintf(builder, "**Duration:** %v\n\n", time.Since(summary.StartTime).Round(time.Millisecond))
 	builder.WriteString(strings.Repeat("-", 50) + "\n\n")
 }
 
@@ -50,12 +50,12 @@ func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary 
 	builder.WriteString("## Summary\n\n")
 	builder.WriteString("| Metric | Count |\n")
 	builder.WriteString("|--------|-------|\n")
-	builder.WriteString(fmt.Sprintf("| Files Scanned | %d |\n", summary.TotalFiles))
-	builder.WriteString(fmt.Sprintf("| Successful | %d |\n", summary.SuccessfulFiles))
-	builder.WriteString(fmt.Sprintf("| Failed | %d |\n", summary.FailedFiles))
-	builder.WriteString(fmt.Sprintf("| Errors | %d |\n", summary.TotalErrors))
-	builder.WriteString(fmt.Sprintf("| Warnings | %d |\n", summary.TotalWarnings))
-	builder.WriteString(fmt.Sprintf("| Suggestions | %d |\n", summary.TotalSuggestions))
+	fmt.Fprintf(builder, "| Files Scanned | %d |\n", summary.TotalFiles)
+	fmt.Fprintf(builder, "| Successful | %d |\n", summary.SuccessfulFiles)
+	fmt.Fprintf(builder, "| Failed | %d |\n", summary.FailedFiles)
+	fmt.Fprintf(builder, "| Errors | %d |\n", summary.TotalErrors)
+	fmt.Fprintf(builder, "| Warnings | %d |\n", summary.TotalWarnings)
+	fmt.Fprintf(builder, "| Suggestions | %d |\n", summary.TotalSuggestions)
 	builder.WriteString("\n")
 }
 
@@ -83,7 +83,7 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 			continue
 		}
 		fileName := strings.TrimPrefix(result.File, "./")
-		builder.WriteString(fmt.Sprintf("- [%s](#%s)\n", fileName, createAnchor(fileName)))
+		fmt.Fprintf(builder, "- [%s](#%s)\n", fileName, createAnchor(fileName))
 	}
 	builder.WriteString("\n")
 }
@@ -98,9 +98,9 @@ func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *
 		}
 
 		fileName := strings.TrimPrefix(result.File, "./")
-		builder.WriteString(fmt.Sprintf("### %s\n\n", fileName))
-		builder.WriteString(fmt.Sprintf("Status: %s\n\n", getStatusEmoji(result.Success)))
-		builder.WriteString(fmt.Sprintf("Type: `%s`\n\n", result.Type))
+		fmt.Fprintf(builder, "### %s\n\n", fileName)
+		fmt.Fprintf(builder, "Status: %s\n\n", getStatusEmoji(result.Success))
+		fmt.Fprintf(builder, "Type: `%s`\n\n", result.Type)
 
 		f.writeIssues(builder, severityErrors(fileIssues, SeverityError), "Errors")
 		f.writeIssues(builder, severityErrors(fileIssues, SeverityWarning), "Warnings")
@@ -123,14 +123,14 @@ func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.V
 	if len(issues) == 0 {
 		return
 	}
-	builder.WriteString(fmt.Sprintf("#### %s\n\n", title))
+	fmt.Fprintf(builder, "#### %s\n\n", title)
 	for _, issue := range issues {
-		builder.WriteString(fmt.Sprintf("- **%s** - %s", issue.File, issue.Message))
+		fmt.Fprintf(builder, "- **%s** - %s", issue.File, issue.Message)
 		if issue.Line > 0 {
-			builder.WriteString(fmt.Sprintf(" (line %d)", issue.Line))
+			fmt.Fprintf(builder, " (line %d)", issue.Line)
 		}
 		if issue.Source != "" {
-			builder.WriteString(fmt.Sprintf(" `[%s]`", formatSourceTag(issue.Source)))
+			fmt.Fprintf(builder, " `[%s]`", formatSourceTag(issue.Source))
 		}
 		builder.WriteString("\n")
 	}
@@ -142,7 +142,7 @@ func (f *MarkdownFormatter) writeConclusion(builder *strings.Builder, summary *l
 	if summary.FailedFiles == 0 {
 		builder.WriteString("✓ All files passed validation!\n")
 	} else {
-		builder.WriteString(fmt.Sprintf("✗ %d files failed validation\n", summary.FailedFiles))
+		fmt.Fprintf(builder, "✗ %d files failed validation\n", summary.FailedFiles)
 	}
 }
 

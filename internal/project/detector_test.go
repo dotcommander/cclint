@@ -100,10 +100,8 @@ func TestFindProjectRoot(t *testing.T) {
 				}
 				// Navigate up to find project root
 				projectRoot := cwd
-				for {
-					if isProjectRoot(projectRoot) {
-						break
-					}
+				for !isProjectRoot(projectRoot) {
+
 					parent := filepath.Dir(projectRoot)
 					if parent == projectRoot {
 						break

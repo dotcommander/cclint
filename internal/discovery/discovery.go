@@ -10,6 +10,23 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 )
 
+const (
+	settingsPathPattern = ".claude/settings.json"
+	contextPathPattern  = ".claude/CLAUDE.md"
+	agentGlobPattern    = ".claude/agents/**/*.md"
+	agentRootGlob       = "agents/**/*.md"
+	commandGlobPattern  = ".claude/commands/**/*.md"
+
+	fileTypeAgentName    = "agent"
+	fileTypeCommandName  = "command"
+	fileTypeSkillName    = "skill"
+	fileTypeSettingsName = "settings"
+	fileTypeContextName  = "context"
+	fileTypePluginName   = "plugin"
+	fileTypeRuleName     = "rule"
+	unknownTypeName      = "unknown"
+)
+
 // TypePattern maps a glob pattern to a FileType for type detection.
 // Patterns are matched in order; first match wins.
 type TypePattern struct {
@@ -27,6 +44,16 @@ type FileTypeEntry struct {
 	FallbackPathSubstring string
 }
 
+const (
+	claudeSettingsPath = "claude/settings.json"
+	claudeContextFile  = "CLAUDE.md"
+	pluralAgents       = "agents"
+	pluralCommands     = "commands"
+	pluralSkills       = "skills"
+	pluralPlugins      = "plugins"
+	pluralRules        = "rules"
+)
+
 // DefaultFileTypes is the registry of file types and their discovery patterns.
 // To add a new component type, update one entry here and detection/discovery stay aligned.
 var DefaultFileTypes = []FileTypeEntry{
@@ -38,14 +65,14 @@ var DefaultFileTypes = []FileTypeEntry{
 	},
 	{
 		Type:                  FileTypeSettings,
-		Patterns:              []string{".claude/settings.json", "claude/settings.json"},
+		Patterns:              []string{settingsPathPattern, claudeSettingsPath},
 		FallbackBasenames:     []string{"settings.json"},
 		FallbackPathSubstring: "",
 	},
 	{
 		Type:                  FileTypeContext,
-		Patterns:              []string{".claude/CLAUDE.md", "CLAUDE.md"},
-		FallbackBasenames:     []string{"CLAUDE.md"},
+		Patterns:              []string{contextPathPattern, claudeContextFile},
+		FallbackBasenames:     []string{claudeContextFile},
 		FallbackPathSubstring: "",
 	},
 	{
@@ -63,8 +90,8 @@ var DefaultFileTypes = []FileTypeEntry{
 	{
 		Type: FileTypeAgent,
 		Patterns: []string{
-			".claude/agents/**/*.md",
-			"agents/**/*.md",
+			agentGlobPattern,
+			agentRootGlob,
 			// Plugin-shipped agents (resolved at runtime by Claude Code plugin system).
 			// Patterns cover both rootPath=~/.claude/ (plugins/cache/...)
 			// and rootPath=~ (.claude/plugins/cache/...).
@@ -82,7 +109,7 @@ var DefaultFileTypes = []FileTypeEntry{
 	},
 	{
 		Type:                  FileTypeCommand,
-		Patterns:              []string{".claude/commands/**/*.md", "commands/**/*.md"},
+		Patterns:              []string{commandGlobPattern, "commands/**/*.md"},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},
@@ -295,13 +322,13 @@ var fileTypeNames = []struct {
 	singular string
 	plural   string
 }{
-	{FileTypeAgent, "agent", "agents"},
-	{FileTypeCommand, "command", "commands"},
-	{FileTypeSkill, "skill", "skills"},
-	{FileTypeSettings, "settings", "settings"},
-	{FileTypeContext, "context", "context"},
-	{FileTypePlugin, "plugin", "plugins"},
-	{FileTypeRule, "rule", "rules"},
+	{FileTypeAgent, fileTypeAgentName, pluralAgents},
+	{FileTypeCommand, fileTypeCommandName, pluralCommands},
+	{FileTypeSkill, fileTypeSkillName, pluralSkills},
+	{FileTypeSettings, fileTypeSettingsName, fileTypeSettingsName},
+	{FileTypeContext, fileTypeContextName, fileTypeContextName},
+	{FileTypePlugin, fileTypePluginName, pluralPlugins},
+	{FileTypeRule, fileTypeRuleName, pluralRules},
 	{FileTypeOutputStyle, "output-style", "output-styles"},
 }
 
@@ -325,7 +352,7 @@ func (ft FileType) String() string {
 			return entry.singular
 		}
 	}
-	return "unknown"
+	return unknownTypeName
 }
 
 // Plural returns the plural display name of the file type ("agents",

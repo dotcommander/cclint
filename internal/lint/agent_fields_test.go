@@ -122,9 +122,10 @@ func TestValidateAgentSpecific(t *testing.T) {
 			errCount := 0
 			suggCount := 0
 			for _, e := range errors {
-				if e.Severity == "error" {
+				switch e.Severity {
+				case "error":
 					errCount++
-				} else if e.Severity == "suggestion" {
+				case "suggestion":
 					suggCount++
 				}
 			}

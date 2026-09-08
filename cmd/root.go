@@ -12,6 +12,8 @@ import (
 	"golang.org/x/term"
 )
 
+const failOnWarning = "warning"
+
 // Version is set at build time via ldflags:
 //
 //	go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0"
@@ -29,7 +31,7 @@ func shouldFail(cfg *config.Config, errors, warnings, suggestions int) bool {
 			return true
 		}
 		fallthrough
-	case "warning":
+	case failOnWarning:
 		if warnings > 0 {
 			return true
 		}

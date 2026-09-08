@@ -384,7 +384,7 @@ func FormatChain(link *ChainLink, indent string) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("%s%s (%s, %d lines)\n", indent, link.Name, link.Type, link.Lines))
+	fmt.Fprintf(&sb, "%s%s (%s, %d lines)\n", indent, link.Name, link.Type, link.Lines)
 
 	for i, child := range link.Children {
 		prefix := "\u251C\u2500\u2500 "
@@ -393,7 +393,7 @@ func FormatChain(link *ChainLink, indent string) string {
 			prefix = "\u2514\u2500\u2500 "
 			childIndent = indent + "    "
 		}
-		sb.WriteString(fmt.Sprintf("%s%s", indent, prefix))
+		fmt.Fprintf(&sb, "%s%s", indent, prefix)
 		sb.WriteString(FormatChain(&child, childIndent)[len(childIndent):])
 	}
 

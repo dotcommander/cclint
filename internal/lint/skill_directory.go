@@ -163,7 +163,7 @@ func validateReferenceDepth(contents string, skillDir, skillPath string) []cue.V
 
 // isLocalReferenceLink checks if a link is a local reference (not URL or anchor).
 func isLocalReferenceLink(linkPath string) bool {
-	return !(strings.HasPrefix(linkPath, "http") || strings.HasPrefix(linkPath, "#"))
+	return !strings.HasPrefix(linkPath, "http") && !strings.HasPrefix(linkPath, "#")
 }
 
 // isSubdirIndexFile returns true if linkPath points to a file inside a subdirectory

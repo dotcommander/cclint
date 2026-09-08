@@ -229,9 +229,10 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 	// Format source tag (only show in verbose mode for suggestions)
 	sourceTag := ""
 	if f.verbose && err.Source != "" {
-		if err.Source == cue.SourceAnthropicDocs {
+		switch err.Source {
+		case cue.SourceAnthropicDocs:
 			sourceTag = sourceStyle.Render(" [docs]")
-		} else if err.Source == cue.SourceCClintObserve {
+		case cue.SourceCClintObserve:
 			sourceTag = sourceStyle.Render(" [cclint]")
 		}
 	}

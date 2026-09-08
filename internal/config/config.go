@@ -9,6 +9,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	formatConsole  = "console"
+	formatJSON     = "json"
+	formatMarkdown = "markdown"
+	failOnError    = "error"
+	failOnWarning  = "warning"
+	failOnSuggest  = "suggestion"
+)
+
 // Config represents the cclint configuration
 type Config struct {
 	Root             string       `mapstructure:"root"`
@@ -83,8 +92,8 @@ func LoadConfig(rootPath string) (*Config, error) {
 
 func setDefaults(vp *viper.Viper, homeDir string) {
 	vp.SetDefault("root", defaultRoot(homeDir))
-	vp.SetDefault("format", "console")
-	vp.SetDefault("failOn", "error")
+	vp.SetDefault("format", formatConsole)
+	vp.SetDefault("failOn", failOnError)
 	vp.SetDefault("followSymlinks", false)
 	vp.SetDefault("quiet", false)
 	vp.SetDefault("verbose", false)
@@ -100,12 +109,12 @@ func setDefaults(vp *viper.Viper, homeDir string) {
 // validateConfig validates the configuration
 func validateConfig(config *Config) error {
 	// Validate format
-	if config.Format != "console" && config.Format != "json" && config.Format != "markdown" {
+	if config.Format != formatConsole && config.Format != formatJSON && config.Format != formatMarkdown {
 		return fmt.Errorf("invalid format: %s. Must be 'console', 'json', or 'markdown'", config.Format)
 	}
 
 	// Validate failOn level
-	if config.FailOn != "error" && config.FailOn != "warning" && config.FailOn != "suggestion" {
+	if config.FailOn != failOnError && config.FailOn != failOnWarning && config.FailOn != failOnSuggest {
 		return fmt.Errorf("invalid fail-on level: %s. Must be 'error', 'warning', or 'suggestion'", config.FailOn)
 	}
 

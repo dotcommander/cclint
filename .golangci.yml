@@ -118,6 +118,10 @@ linters:
       - examples$
 
 issues:
+  # v0.55.0 is the last release before this v2 configuration activated the
+  # strict policy. Keep new and modified code blocking while the existing
+  # source backlog is repaired in bounded follow-up slices.
+  new-from-rev: f422a7b6ee6d48f4c20a3dff274460d19d4d41a0
   max-issues-per-linter: 0
   max-same-issues: 0
 
