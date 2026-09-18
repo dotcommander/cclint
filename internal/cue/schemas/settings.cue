@@ -605,10 +605,11 @@ package schemas
 	subagentPromptCacheTtl?: "5m" | "1h"
 
 	// Contracted per-model rates for /cost, status line, and telemetry
-	// (managed, v2.1.243+); multiplier is a discount factor above 0 and at
-	// most 1; overrides carry per-model prices.
+	// (managed, v2.1.243+); multiplier is a rate factor above 0 and at most
+	// 10 (values above 1 cover marked-up internal chargeback rates,
+	// v2.1.271+); overrides carry per-model prices.
 	modelPricing?: {
-		multiplier?: number & >0 & <=1
+		multiplier?: number & >0 & <=10
 		overrides?: {[string]: {
 			input:      number
 			output:     number
@@ -635,6 +636,42 @@ package schemas
 	// Cloud gateway URL pre-filled and auto-connected during login alongside
 	// forceLoginMethod: "gateway" (v2.1.265+, managed settings only)
 	forceLoginGatewayUrl?: string
+
+	// claude.ai account sync (v2.1.275+): set either to false to stop syncing
+	// the skills or plugins enabled on claude.ai into terminal sessions
+	// signed in with that account.
+	syncClaudeAiSkills?: bool
+	syncClaudeAiPlugins?: bool
+
+	// Whether the Bash tool shows a diff of the files a Bash command changed
+	// when the Bash tool handles file edits (v2.1.269+); PostToolUse Bash
+	// hooks get the changed-file list in tool_response.
+	bashEditDiffEnabled?: bool
+
+	// IPv4 CIDR blocks (at most 4, each /8 to /32, non-overlapping) the
+	// organization's Cloud gateway sits in, letting /login reach a gateway on
+	// the org's own public block (v2.1.268+, managed settings only; ignored
+	// in user, project, and remote-delivered settings).
+	gatewayInternalNetworks?: [...string]
+
+	// When true in any settings source, claude.ai MCP cloud connectors are
+	// not auto-fetched or connected (backfill, surfaced by the v2.1.273 fix).
+	disableClaudeAiConnectors?: bool
+
+	// Cap on the effort level on every provider including Bedrock, Vertex and
+	// Foundry (v2.1.267+); higher picks are clamped to it, lower picks stay.
+	// "max" exempts from capping.
+	maxEffortLevel?: "low" | "medium" | "high" | "xhigh" | "max"
+
+	// Per-model effort settings (v2.1.267+), keyed by canonical model name
+	// (dated, [1m], Bedrock and Vertex spellings also match); an entry's
+	// maxEffortLevel replaces the top-level cap for that model within one
+	// settings file.
+	modelSettings?: {[string]: {
+		effortLevel?: "low" | "medium" | "high" | "xhigh"
+		maxEffortLevel?: "low" | "medium" | "high" | "xhigh" | "max"
+		...
+	}}
 
 	// All other fields are allowed - settings.json is extensible
 	// MCP settings can use auto:N syntax (v2.1.9+) for tool search auto-enable threshold
