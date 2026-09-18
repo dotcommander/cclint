@@ -77,6 +77,7 @@ import (
 	initialPrompt?: string                                    // auto-submit first turn (v2.1.83+)
 	requiredMcpServers?: [...string]                          // agent only runs when these MCP servers are connected (v2.1.156)
 	criticalSystemReminder_EXPERIMENTAL?: string             // experimental: reminder re-injected as a system message (v2.1.156)
+	omitClaudeMd?: bool                                      // run without user, project and local CLAUDE.md files (v2.1.271)
 
 	// Experimental agent features (v2.1.248+)
 	experimental?: {

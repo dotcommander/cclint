@@ -79,6 +79,7 @@ var knownAgentFields = map[string]bool{
 	"requiredMcpServers":                  true, // Optional: agent only runs when these MCP servers are connected (v2.1.156)
 	"criticalSystemReminder_EXPERIMENTAL": true, // Optional (experimental): reminder re-injected as a system message (v2.1.156)
 	"experimental":                        true, // Optional: experimental features; cacheTtl sets per-agent prompt cache TTL (v2.1.248)
+	"omitClaudeMd":                        true, // Optional: run without user, project and local CLAUDE.md files (v2.1.271)
 }
 
 // validateAgentSpecific implements agent-specific validation rules.

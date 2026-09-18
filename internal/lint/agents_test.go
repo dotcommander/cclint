@@ -33,7 +33,7 @@ func TestHasEditingTools(t *testing.T) {
 }
 
 func TestKnownAgentFields(t *testing.T) {
-	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "effort", "initialPrompt", "skills", "hooks", "memory", "mcpServers", "isolation", "background", "requiredMcpServers", "criticalSystemReminder_EXPERIMENTAL", "experimental"}
+	expected := []string{"name", "description", "model", "color", "tools", "disallowedTools", "permissionMode", "maxTurns", "effort", "initialPrompt", "skills", "hooks", "memory", "mcpServers", "isolation", "background", "requiredMcpServers", "criticalSystemReminder_EXPERIMENTAL", "experimental", "omitClaudeMd"}
 	for _, field := range expected {
 		if !knownAgentFields[field] {
 			t.Errorf("knownAgentFields missing expected field: %s", field)
