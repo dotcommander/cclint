@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.57.0 (2026-09-17)
+
+### Features
+
+- model Claude Code v2.1.266-v2.1.276 settings: effort caps, model overrides, claude.ai sync opt-outs, and gateway networks.
+- accept the `omitClaudeMd` agent frontmatter field.
+- widen `modelPricing.multiplier` to (0, 10] for marked-up internal chargeback rates.
+
+### Changed
+
+- single-source agent model validation on `cue.IsValidModelValue`, retiring the drift-prone `validModelPattern` regex.
+- convert CLAUDE.md to an AGENTS.md symlink and document the validation surface through v2.1.276.
+
 ## v0.56.0 (2026-09-08)
 
 ### Features
