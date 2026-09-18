@@ -3,6 +3,8 @@ package lint
 import (
 	"strings"
 	"testing"
+
+	"github.com/dotcommander/cclint/internal/cue"
 )
 
 func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
@@ -83,7 +85,7 @@ func TestValidateAgentMaxTurnsDontAskInfo(t *testing.T) {
 	}
 }
 
-func TestValidModelPattern(t *testing.T) {
+func TestIsValidModelValue(t *testing.T) {
 	tests := []struct {
 		model string
 		want  bool
@@ -98,9 +100,9 @@ func TestValidModelPattern(t *testing.T) {
 		{"fable[1m]", true},
 		{"claude-fable-5[1m]", true},
 		{"sonnet[1m]", true},
-		{"haiku[2]", true},
-		{"opus[v3]", true},
-		{"sonnet[latest]", true},
+		{"haiku[2]", false},
+		{"opus[v3]", false},
+		{"sonnet[latest]", false},
 		{"unknown-model", false},
 		{"turbo-3", false},
 		{"", false},
@@ -117,9 +119,9 @@ func TestValidModelPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {
-			got := validModelPattern.MatchString(tt.model)
+			got := cue.IsValidModelValue(tt.model)
 			if got != tt.want {
-				t.Errorf("validModelPattern.MatchString(%q) = %v, want %v", tt.model, got, tt.want)
+				t.Errorf("cue.IsValidModelValue(%q) = %v, want %v", tt.model, got, tt.want)
 			}
 		})
 	}

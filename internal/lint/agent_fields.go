@@ -2,18 +2,11 @@ package lint
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/textutil"
 )
-
-// validModelPattern matches known Claude Code model values.
-// Bare names: haiku, sonnet, opus, fable, best, inherit, opusplan.
-// Optional version suffix in brackets: sonnet[1m], fable[1m], haiku[2].
-// Full model IDs: claude-* with optional suffix (e.g. claude-opus-4-5, claude-fable-5[1m]).
-var validModelPattern = regexp.MustCompile(`^(haiku|sonnet|opus|fable|best|inherit|opusplan)(\[\w+\])?$|^claude-[a-z0-9-]+(\[\w+\])?$`)
 
 // validColors is the set of UI colors accepted by the CUE #Color enum.
 var validColors = map[string]bool{
@@ -124,7 +117,7 @@ func validateAgentModel(data map[string]any, filePath, contents string) []cue.Va
 		return nil
 	}
 
-	if validModelPattern.MatchString(model) {
+	if cue.IsValidModelValue(model) {
 		return nil
 	}
 
