@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.58.0 (2026-10-04)
+
+### Fixed
+
+- close 43 confirmed agent-review defects across the lint pipeline: file attribution for map-validator diagnostics, prevalidation severity and warning-only exit policy, discovery root containment and symlink policy, project-config discovery from child directories, and deterministic traversal ordering.
+- run multi-type lint requests in a single orchestrator pass with one report envelope, honor root `--type` without positional paths, and reject Git selection flags combined with positional paths.
+- apply the baseline snapshot/filter lifecycle to selected file, directory, and Git results; add versioned fingerprints that preserve punctuation, escaped delimiters, and complete version tokens; recount batch-attached physical-file and status totals.
+- normalize cross-file reference handling: built-in/namespaced exemptions, path separators, agent `skills` string/list declarations, shared skill reference extraction, and final populated routing cells.
+- select the actual CUE context schema definition, accept hook matcher object forms, attribute AST coordinates as unknown, remove duplicate field prefixes, and allow supported marketplace wrapper fields.
+- resolve Git selections to absolute files with repo-relative deletions while preserving explicit project roots; include rules and output styles in Git selections.
+- emit warnings in compact output, display clean files with requested scores and improvements, and make `cclint fmt` delimiter-based and atomic with yaml.v3 node preservation.
+- accept string/list tool and skill declarations, recognize `disallowed-tools` in commands and skills, validate hyphenated semver prerelease/build identifiers, and correct Foundation10/SkillReference15 scorer weights.
+
+### Changed
+
+- document baseline compatibility limitations in common tasks: legacy numeric over-suppression remains until refresh, and historical blank-file CUE entries require a targeted refresh.
+
 ## v0.57.0 (2026-09-17)
 
 ### Features
