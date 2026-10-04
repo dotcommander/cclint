@@ -3,7 +3,7 @@ package format
 import (
 	"bytes"
 	"fmt"
-	"slices"
+	"io"
 	"sort"
 	"strings"
 
@@ -68,76 +68,145 @@ type parseResult struct {
 
 // parseFrontmatterRaw extracts frontmatter and body without fully parsing YAML.
 func parseFrontmatterRaw(content string) parseResult {
-	trimmed := strings.TrimLeft(content, " \t")
-	if !strings.HasPrefix(trimmed, "---") {
+	lines := strings.SplitAfter(content, "\n")
+	if strings.TrimRight(lines[0], " \t\r\n") != "---" {
 		return parseResult{body: content}
 	}
-
-	// Find the closing ---
-	parts := strings.SplitN(content, "---", 3)
-	if len(parts) < 3 {
-		return parseResult{body: content, err: fmt.Errorf("unclosed frontmatter (missing closing ---)")}
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimRight(lines[i], " \t\r\n") == "---" {
+			return parseResult{
+				frontmatter: strings.Join(lines[1:i], ""),
+				body:        strings.Join(lines[i+1:], ""), hasFrontmatter: true,
+			}
+		}
 	}
-
-	return parseResult{frontmatter: parts[1], body: parts[2], hasFrontmatter: true}
+	return parseResult{body: content, err: fmt.Errorf("unclosed frontmatter (missing closing ---)")}
 }
 
-// normalizeFrontmatter reorders and normalizes YAML frontmatter fields.
-// Priority fields come first, then others alphabetically.
+// normalizeFrontmatter reorders existing YAML nodes without discarding comments,
+// aliases, tags, or scalar styles. Anchor dependencies take precedence over field
+// order so that moving a field cannot leave an alias before its anchor.
 func normalizeFrontmatter(yamlContent string, priorityFields []string) (string, error) {
-	// Extract key-value pairs
-	data := make(map[string]any)
-	if err := yaml.Unmarshal([]byte(yamlContent), &data); err != nil {
+	var document yaml.Node
+	decoder := yaml.NewDecoder(strings.NewReader(yamlContent))
+	if err := decoder.Decode(&document); err != nil && err != io.EOF {
 		return "", err
 	}
-
-	// Build ordered list of keys
-	var orderedKeys []string
-
-	// Add priority fields first (if present)
-	for _, key := range priorityFields {
-		if _, exists := data[key]; exists {
-			orderedKeys = append(orderedKeys, key)
-		}
-	}
-
-	// Add remaining fields alphabetically
-	var otherKeys []string
-	for key := range data {
-		if !slices.Contains(priorityFields, key) {
-			otherKeys = append(otherKeys, key)
-		}
-	}
-	sort.Strings(otherKeys)
-	orderedKeys = append(orderedKeys, otherKeys...)
-
-	// Manually serialize each field in order to preserve ordering
-	var buf bytes.Buffer
-	for _, key := range orderedKeys {
-		value := data[key]
-
-		// Serialize the key-value pair
-		var fieldBuf bytes.Buffer
-		fieldEncoder := yaml.NewEncoder(&fieldBuf)
-		fieldEncoder.SetIndent(2)
-
-		// Create single-entry map for this field
-		singleField := map[string]any{key: value}
-		if err := fieldEncoder.Encode(singleField); err != nil {
+	var extra yaml.Node
+	if err := decoder.Decode(&extra); err != io.EOF {
+		if err != nil {
 			return "", err
 		}
-
-		fieldStr := fieldBuf.String()
-		// Remove trailing newline
-		fieldStr = strings.TrimSuffix(fieldStr, "\n")
-
-		buf.WriteString(fieldStr)
-		buf.WriteString("\n")
+		return "", fmt.Errorf("frontmatter must contain one YAML document")
 	}
-
-	result := buf.String()
-	// Remove final trailing newline
-	return strings.TrimSuffix(result, "\n"), nil
+	if len(document.Content) == 0 {
+		return strings.Trim(yamlContent, "\r\n"), nil
+	}
+	mapping := document.Content[0]
+	if mapping.Kind != yaml.MappingNode {
+		return "", fmt.Errorf("frontmatter must be a YAML mapping")
+	}
+	// Node decoding alone does not reject duplicate mapping keys.
+	var values map[string]any
+	if err := mapping.Decode(&values); err != nil {
+		return "", err
+	}
+	type field struct {
+		key, value *yaml.Node
+		rank       int
+	}
+	fields := make([]field, 0, len(mapping.Content)/2)
+	owners := make(map[*yaml.Node]int)
+	var visit func(*yaml.Node, func(*yaml.Node))
+	visit = func(node *yaml.Node, action func(*yaml.Node)) {
+		action(node)
+		for _, child := range node.Content {
+			visit(child, action)
+		}
+	}
+	for i := 0; i < len(mapping.Content); i += 2 {
+		key, value := mapping.Content[i], mapping.Content[i+1]
+		rank := len(priorityFields)
+		for index, name := range priorityFields {
+			if key.Value == name {
+				rank = index
+				break
+			}
+		}
+		fields = append(fields, field{key, value, rank})
+		owner := i / 2
+		if key.Anchor != "" {
+			owners[key] = owner
+		}
+		visit(value, func(node *yaml.Node) {
+			if node.Anchor != "" {
+				owners[node] = owner
+			}
+			// Expand collection syntax as before, retaining scalar quoting/style.
+			if node.Kind == yaml.MappingNode || node.Kind == yaml.SequenceNode {
+				node.Style &^= yaml.FlowStyle
+			}
+		})
+	}
+	order := make([]int, len(fields))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		a, b := fields[order[i]], fields[order[j]]
+		if a.rank != b.rank {
+			return a.rank < b.rank
+		}
+		return a.key.Value < b.key.Value
+	})
+	dependencies := make([][]int, len(fields))
+	for i, f := range fields {
+		collectDependency := func(node *yaml.Node) {
+			if node.Kind == yaml.AliasNode {
+				if owner, ok := owners[node.Alias]; ok && owner != i {
+					dependencies[i] = append(dependencies[i], owner)
+				}
+			}
+		}
+		visit(f.key, collectDependency)
+		visit(f.value, collectDependency)
+	}
+	var ordered []*yaml.Node
+	state := make([]uint8, len(fields))
+	var appendField func(int) error
+	appendField = func(i int) error {
+		if state[i] == 2 {
+			return nil
+		}
+		if state[i] == 1 {
+			return fmt.Errorf("cyclic YAML anchor dependencies")
+		}
+		state[i] = 1
+		for _, dependency := range dependencies[i] {
+			if err := appendField(dependency); err != nil {
+				return err
+			}
+		}
+		ordered = append(ordered, fields[i].key, fields[i].value)
+		state[i] = 2
+		return nil
+	}
+	for _, i := range order {
+		if err := appendField(i); err != nil {
+			return "", err
+		}
+	}
+	mapping.Content = ordered
+	var buf bytes.Buffer
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(&document); err != nil {
+		return "", err
+	}
+	if err := encoder.Close(); err != nil {
+		return "", err
+	}
+	return strings.TrimSuffix(buf.String(), "\n"), nil
 }
 
 // normalizeMarkdown normalizes markdown body content.

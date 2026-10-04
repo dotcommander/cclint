@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestAgentFormatter(t *testing.T) {
@@ -198,7 +200,7 @@ Methodology here.
 name: test-skill
 description: Test skill
 author: Someone
-version: 1
+version: 1.0
 ---
 # Test Skill
 
@@ -333,8 +335,8 @@ func TestParseFrontmatterRaw(t *testing.T) {
 name: test
 ---
 Body content`,
-			expectedFM:    "\nname: test\n",
-			expectedBody:  "\nBody content",
+			expectedFM:    "name: test\n",
+			expectedBody:  "Body content",
 			expectedHasFM: true,
 			expectError:   false,
 		},
@@ -520,7 +522,7 @@ Some content.
 name: generic-test
 description: A generic file
 author: Tester
-version: 2
+version: 2.0
 ---
 # Generic Content
 
@@ -823,5 +825,96 @@ func TestNormalizeMarkdownEdgeCases(t *testing.T) {
 				t.Errorf("normalizeMarkdown() = %q, expected %q", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestFormatterDelimiterBoundaries(t *testing.T) {
+	for _, input := range []string{
+		"---\nname: test\ndescription: foo---bar\n---\nBody\n",
+		"---\r\nname: test\r\ndescription: foo---bar\r\n---\r\nBody\n",
+		"---\nname: test\ndescription: |\n  first\n  ---\n  last\n---\nBody\n",
+	} {
+		got, err := (&AgentFormatter{}).Format(input)
+		if err != nil {
+			t.Fatalf("Format(%q): %v", input, err)
+		}
+		parsed := parseFrontmatterRaw(got)
+		var values map[string]any
+		if err := yaml.Unmarshal([]byte(parsed.frontmatter), &values); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(values["description"].(string), "---") {
+			t.Fatalf("lost embedded dashes: %q", got)
+		}
+		if !strings.Contains(got, "Body\n") {
+			t.Fatalf("lost body: %q", got)
+		}
+	}
+	input := "---text\nordinary markdown\n"
+	got, err := (&SkillFormatter{}).Format(input)
+	if err != nil || got != input {
+		t.Fatalf("non-delimiter treated as frontmatter: %q, %v", got, err)
+	}
+}
+
+func TestFormatterPreservesYAMLNodesAndMeaning(t *testing.T) {
+	input := "---\n# shared definition\nzebra: &shared\n  quoted: 'true' # retain scalar comment\n  literal: |\n    first---second\n# alias comment\nname: *shared\ndescription: \"12\" # retain description comment\nalpha: !!str 001\n---\nBody\n"
+	formatter := &AgentFormatter{}
+	got, err := formatter.Format(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{"# shared definition", "# retain scalar comment", "# alias comment", "# retain description comment", "&shared", "*shared", "'true'", "!!str 001"} {
+		if !strings.Contains(got, fragment) {
+			t.Errorf("lost %q in %s", fragment, got)
+		}
+	}
+	var original, formatted map[string]any
+	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(input).frontmatter), &original); err != nil {
+		t.Fatal(err)
+	}
+	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(got).frontmatter), &formatted); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(original, formatted) {
+		t.Fatalf("changed YAML meaning: %#v vs %#v", original, formatted)
+	}
+	again, err := formatter.Format(got)
+	if err != nil || again != got {
+		t.Fatalf("format is not stable: %v\n%s\n%s", err, got, again)
+	}
+}
+
+func TestMalformedFrontmatterPreservesOriginal(t *testing.T) {
+	for _, input := range []string{
+		"---\nname: one\nname: two\n---\nBody\n",
+		"---\n- list\n---\nBody\n",
+		"---\nname: foo---bar\nBody\n",
+		"---\nname: *missing\n---\nBody\n",
+		"---\nname: test\n...\nother: document\n---\nBody\n",
+	} {
+		got, err := (&SkillFormatter{}).Format(input)
+		if err == nil || got != input {
+			t.Fatalf("malformed input changed or accepted: %q, %v", got, err)
+		}
+	}
+}
+
+func TestFormatterPreservesRootMerge(t *testing.T) {
+	input := "---\ndefaults: &defaults\n  model: sonnet\n<<: *defaults\nname: test\ndescription: Test\n---\nBody\n"
+	got, err := (&AgentFormatter{}).Format(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var values map[string]any
+	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(got).frontmatter), &values); err != nil {
+		t.Fatal(err)
+	}
+	if values["model"] != "sonnet" {
+		t.Fatalf("lost merge semantics: %#v", values)
+	}
+	again, err := (&AgentFormatter{}).Format(got)
+	if err != nil || got != again {
+		t.Fatalf("unstable merge formatting: %v\n%s\n%s", err, got, again)
 	}
 }

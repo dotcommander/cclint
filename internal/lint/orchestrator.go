@@ -78,8 +78,28 @@ func (o *Orchestrator) Run() (*Result, error) {
 		return nil, errs
 	}
 
-	// Run project-wide memory checks
-	o.runMemoryChecks()
+	issues := o.memoryIssues()
+	if len(issues) > 0 {
+		summary := &LintSummary{ComponentType: "memory"}
+		for _, issue := range issues {
+			r := LintResult{File: issue.File, Type: "memory", Success: true}
+			categorizeIssues(&r, []cue.ValidationError{issue})
+			summary.Results = append(summary.Results, r)
+		}
+		recalculateTotals(summary)
+		result.Summaries = append(result.Summaries, summary)
+		allIssues = append(allIssues, issues...)
+		if o.opts.UseBaseline && b != nil {
+			ignored, errors, suggestions := FilterResults(summary, b)
+			result.BaselineIgnored += ignored
+			result.ErrorsIgnored += errors
+			result.SuggestionsIgnored += suggestions
+		}
+		result.TotalErrors += summary.TotalErrors
+		result.TotalWarnings += summary.TotalWarnings
+		result.TotalSuggestions += summary.TotalSuggestions
+		result.HasErrors = result.TotalErrors > 0
+	}
 
 	// Create/update baseline if requested
 	if o.opts.CreateBaseline {
@@ -104,7 +124,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		return allIssues, nil
 	}
 
-	ctx, err := NewLinterContext(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude)
+	ctx, err := NewLinterContext(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude, o.cfg.FollowSymlinks)
 	if err != nil {
 		return nil, fmt.Errorf("initialize lint context: %w", err)
 	}
@@ -189,43 +209,47 @@ func (o *Orchestrator) saveBaseline(issues []cue.ValidationError, baselineFile s
 	}
 
 	if !o.cfg.Quiet {
-		fmt.Printf("\nBaseline created: %s (%d issues)\n", baselineFile, len(b.Fingerprints))
+		fmt.Fprintf(os.Stderr, "\nBaseline created: %s (%d issues)\n", baselineFile, len(b.Fingerprints))
 	}
 
 	return nil
 }
 
 // runMemoryChecks performs project-wide memory checks.
-func (o *Orchestrator) runMemoryChecks() {
-	if o.cfg.Quiet {
-		return
-	}
-
-	// Check CLAUDE.local.md gitignore
-	// Output to stderr to avoid corrupting JSON/markdown stdout output
-	gitignoreWarnings := CheckClaudeLocalGitignore(o.cfg.Root)
-	for _, w := range gitignoreWarnings {
-		fmt.Fprintf(os.Stderr, "warning: %s: %s\n", w.File, w.Message)
-	}
-
-	// Check combined memory size
-	fd := discovery.NewFileDiscovery(o.cfg.Root, false)
+func (o *Orchestrator) memoryIssues() []cue.ValidationError {
+	issues := CheckClaudeLocalGitignore(o.cfg.Root)
+	fd := discovery.NewFileDiscovery(o.cfg.Root, o.cfg.FollowSymlinks).WithExclude(o.cfg.Exclude)
 	allFiles, err := fd.DiscoverFiles()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "warning: unable to run combined memory checks: %v\n", err)
-		return
+	if err == nil {
+		issues = append(issues, CheckCombinedMemorySize(o.cfg.Root, allFiles)...)
 	}
-	sizeWarnings := CheckCombinedMemorySize(o.cfg.Root, allFiles)
-	for _, w := range sizeWarnings {
-		fmt.Fprintf(os.Stderr, "warning: %s\n", w.Message)
-	}
+	return append(issues, CheckReflectOutput(o.cfg.Root)...)
+}
 
-	// Check /dc:reflect KB output (walks <root>/kb/ directly — not in discovery)
-	reflectWarnings := CheckReflectOutput(o.cfg.Root)
-	for _, w := range reflectWarnings {
-		if w.Severity == cue.SeveritySuggestion && !o.cfg.Verbose {
-			continue // advisory findings surface only under -v
+// ProcessSelected applies the same baseline lifecycle to an explicitly selected
+// result set, without expanding its scope to project-wide checks.
+func (o *Orchestrator) ProcessSelected(summary *LintSummary) (*Result, error) {
+	recalculateTotals(summary)
+	result := &Result{StartTime: time.Now(), Summaries: []*LintSummary{summary}}
+	path := o.resolveBaselinePath()
+	if o.opts.CreateBaseline {
+		if err := o.saveBaseline(CollectAllIssues(summary), path); err != nil {
+			return nil, err
 		}
-		fmt.Fprintf(os.Stderr, "%s: %s: %s\n", w.Severity, w.File, w.Message)
 	}
+	if o.opts.UseBaseline && !o.opts.CreateBaseline {
+		b, err := o.loadBaseline(path)
+		if err != nil {
+			return nil, err
+		}
+		if b != nil {
+			result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored = FilterResults(summary, b)
+		}
+	}
+	result.TotalFiles = summary.TotalFiles
+	result.TotalErrors = summary.TotalErrors
+	result.TotalWarnings = summary.TotalWarnings
+	result.TotalSuggestions = summary.TotalSuggestions
+	result.HasErrors = summary.TotalErrors > 0 && !o.opts.CreateBaseline
+	return result, nil
 }

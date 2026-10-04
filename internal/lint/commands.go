@@ -25,6 +25,7 @@ func LintCommands(rootPath string, quiet bool, verbose bool, noCycleCheck bool, 
 var knownCommandFields = map[string]bool{
 	"name":                     true, // Optional: derived from filename if not set
 	"description":              true, // Optional: command description
+	"disallowed-tools":         true,
 	"allowed-tools":            true, // Optional: tool access permissions
 	"argument-hint":            true, // Optional: hint for command arguments
 	"model":                    true, // Optional: model to use
@@ -64,6 +65,9 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 
 	// Validate allowed-tools only contains permitted tools
 	errors = append(errors, checkCommandToolAllowlist(data, filePath, contents)...)
+	if hooks, ok := data["hooks"]; ok {
+		errors = append(errors, ValidateComponentHooks(hooks, filePath)...)
+	}
 
 	return errors
 }
@@ -79,15 +83,15 @@ var commandAllowedTools = map[string]bool{
 
 // checkCommandToolAllowlist validates that allowed-tools only contains permitted tools.
 func checkCommandToolAllowlist(data map[string]any, filePath string, contents string) []cue.ValidationError {
-	tools, ok := data["allowed-tools"].(string)
-	if !ok || tools == "" {
+	tools := textutil.NormalizeStringList(data["allowed-tools"])
+	if len(tools) == 0 {
 		return nil
 	}
 
 	line := textutil.FindFrontmatterFieldLine(contents, "allowed-tools")
 
 	// Wildcard is not permitted
-	if strings.TrimSpace(tools) == "*" {
+	if len(tools) == 1 && tools[0] == "*" {
 		return []cue.ValidationError{{
 			File:     filePath,
 			Message:  `command declares wildcard "*" in allowed-tools — commands should only use Task, Agent, Skill, AskUserQuestion`,
@@ -98,7 +102,7 @@ func checkCommandToolAllowlist(data map[string]any, filePath string, contents st
 	}
 
 	var errors []cue.ValidationError
-	for tool := range strings.SplitSeq(tools, ",") {
+	for _, tool := range tools {
 		tool = strings.TrimSpace(tool)
 		if tool == "" {
 			continue
@@ -130,9 +134,9 @@ func checkSkillWithoutTaskDelegation(filePath string, contents string, data map[
 	}
 
 	// Also skip if allowed-tools declares both Skill and Task
-	if tools, ok := data["allowed-tools"].(string); ok {
+	if tools := textutil.NormalizeStringList(data["allowed-tools"]); len(tools) > 0 {
 		hasSkill, hasTask := false, false
-		for tool := range strings.SplitSeq(tools, ",") {
+		for _, tool := range tools {
 			base := textutil.ExtractBaseToolName(strings.TrimSpace(tool))
 			if base == "Skill" {
 				hasSkill = true

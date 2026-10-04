@@ -2,6 +2,7 @@ package output
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 
 // ConsoleFormatter formats output for console display
 type ConsoleFormatter struct {
+	writer           io.Writer
 	quiet            bool
 	verbose          bool
 	colorize         bool
@@ -30,6 +32,13 @@ func NewConsoleFormatter(quiet, verbose, showScores, showImprovements bool) *Con
 		showScores:       showScores,
 		showImprovements: showImprovements,
 	}
+}
+
+func (f *ConsoleFormatter) outputWriter() io.Writer {
+	if f.writer != nil {
+		return f.writer
+	}
+	return os.Stdout
 }
 
 // Format formats the lint summary for console output
@@ -78,7 +87,7 @@ func (f *ConsoleFormatter) printFileResults(summary *lint.LintSummary) {
 // shouldShowFile determines if a file result should be displayed.
 func (f *ConsoleFormatter) shouldShowFile(result *lint.LintResult, fileIssues []FlatIssue) bool {
 	hasIssues := countBySeverity(fileIssues, SeverityError) > 0 || countBySeverity(fileIssues, SeverityWarning) > 0
-	return hasIssues || f.verbose
+	return hasIssues || f.verbose || f.showScores || f.showImprovements
 }
 
 // printFileHeader prints the file header with status icon and quality score.
@@ -87,7 +96,7 @@ func (f *ConsoleFormatter) printFileHeader(result *lint.LintResult, fileIssues [
 	fileStyle := f.getFileStyle(fileIssues)
 	scoreStr := f.formatScoreString(result)
 
-	fmt.Printf("%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
+	fmt.Fprintf(f.outputWriter(), "%s %s%s\n", fileStyle.Render(status), result.File, scoreStr)
 }
 
 // getFileStatus returns the status icon for a file result.
@@ -161,8 +170,8 @@ func (f *ConsoleFormatter) printScoreDetails(result *lint.LintResult) {
 		return
 	}
 
-	fmt.Printf("    Score: %d/100 (%s)\n", result.Quality.Overall, result.Quality.Tier)
-	fmt.Printf("      Structural: %d/40  Practices: %d/40  Composition: %d/10  Documentation: %d/10\n",
+	fmt.Fprintf(f.outputWriter(), "    Score: %d/100 (%s)\n", result.Quality.Overall, result.Quality.Tier)
+	fmt.Fprintf(f.outputWriter(), "      Structural: %d/40  Practices: %d/40  Composition: %d/10  Documentation: %d/10\n",
 		result.Quality.Structural, result.Quality.Practices, result.Quality.Composition, result.Quality.Documentation)
 }
 
@@ -175,7 +184,7 @@ func (f *ConsoleFormatter) printImprovements(result *lint.LintResult) {
 	impStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14")) // cyan
 	ptsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10")) // green
 
-	fmt.Printf("    %s\n", impStyle.Render("Improvements:"))
+	fmt.Fprintf(f.outputWriter(), "    %s\n", impStyle.Render("Improvements:"))
 	for _, imp := range result.Improvements {
 		f.printImprovement(imp, ptsStyle)
 	}
@@ -187,7 +196,7 @@ func (f *ConsoleFormatter) printImprovement(imp textutil.ImprovementRecommendati
 	if imp.Line > 0 {
 		lineRef = fmt.Sprintf(" (line %d)", imp.Line)
 	}
-	fmt.Printf("      %s %s%s\n",
+	fmt.Fprintf(f.outputWriter(), "      %s %s%s\n",
 		ptsStyle.Render(fmt.Sprintf("+%d pts:", imp.PointValue)),
 		imp.Description,
 		lineRef)
@@ -238,9 +247,9 @@ func (f *ConsoleFormatter) printValidationError(err cue.ValidationError, severit
 	}
 
 	if err.Line > 0 {
-		fmt.Printf("%s%s:%d: %s%s\n", prefix, style.Render(err.File), err.Line, err.Message, sourceTag)
+		fmt.Fprintf(f.outputWriter(), "%s%s:%d: %s%s\n", prefix, style.Render(err.File), err.Line, err.Message, sourceTag)
 	} else {
-		fmt.Printf("%s%s: %s%s\n", prefix, style.Render(err.File), err.Message, sourceTag)
+		fmt.Fprintf(f.outputWriter(), "%s%s: %s%s\n", prefix, style.Render(err.File), err.Message, sourceTag)
 	}
 }
 
@@ -255,20 +264,20 @@ func (f *ConsoleFormatter) printSummary(summary *lint.LintSummary) {
 	if f.verbose {
 		suggestionsCount = summary.TotalSuggestions
 	}
-	if summary.FailedFiles == 0 && suggestionsCount == 0 {
+	if summary.TotalErrors == 0 && summary.TotalWarnings == 0 && suggestionsCount == 0 {
 		return
 	}
 
 	duration := time.Since(summary.StartTime)
 	if f.verbose {
-		fmt.Printf("\n%d/%d passed, %d errors, %d suggestions (%v)\n",
+		fmt.Fprintf(f.outputWriter(), "\n%d/%d passed, %d errors, %d warnings, %d suggestions (%v)\n",
 			summary.SuccessfulFiles, summary.TotalFiles,
-			summary.TotalErrors, summary.TotalSuggestions,
+			summary.TotalErrors, summary.TotalWarnings, summary.TotalSuggestions,
 			duration.Round(time.Millisecond))
 	} else {
-		fmt.Printf("\n%d/%d passed, %d errors (%v)\n",
+		fmt.Fprintf(f.outputWriter(), "\n%d/%d passed, %d errors, %d warnings (%v)\n",
 			summary.SuccessfulFiles, summary.TotalFiles,
-			summary.TotalErrors,
+			summary.TotalErrors, summary.TotalWarnings,
 			duration.Round(time.Millisecond))
 	}
 }
@@ -298,14 +307,14 @@ func (f *ConsoleFormatter) printConclusion(summary *lint.LintSummary) {
 			f.printCelebration(msg)
 		case f.colorize:
 			style := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-			fmt.Printf("%s\n", style.Render(msg))
+			fmt.Fprintf(f.outputWriter(), "%s\n", style.Render(msg))
 		default:
-			fmt.Println(msg)
+			fmt.Fprintln(f.outputWriter(), msg)
 		}
 	}
 
 	// Add blank line after each component group for better readability
-	fmt.Println()
+	fmt.Fprintln(f.outputWriter())
 }
 
 // isTTY returns true if stdout is a terminal

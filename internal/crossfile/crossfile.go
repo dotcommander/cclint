@@ -29,9 +29,6 @@ var (
 	// Matches: `--flag` | (table row), --flag: (label), `--flag` (backtick-wrapped).
 	routingFlagPattern = regexp.MustCompile("(?m)(?:`--([a-z][a-z0-9-]*)`\\s*\\||--([a-z][a-z0-9-]*)\\s*:)")
 
-	// collectSkillRefPattern matches Skill: references in agent contents.
-	collectSkillRefPattern = regexp.MustCompile(`(?m)^[^*]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-
 	// extractTaskAgentRefsPattern matches Task(agent-name) in tools field.
 	extractTaskAgentRefsPattern = regexp.MustCompile(`Task\(([a-z0-9][a-z0-9-]*)\)`)
 )
@@ -51,7 +48,10 @@ var skillAgentPatterns = []struct {
 	{regexp.MustCompile(`Task\(\s*["']?([a-z0-9][a-z0-9-]*)["']?\s*[,)]`), "Task(agent-name)"},
 
 	// Narrative patterns for agents
-	{regexp.MustCompile(`delegate via\s+([a-z0-9][a-z0-9-]*)`), "delegate via agent-name"},
+	{regexp.MustCompile(`delegate via\s+(` + skillRefNamePattern + `)`), "delegate via agent-name"},
+	{regexp.MustCompile(`delegate via\s+"([a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?)"`), "delegate via quoted agent"},
+	{regexp.MustCompile(`delegate via\s+'([a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?)'`), "delegate via quoted agent"},
+	{regexp.MustCompile("delegate via\\s+`([a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?)`"), "delegate via quoted agent"},
 	{regexp.MustCompile(`([a-z0-9][a-z0-9-]*-agent)\s+handles`), "foo-agent handles"},
 }
 
@@ -157,7 +157,7 @@ func NewCrossFileValidator(files []discovery.File, rootPath ...string) *CrossFil
 // isPluginAgentRelPath reports whether the relative path points to a plugin-shipped
 // agent file (under plugins/cache/ or .claude/plugins/cache/).
 func isPluginAgentRelPath(relPath string) bool {
-	normalized := filepath.ToSlash(relPath)
+	normalized := normalizeReferencePath(relPath)
 	return strings.Contains(normalized, "plugins/cache/")
 }
 
@@ -319,12 +319,9 @@ func (v *CrossFileValidator) findPrimaryAgent(taskMatches [][]string) (agentName
 // collectAgentSkillContents collects the contents of skills referenced by an agent.
 func (v *CrossFileValidator) collectAgentSkillContents(agentContents string) []string {
 	var skillContents []string
-	skillMatches := collectSkillRefPattern.FindAllStringSubmatch(agentContents, -1)
-	for _, sm := range skillMatches {
-		if len(sm) >= 2 {
-			if skillFile, exists := v.skills[sm[1]]; exists {
-				skillContents = append(skillContents, skillFile.Contents)
-			}
+	for _, skillRef := range FindSkillReferences(agentContents) {
+		if skillFile, exists := v.skills[skillRef]; exists {
+			skillContents = append(skillContents, skillFile.Contents)
 		}
 	}
 	return skillContents
@@ -400,7 +397,7 @@ func (v *CrossFileValidator) checkSkillReferences(filePath string, contents stri
 		if seenSkillErrors[skillRef] {
 			continue
 		}
-		if _, exists := v.skills[skillRef]; !exists {
+		if !v.hasResolvableSkill(skillRef) {
 			seenSkillErrors[skillRef] = true
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
@@ -422,7 +419,7 @@ func (v *CrossFileValidator) ValidateAgent(filePath string, contents string, fro
 
 	skillRefs := FindSkillReferences(contents)
 	for _, skillRef := range skillRefs {
-		if _, exists := v.skills[skillRef]; !exists {
+		if !v.hasResolvableSkill(skillRef) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Skill: %s references non-existent skill. Create skills/%s/SKILL.md", skillRef, skillRef),
@@ -516,17 +513,8 @@ func (v *CrossFileValidator) validateFrontmatterSkills(filePath string, frontmat
 		return nil
 	}
 
-	skillsList, ok := skillsVal.([]any)
-	if !ok {
-		return nil
-	}
-
-	for _, item := range skillsList {
-		skillName, ok := item.(string)
-		if !ok {
-			continue
-		}
-		if _, exists := v.skills[skillName]; !exists {
+	for _, skillName := range frontmatterSkillNames(skillsVal) {
+		if !v.hasResolvableSkill(skillName) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  fmt.Sprintf("Frontmatter skills references non-existent skill '%s'. Create skills/%s/SKILL.md", skillName, skillName),
@@ -553,6 +541,14 @@ func (v *CrossFileValidator) ValidateSkill(filePath string, contents string, fro
 				continue
 			}
 			agentRef := strings.TrimSpace(match[1])
+
+			// Unmarked narrative words are references only when they resolve or use
+			// the established agent naming suffix. Quoted refs remain explicit.
+			if agentPattern.example == "delegate via agent-name" &&
+				!strings.HasSuffix(agentRef, "-agent") && !strings.HasSuffix(agentRef, "-specialist") &&
+				!v.hasResolvableAgent(agentRef) {
+				continue
+			}
 
 			// Skip dynamic/variable references
 			if strings.Contains(agentRef, "subagent_type") ||
@@ -718,4 +714,34 @@ func (v *CrossFileValidator) findSkillOrphans(referencedSkills map[string]bool) 
 	}
 
 	return orphans
+}
+
+// hasResolvableSkill keeps runtime-owned references out of local dangling checks.
+func (v *CrossFileValidator) hasResolvableSkill(name string) bool {
+	if BuiltInSkillNames[name] || IsPluginNamespacedRef(name) {
+		return true
+	}
+	_, exists := v.skills[name]
+	return exists
+}
+
+func frontmatterSkillNames(value any) []string {
+	var names []string
+	switch value := value.(type) {
+	case string:
+		for _, name := range strings.Split(value, ",") {
+			if name = strings.TrimSpace(name); name != "" {
+				names = append(names, name)
+			}
+		}
+	case []any:
+		for _, item := range value {
+			if name, ok := item.(string); ok {
+				names = append(names, name)
+			}
+		}
+	case []string:
+		names = append(names, value...)
+	}
+	return names
 }

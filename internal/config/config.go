@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -21,6 +22,7 @@ const (
 // Config represents the cclint configuration
 type Config struct {
 	Root             string       `mapstructure:"root"`
+	RootExplicit     bool         `mapstructure:"-" json:"-"`
 	Version          string       `mapstructure:"-"`
 	Exclude          []string     `mapstructure:"exclude"`
 	FollowSymlinks   bool         `mapstructure:"followSymlinks"`
@@ -55,27 +57,57 @@ func LoadConfig(rootPath string) (*Config, error) {
 	vp := viper.New()
 	setDefaults(vp, homeDir)
 
-	// Config file locations
-	configPaths := []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"}
-	for _, path := range configPaths {
-		if rootPath != "" {
-			path = filepath.Join(rootPath, path)
-		}
-		vp.SetConfigFile(path)
-		if err := vp.ReadInConfig(); err == nil {
+	// Explicit roots restrict lookup; otherwise use the closest ancestor config.
+	configDir := rootPath
+	if configDir == "" {
+		configDir, _ = os.Getwd()
+	}
+	for {
+		found := false
+		for _, name := range []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"} {
+			path := filepath.Join(configDir, name)
+			if _, err := os.Stat(path); err != nil {
+				continue
+			}
+			vp.SetConfigFile(path)
+			if err := vp.ReadInConfig(); err != nil {
+				continue
+			}
+			found = true
 			break
 		}
+		parent := filepath.Dir(configDir)
+		if found || rootPath != "" || parent == configDir {
+			break
+		}
+		configDir = parent
 	}
 
-	// Environment variables
+	// Keep historical env spellings first, then conventional snake-case aliases.
 	vp.SetEnvPrefix("CCLINT")
 	vp.AutomaticEnv()
+	for key, alias := range map[string]string{
+		"root": "ROOT", "exclude": "EXCLUDE", "output": "OUTPUT", "format": "FORMAT",
+		"failOn": "FAIL_ON", "followSymlinks": "FOLLOW_SYMLINKS",
+		"showScores": "SHOW_SCORES", "showImprovements": "SHOW_IMPROVEMENTS",
+		"no-cycle-check": "NO_CYCLE_CHECK", "quiet": "QUIET", "verbose": "VERBOSE",
+		"concurrency": "CONCURRENCY", "parallel": "PARALLEL",
+		"rules.strict": "RULES_STRICT", "schemas.enabled": "SCHEMAS_ENABLED",
+		"schemas.extensions": "SCHEMAS_EXTENSIONS",
+	} {
+		if err := vp.BindEnv(key, "CCLINT_"+strings.ToUpper(key), "CCLINT_"+alias); err != nil {
+			return nil, err
+		}
+	}
 
 	// Create config instance
 	var config Config
 	if err := vp.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("error unmarshaling config: %w", err)
 	}
+
+	// Record configured roots so Git selection can distinguish them from defaults.
+	config.RootExplicit = rootPath != "" || vp.InConfig("root") || os.Getenv("CCLINT_ROOT") != ""
 
 	// Override root if provided
 	if rootPath != "" {

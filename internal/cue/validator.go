@@ -157,14 +157,21 @@ func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[strin
 	}
 
 	// Use Unify to check if data conforms to schema
-	// We extract the #Agent, #Command, etc. definition from the schema
-	defPath := cue.ParsePath(fmt.Sprintf("#%s", strings.ToUpper(schemaType[:1])+schemaType[1:]))
+	// Definition names are explicit because CLAUDE.md does not follow title casing.
+	definitions := map[string]string{
+		"agent": "#Agent", "command": "#Command", "skill": "#Skill",
+		"settings": "#Settings", "claude_md": "#ClaudeMD",
+	}
+	definition, ok := definitions[schemaType]
+	if !ok {
+		return nil, fmt.Errorf("unknown CUE schema type: %s", schemaType)
+	}
+	defPath := cue.ParsePath(definition)
 
 	// Try to get the definition from schema
 	def := schema.LookupPath(defPath)
 	if !def.Exists() {
-		// Schema definition not found, this is OK - just return no errors
-		return nil, nil
+		return nil, fmt.Errorf("CUE schema %s is missing expected definition %s", schemaType, definition)
 	}
 
 	// Check if data unifies with schema (unify checks if both can be true simultaneously)
@@ -184,23 +191,25 @@ func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[strin
 }
 
 // extractErrorsFromCUE flattens a CUE error into one ValidationError per
-// underlying field issue, preserving each issue's path/position/message.
+// underlying field issue. Encoded maps have no document positions.
 func (v *Validator) extractErrorsFromCUE(err error, schemaType string) []ValidationError {
 	var validationErrors []ValidationError
 
 	for _, cueErr := range cuerrors.Errors(err) {
-		pos := cueErr.Position()
 		msg := cueErr.Error()
 		if path := cueErr.Path(); len(path) > 0 {
-			msg = fmt.Sprintf("%s: %s", strings.Join(path, "."), msg)
+			prefix := strings.Join(path, ".") + ": "
+			if !strings.HasPrefix(msg, prefix) {
+				msg = prefix + msg
+			}
 		}
 		validationErrors = append(validationErrors, ValidationError{
 			File:     "",
 			Message:  msg,
 			Severity: types.SeverityError,
 			Source:   SourceAnthropicDocs,
-			Line:     pos.Line(),
-			Column:   pos.Column(),
+			Line:     0,
+			Column:   0,
 		})
 	}
 
@@ -251,19 +260,24 @@ func (v *Validator) ValidateFile(path string, content string, fileType string) (
 		}}, nil
 	}
 
-	// Validate based on file type
+	// Map-only validation APIs cannot know the file; attribute at this boundary.
+	var diagnostics []ValidationError
 	switch fileType {
 	case "agent":
-		return v.ValidateAgent(fm.Data)
+		diagnostics, err = v.ValidateAgent(fm.Data)
 	case "command":
-		return v.ValidateCommand(fm.Data)
+		diagnostics, err = v.ValidateCommand(fm.Data)
 	case "skill":
-		return v.ValidateSkill(fm.Data)
+		diagnostics, err = v.ValidateSkill(fm.Data)
 	case "settings":
-		return v.ValidateSettings(fm.Data)
+		diagnostics, err = v.ValidateSettings(fm.Data)
 	case "claude_md":
-		return v.ValidateClaudeMD(fm.Data)
+		diagnostics, err = v.ValidateClaudeMD(fm.Data)
 	default:
 		return nil, fmt.Errorf("unknown file type: %s", fileType)
 	}
+	for i := range diagnostics {
+		diagnostics[i].File = path
+	}
+	return diagnostics, err
 }

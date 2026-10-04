@@ -121,8 +121,11 @@ func validatePluginPathsExist(data map[string]any, rootPath, filePath, contents 
 
 	// Resolve the plugin directory: filePath is relative to rootPath.
 	// e.g., filePath="my-plugin/.claude-plugin/plugin.json"
-	//   -> pluginDir = <rootPath>/my-plugin/.claude-plugin
+	//   -> pluginDir = <rootPath>/my-plugin
 	pluginDir := filepath.Join(rootPath, filepath.Dir(filePath))
+	if filepath.Base(pluginDir) == ".claude-plugin" {
+		pluginDir = filepath.Dir(pluginDir)
+	}
 
 	var warnings []cue.ValidationError
 

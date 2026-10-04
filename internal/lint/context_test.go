@@ -10,7 +10,7 @@ import (
 
 func TestLintContext(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintContext("testdata/empty", false, false, true, nil)
+	summary, err := LintContext(t.TempDir(), false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintContext() error = %v", err)
 	}

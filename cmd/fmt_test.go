@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -142,4 +144,57 @@ func TestResolveFileTypeOverride(t *testing.T) {
 	cmd.Type = "invalid"
 	_, _, err = resolveFileType(executionOptions{}, cmd, "irrelevant", "irrelevant", t.TempDir())
 	require.Error(t, err)
+}
+
+func TestAtomicFormatReplacementPreservesModeAndLink(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "target.md")
+	link := filepath.Join(root, "link.md")
+	require.NoError(t, os.WriteFile(target, []byte("original"), 0o640))
+	require.NoError(t, os.Symlink(target, link))
+	require.NoError(t, replaceFormattedFile(link, "formatted", os.Rename))
+	info, err := os.Stat(target)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o640), info.Mode().Perm())
+	linkInfo, err := os.Lstat(link)
+	require.NoError(t, err)
+	assert.NotZero(t, linkInfo.Mode()&os.ModeSymlink)
+	content, err := os.ReadFile(target)
+	require.NoError(t, err)
+	assert.Equal(t, "formatted", string(content))
+	assertNoFormatterTemps(t, root)
+}
+
+func TestAtomicFormatFailedRenamePreservesOriginal(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "original.md")
+	require.NoError(t, os.WriteFile(path, []byte("original"), 0o640))
+	canonicalPath, err := filepath.EvalSymlinks(path)
+	require.NoError(t, err)
+	failure := errors.New("injected rename failure")
+	err = replaceFormattedFile(path, "replacement", func(source, target string) error {
+		assert.Equal(t, filepath.Dir(canonicalPath), filepath.Dir(source))
+		assert.Equal(t, canonicalPath, target)
+		prepared, readErr := os.ReadFile(source)
+		require.NoError(t, readErr)
+		assert.Equal(t, "replacement", string(prepared))
+		return failure
+	})
+	require.ErrorIs(t, err, failure)
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, "original", string(content))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o640), info.Mode().Perm())
+	assertNoFormatterTemps(t, root)
+}
+
+func assertNoFormatterTemps(t *testing.T, root string) {
+	t.Helper()
+	entries, err := os.ReadDir(root)
+	require.NoError(t, err)
+	for _, entry := range entries {
+		assert.False(t, strings.HasPrefix(entry.Name(), ".cclint-fmt-"), "left temporary %s", entry.Name())
+	}
 }

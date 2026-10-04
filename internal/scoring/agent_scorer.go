@@ -47,9 +47,9 @@ func (s *AgentScorer) scoreStructural(frontmatter map[string]any, bodyContent st
 	fieldScore, fieldDetails := ScoreRequiredFields(frontmatter, fieldSpecs)
 	details = append(details, fieldDetails...)
 
-	// Required sections (15 points total)
+	// Required sections (20 points total)
 	sectionSpecs := []SectionSpec{
-		{`(?i)## Foundation`, "Foundation section", 5},
+		{`(?i)## Foundation`, "Foundation section", 10},
 		{`(?i)### Phase`, "Phase workflow", 4},
 		{`(?i)## Success Criteria`, "Success Criteria", 3},
 		{`(?i)## Edge Cases`, "Edge Cases", 3},
@@ -70,8 +70,8 @@ func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
 		practices += recordMetric(&details, "practices", name, passed, points)
 	}
 
-	// Skill reference (10 points)
-	add("Skill: reference", s.hasSkillReference(bodyContent), 10)
+	// Skill reference (15 points)
+	add("Skill: reference", s.hasSkillReference(bodyContent), 15)
 
 	// Anti-Patterns section (5 points)
 	hasAntiPatterns, _ := regexp.MatchString(`(?i)## Anti-Patterns`, bodyContent)

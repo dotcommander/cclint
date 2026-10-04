@@ -54,7 +54,7 @@ func (f *CompactFormatter) FormatAll(summaries []*lint.LintSummary) error {
 	var allSuggestions []errorEntry
 
 	for _, s := range summaries {
-		if s.TotalFiles == 0 {
+		if s.TotalFiles == 0 && s.TotalErrors == 0 && s.TotalWarnings == 0 && s.TotalSuggestions == 0 {
 			continue
 		}
 		totalFiles += s.TotalFiles
@@ -69,7 +69,7 @@ func (f *CompactFormatter) FormatAll(summaries []*lint.LintSummary) error {
 
 		fmt.Println()
 		for _, s := range summaries {
-			if s.TotalFiles == 0 {
+			if s.TotalFiles == 0 && s.TotalErrors == 0 && s.TotalWarnings == 0 && s.TotalSuggestions == 0 {
 				continue
 			}
 
@@ -102,6 +102,13 @@ func (f *CompactFormatter) FormatAll(summaries []*lint.LintSummary) error {
 		f.printMinimalResult(totalFiles, totalErrors, allErrors, boldStyle, redStyle)
 	}
 
+	for _, s := range summaries {
+		for _, r := range s.Results {
+			for _, warning := range r.Warnings {
+				fmt.Printf("warning: %s: %s\n", warning.File, warning.Message)
+			}
+		}
+	}
 	return nil
 }
 

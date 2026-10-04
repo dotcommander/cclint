@@ -6,7 +6,7 @@ import (
 
 func TestLintSettings(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintSettings("testdata/empty", false, false, true, nil)
+	summary, err := LintSettings(t.TempDir(), false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintSettings() error = %v", err)
 	}

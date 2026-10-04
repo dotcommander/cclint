@@ -86,8 +86,8 @@ func extractMappingsFromRow(filePath, row string, routingCols []int) []TriggerMa
 	var targetCells []string
 	if len(routingCols) == 0 {
 		// Backwards compat: all cells except leading empty and trigger keyword.
-		// cells[len-1] may be empty (trailing |), ignore it.
-		targetCells = cells[2 : len(cells)-1]
+		// Keep the last populated cell; empty trailing cells are skipped below.
+		targetCells = cells[2:]
 	} else {
 		for _, idx := range routingCols {
 			if idx < len(cells) {

@@ -27,7 +27,7 @@ type LinterContext struct {
 // NewLinterContext creates a new LinterContext with all dependencies initialized.
 // It handles project root detection, schema loading, file discovery, and
 // cross-file validator setup.
-func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string) (*LinterContext, error) {
+func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string, followSymlinks ...bool) (*LinterContext, error) {
 	// Find project root if not provided
 	if rootPath == "" {
 		var err error
@@ -48,7 +48,8 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclud
 	}
 
 	// Initialize discoverer
-	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
+	follow := len(followSymlinks) > 0 && followSymlinks[0]
+	discoverer := discovery.NewFileDiscovery(rootPath, follow).WithExclude(exclude)
 
 	// Discover all files
 	files, err := discoverer.DiscoverFiles()

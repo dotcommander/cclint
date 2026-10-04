@@ -15,9 +15,8 @@ var (
 	// triggerTableHeaderPattern matches a markdown table header row with a "Trigger" column.
 	triggerTableHeaderPattern = regexp.MustCompile(`(?im)^\|\s*Trigger[^|]*\|`)
 
-	// triggerSkillCellPattern extracts bare hyphenated names from a table cell.
-	// Only matches names that contain a hyphen (all real skill/agent names are hyphenated).
-	triggerSkillCellPattern = regexp.MustCompile(`\b([a-z][a-z0-9-]{2,})\b`)
+	// triggerSkillCellPattern extracts local and plugin-qualified target names.
+	triggerSkillCellPattern = regexp.MustCompile(`\b(` + skillRefNamePattern + `)\b`)
 
 	// triggerTaskPattern matches Task(agent-name) patterns in table cells.
 	triggerTaskPattern = regexp.MustCompile(`Task\(\s*` + "`?" + `([a-z0-9][a-z0-9-]*)` + "`?" + `\s*\)`)
@@ -62,9 +61,12 @@ func IsSeparatorRow(line string) bool {
 }
 
 // IsLikelySkillName returns true when the candidate string looks like a real skill or
-// agent name. Real names are always hyphenated (e.g. "arch-database-core").
-// Single words without hyphens are almost certainly prose and should be ignored.
+// agent name. Local names are usually hyphenated (e.g. "arch-database-core").
+// Runtime built-ins and plugin-qualified names are also recognized.
 func IsLikelySkillName(s string) bool {
+	if BuiltInSkillNames[s] || IsPluginNamespacedRef(s) {
+		return true
+	}
 	if len(s) < 4 {
 		return false
 	}
@@ -90,8 +92,8 @@ func identifyRoutingColumns(headerRow string) []int {
 	var indices []int
 
 	// Skip cells[0] (before first |) and cells[1] (trigger keyword column).
-	// cells[len-1] may be empty (trailing |), so stop before it.
-	for i := 2; i < len(cells)-1; i++ {
+	// Empty trailing cells are harmless; the final populated cell is retained.
+	for i := 2; i < len(cells); i++ {
 		header := strings.ToLower(strings.TrimSpace(cells[i]))
 		if header == "" {
 			continue
@@ -106,7 +108,7 @@ func identifyRoutingColumns(headerRow string) []int {
 
 	// If no routing columns identified, fall back to ALL columns (backwards compat).
 	if len(indices) == 0 {
-		for i := 2; i < len(cells)-1; i++ {
+		for i := 2; i < len(cells); i++ {
 			indices = append(indices, i)
 		}
 	}
@@ -135,8 +137,8 @@ func ExtractRefsFromRow(filePath, row string, seen map[string]bool, routingCols 
 	var targetCells []string
 	if len(routingCols) == 0 {
 		// Backwards compat: all cells except leading empty and trigger keyword.
-		// cells[len-1] may be empty (trailing |), ignore it.
-		targetCells = cells[2 : len(cells)-1]
+		// Keep the last populated cell; empty trailing cells are skipped below.
+		targetCells = cells[2:]
 	} else {
 		for _, idx := range routingCols {
 			if idx < len(cells) {
@@ -262,7 +264,7 @@ func discoverReferenceFiles(rootPath string) []string {
 func (v *CrossFileValidator) validateTriggerRef(ref TriggerRef) []cue.ValidationError {
 	switch ref.RefType {
 	case "skill":
-		if BuiltInSkillNames[ref.RefName] {
+		if v.hasResolvableSkill(ref.RefName) {
 			return nil
 		}
 		if _, exists := v.skills[ref.RefName]; !exists {
@@ -274,7 +276,7 @@ func (v *CrossFileValidator) validateTriggerRef(ref TriggerRef) []cue.Validation
 			}}
 		}
 	case "agent":
-		if BuiltInSubagentTypes[ref.RefName] {
+		if v.hasResolvableAgent(ref.RefName) {
 			return nil
 		}
 		if _, exists := v.agents[ref.RefName]; !exists {

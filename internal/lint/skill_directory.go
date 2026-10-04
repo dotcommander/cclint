@@ -68,7 +68,7 @@ func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationErro
 		if scriptExts[ext] || ext == "" {
 			if len(content) > 0 && !strings.HasPrefix(string(content), "#!") {
 				issues = append(issues, cue.ValidationError{
-					File:     skillPath,
+					File:     scriptPath,
 					Message:  fmt.Sprintf("Script '%s' missing shebang (e.g., #!/usr/bin/env python3)", relPath),
 					Severity: cue.SeveritySuggestion,
 					Source:   cue.SourceAgentSkillsIO,
@@ -82,7 +82,7 @@ func validateScriptsDirectory(scriptsDir, skillPath string) []cue.ValidationErro
 			mode := info.Mode()
 			if mode&0111 == 0 && scriptExts[ext] {
 				issues = append(issues, cue.ValidationError{
-					File:     skillPath,
+					File:     scriptPath,
 					Message:  fmt.Sprintf("Script '%s' is not executable (chmod +x)", relPath),
 					Severity: cue.SeveritySuggestion,
 					Source:   cue.SourceAgentSkillsIO,

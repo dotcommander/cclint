@@ -114,7 +114,7 @@ func TestClassifyArgs(t *testing.T) {
 	}
 }
 
-func TestRunRootCommandGitModeTakesDispatchPrecedence(t *testing.T) {
+func TestRunRootCommandRejectsGitWithPositionalArguments(t *testing.T) {
 	root := t.TempDir()
 	gitInit := exec.Command("git", "init", root)
 	require.NoError(t, gitInit.Run())
@@ -125,7 +125,7 @@ func TestRunRootCommandGitModeTakesDispatchPrecedence(t *testing.T) {
 		executionOptions{root: &root, quiet: &quiet},
 		&lintCommand{Diff: &diff, Paths: []string{"agents", "custom.md"}},
 	)
-	require.NoError(t, err, "git mode must dispatch before mixed-argument classification")
+	require.ErrorContains(t, err, "cannot combine Git selection flags")
 }
 
 func TestRunGitLintStagedTakesPrecedenceOverDiff(t *testing.T) {

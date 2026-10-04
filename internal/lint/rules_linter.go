@@ -154,21 +154,32 @@ func (l *RuleLinter) ValidateBestPractices(filePath, contents string, data map[s
 func validatePathsGlob(paths any, filePath, contents string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	pathStr, ok := paths.(string)
-	if !ok {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  "paths: field must be a string",
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "paths"),
-		})
-		return errors
+	var values []string
+	valid := true
+	switch value := paths.(type) {
+	case string:
+		values = []string{value}
+	case []string:
+		values = value
+	case []any:
+		for _, item := range value {
+			text, ok := item.(string)
+			if !ok {
+				valid = false
+				break
+			}
+			values = append(values, text)
+		}
+	default:
+		valid = false
 	}
-
-	// Split by comma, but only commas outside of braces
-	// e.g., "**/*.{ts,tsx}, src/**/*.js" -> ["**/*.{ts,tsx}", "src/**/*.js"]
-	patterns := splitPathPatterns(pathStr)
+	if !valid {
+		return []cue.ValidationError{{File: filePath, Message: "paths: field must be a string or list of strings", Severity: cue.SeverityError, Source: cue.SourceAnthropicDocs, Line: textutil.FindFrontmatterFieldLine(contents, "paths")}}
+	}
+	var patterns []string
+	for _, value := range values {
+		patterns = append(patterns, splitPathPatterns(value)...)
+	}
 	for _, pattern := range patterns {
 		pattern = strings.TrimSpace(pattern)
 		if pattern == "" {

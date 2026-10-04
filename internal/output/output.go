@@ -1,7 +1,9 @@
 package output
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dotcommander/cclint/internal/config"
@@ -31,6 +33,14 @@ func FormatSummary(cfg *config.Config, summary *lint.LintSummary) error {
 	if err != nil {
 		return err
 	}
+	if console, ok := formatter.(*ConsoleFormatter); ok && cfg.Output != "" {
+		var buffer bytes.Buffer
+		console.writer = &buffer
+		if err := console.Format(summary); err != nil {
+			return err
+		}
+		return os.WriteFile(cfg.Output, buffer.Bytes(), 0600)
+	}
 	return formatter.Format(summary)
 }
 
@@ -47,13 +57,21 @@ func newSummaryFormatter(cfg *config.Config) (summaryFormatter, error) {
 	}
 }
 
-// FormatAll formats a full, multi-component run in compact form. Full-run
-// output intentionally ignores cfg.Format and cfg.Output.
+// FormatAll preserves compact console output and uses one report envelope for
+// machine formats, with component types retained on each result.
 func FormatAll(cfg *config.Config, summaries []*lint.LintSummary, startTime time.Time) error {
-	if cfg.Quiet {
-		return nil
+	if cfg.Format != formatConsole || cfg.Output != "" || cfg.ShowScores || cfg.ShowImprovements {
+		combined := &lint.LintSummary{StartTime: startTime, ProjectRoot: cfg.Root}
+		for _, summary := range summaries {
+			combined.Results = append(combined.Results, summary.Results...)
+			combined.TotalFiles += summary.TotalFiles
+			combined.SuccessfulFiles += summary.SuccessfulFiles
+			combined.FailedFiles += summary.FailedFiles
+			combined.TotalErrors += summary.TotalErrors
+			combined.TotalWarnings += summary.TotalWarnings
+			combined.TotalSuggestions += summary.TotalSuggestions
+		}
+		return FormatSummary(cfg, combined)
 	}
-
-	formatter := NewCompactFormatter(cfg.Quiet, cfg.Verbose, cfg.ShowScores, cfg.ShowImprovements, startTime)
-	return formatter.FormatAll(summaries)
+	return NewCompactFormatter(cfg.Quiet, cfg.Verbose, cfg.ShowScores, cfg.ShowImprovements, startTime).FormatAll(summaries)
 }

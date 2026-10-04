@@ -73,6 +73,11 @@ func GetStagedChanges(rootPath string) (FileChanges, error) {
 	if !IsGitRepo(rootPath) {
 		return FileChanges{}, nil
 	}
+	var err error
+	rootPath, err = RepositoryRoot(rootPath)
+	if err != nil {
+		return FileChanges{}, err
+	}
 
 	// Get staged files relative to git root
 	cmd, cancel := gitCommand(rootPath, "diff", "--name-status", "-z", "--no-renames", "--staged")
@@ -98,6 +103,11 @@ func GetChangedFiles(rootPath string) ([]string, error) {
 func GetChangedFileChanges(rootPath string) (FileChanges, error) {
 	if !IsGitRepo(rootPath) {
 		return FileChanges{}, nil
+	}
+	var err error
+	rootPath, err = RepositoryRoot(rootPath)
+	if err != nil {
+		return FileChanges{}, err
 	}
 
 	// Check if there are any commits
@@ -155,6 +165,17 @@ func GetChangedFileChanges(rootPath string) (FileChanges, error) {
 	}
 	changes.Files = append(changes.Files, untrackedFiles...)
 	return changes, nil
+}
+
+// RepositoryRoot resolves the working-tree top level from any descendant.
+func RepositoryRoot(path string) (string, error) {
+	cmd, cancel := gitCommand(path, "rev-parse", "--show-toplevel")
+	defer cancel()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", gitTimeoutError("rev-parse --show-toplevel", err, output)
+	}
+	return filepath.Clean(strings.TrimSpace(string(output))), nil
 }
 
 // IsGitRepo checks if the given directory is within a git repository.
@@ -280,7 +301,7 @@ func isRelevantFile(relPath string) bool {
 
 	for _, component := range pathComponents {
 		switch component {
-		case "agents", "commands", "skills", ".claude", ".claude-plugin":
+		case "agents", "commands", "skills", "rules", "output-styles", ".claude", ".claude-plugin":
 			return true
 		}
 	}

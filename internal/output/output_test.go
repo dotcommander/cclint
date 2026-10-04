@@ -125,8 +125,8 @@ func TestFormatSummaryReturnsOutputFileError(t *testing.T) {
 	}
 }
 
-func TestFormatAllAlwaysUsesCompactOutput(t *testing.T) {
-	outputPath := filepath.Join(t.TempDir(), "ignored.json")
+func TestFormatAllHonorsConfiguredJSONOutput(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "report.json")
 	cfg := &config.Config{Format: "json", Output: outputPath}
 	summaries := []*lint.LintSummary{{
 		ComponentType:   "agent",
@@ -139,16 +139,24 @@ func TestFormatAllAlwaysUsesCompactOutput(t *testing.T) {
 			t.Fatalf("FormatAll() error = %v", err)
 		}
 	})
-	if !strings.Contains(stdout, "PASS  2 files") {
-		t.Errorf("full-run output = %q, want compact PASS output", stdout)
+	if stdout != "" {
+		t.Errorf("file report unexpectedly wrote stdout: %q", stdout)
 	}
-	if _, err := os.Stat(outputPath); !os.IsNotExist(err) {
-		t.Errorf("configured output file was used: stat error = %v", err)
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report JSONReport
+	if err = json.Unmarshal(data, &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary.TotalFiles != 2 || report.Summary.SuccessfulFiles != 2 {
+		t.Fatalf("configured report: %+v", report.Summary)
 	}
 }
 
 func TestFormatAllQuietWritesNothing(t *testing.T) {
-	cfg := &config.Config{Quiet: true, Format: "json", Output: filepath.Join(t.TempDir(), "ignored.json")}
+	cfg := &config.Config{Quiet: true, Format: "json", Output: filepath.Join(t.TempDir(), "report.json")}
 	stdout := captureBoundaryStdout(t, func() {
 		if err := FormatAll(cfg, []*lint.LintSummary{{TotalFiles: 1}}, time.Now()); err != nil {
 			t.Fatalf("FormatAll() error = %v", err)

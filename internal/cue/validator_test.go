@@ -1878,28 +1878,27 @@ func TestValidateAgainstSchema_InvalidData(t *testing.T) {
 	}
 }
 
-// TestValidateAgainstSchema_MissingDefinition tests non-existent schema definition
+// TestValidateAgainstSchema_MissingDefinition prevents silently skipped validation.
 func TestValidateAgainstSchema_MissingDefinition(t *testing.T) {
 	v := NewValidator()
 	if err := v.LoadSchemas(); err != nil {
 		t.Fatalf("Failed to load schemas: %v", err)
 	}
-
-	// Manually test with a schema type that doesn't have a definition
-	// This tests the path where def.Exists() returns false
-	schema, ok := v.schemas["agent"]
-	if !ok {
-		t.Fatal("Agent schema not loaded")
-	}
-
-	// Try to validate against a non-existent definition
-	errs, err := v.validateAgainstSchema(schema, map[string]any{}, "nonexistent")
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	// Should return no errors when definition doesn't exist
-	if len(errs) > 0 {
-		t.Errorf("Expected no errors for missing definition, got %d", len(errs))
+	for _, schemaType := range []string{"nonexistent", "claude_md"} {
+		t.Run(schemaType, func(t *testing.T) {
+			// The agent schema has no context definition; unknown schema types
+			// must also be operational errors rather than successful validation.
+			errs, err := v.validateAgainstSchema(v.schemas["agent"], map[string]any{}, schemaType)
+			if err == nil {
+				t.Fatal("Expected visible error for unavailable schema definition")
+			}
+			if !strings.Contains(err.Error(), schemaType) {
+				t.Errorf("Error must identify schema type %q: %v", schemaType, err)
+			}
+			if len(errs) > 0 {
+				t.Errorf("Operational schema failure must not become input diagnostics: %v", errs)
+			}
+		})
 	}
 }
 

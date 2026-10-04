@@ -9,7 +9,7 @@ import (
 
 func TestLintPlugins(t *testing.T) {
 	// Test with empty directory
-	summary, err := LintPlugins("testdata/empty", false, false, true, nil)
+	summary, err := LintPlugins(t.TempDir(), false, false, true, nil)
 	if err != nil {
 		t.Fatalf("LintPlugins() error = %v", err)
 	}
@@ -696,7 +696,7 @@ func TestValidatePluginPathsExist(t *testing.T) {
 			t.Fatalf("failed to create plugin dir: %v", err)
 		}
 		for _, rel := range fileRelPaths {
-			abs := filepath.Join(pluginDir, rel)
+			abs := filepath.Join(root, rel)
 			dir := filepath.Dir(abs)
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				t.Fatalf("failed to create dir %s: %v", dir, err)

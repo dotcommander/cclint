@@ -34,8 +34,8 @@ func TestCreateBaseline(t *testing.T) {
 
 	baseline := CreateBaseline(issues)
 
-	if baseline.Version != "1.0" {
-		t.Errorf("Expected version 1.0, got %s", baseline.Version)
+	if baseline.Version != "1.1" {
+		t.Errorf("Expected version 1.1, got %s", baseline.Version)
 	}
 
 	if len(baseline.Fingerprints) != 2 {

@@ -325,15 +325,15 @@ func ValidateAllowedTools(data map[string]any, filePath string, contents string)
 	var warnings []types.ValidationError
 
 	// Check both "tools" and "allowed-tools" fields
-	toolsFields := []string{"tools", "allowed-tools"}
+	toolsFields := []string{"tools", "allowed-tools", "disallowed-tools", "disallowedTools"}
 
 	for _, field := range toolsFields {
-		tools, ok := data[field].(string)
-		if !ok || tools == "" {
+		tools := NormalizeStringList(data[field])
+		if len(tools) == 0 {
 			continue
 		}
 		// Parse comma-separated tools
-		for tool := range strings.SplitSeq(tools, ",") {
+		for _, tool := range tools {
 			tool = strings.TrimSpace(tool)
 			if tool == "" {
 				continue
@@ -527,4 +527,30 @@ func DetectSecrets(contents string, filePath string) []types.ValidationError {
 	}
 
 	return warnings
+}
+
+// NormalizeStringList gives existing declaration checks equivalent string/list inputs.
+func NormalizeStringList(value any) []string {
+	var values []string
+	switch v := value.(type) {
+	case string:
+		values = []string{v}
+	case []string:
+		values = v
+	case []any:
+		for _, item := range v {
+			if text, ok := item.(string); ok {
+				values = append(values, text)
+			}
+		}
+	}
+	var result []string
+	for _, value := range values {
+		for _, item := range strings.Split(value, ",") {
+			if item = strings.TrimSpace(item); item != "" {
+				result = append(result, item)
+			}
+		}
+	}
+	return result
 }

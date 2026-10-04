@@ -61,16 +61,31 @@ func filterIssues(issues []cue.ValidationError, filter func(cue.ValidationError)
 
 // recalculateTotals recalculates the summary totals based on the current results.
 func recalculateTotals(summary *LintSummary) {
-	var totalErrors, totalSuggestions, successfulFiles, failedFiles int
-	for _, result := range summary.Results {
+	var totalErrors, totalWarnings, totalSuggestions, successfulFiles, failedFiles int
+	physicalFiles := make(map[string]bool)
+	for i := range summary.Results {
+		result := &summary.Results[i]
+		result.Success = len(result.Errors) == 0
+		if result.File != "" && result.Type != "memory" {
+			physicalFiles[result.File] = physicalFiles[result.File] || !result.Success
+		}
 		totalErrors += len(result.Errors)
+		totalWarnings += len(result.Warnings)
 		totalSuggestions += len(result.Suggestions)
-		if result.Success {
-			successfulFiles++
-		} else {
+		if result.File == "" || result.Type == "memory" {
+			continue
+		}
+
+	}
+	for _, failed := range physicalFiles {
+		if failed {
 			failedFiles++
+		} else {
+			successfulFiles++
 		}
 	}
+	summary.TotalFiles = len(physicalFiles)
+	summary.TotalWarnings = totalWarnings
 	summary.TotalErrors = totalErrors
 	summary.TotalSuggestions = totalSuggestions
 	summary.SuccessfulFiles = successfulFiles

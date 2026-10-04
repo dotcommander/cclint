@@ -132,6 +132,7 @@ func validateSettingsSpecific(data map[string]any, filePath string) []cue.Valida
 	if val, ok := data["cleanupPeriodDays"]; ok {
 		if num, ok := val.(float64); ok && num < 1 {
 			errors = append(errors, cue.ValidationError{
+				File:     filePath,
 				Message:  "cleanupPeriodDays must be >= 1; 0 silently disables transcript persistence",
 				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,

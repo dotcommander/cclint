@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // bodyToolNegativePattern matches lines that explicitly disclaim a tool (e.g. "do not use Bash").
@@ -14,16 +15,7 @@ var bodyToolNegativePattern = regexp.MustCompile(`(?i)\b(do not use|don't use|ne
 // countTools returns the number of tool entries in a frontmatter tools value.
 // It handles both a comma-separated string and a []any slice.
 func countTools(tools any) int {
-	switch v := tools.(type) {
-	case string:
-		if strings.TrimSpace(v) == "" {
-			return 0
-		}
-		return len(strings.Split(v, ","))
-	case []any:
-		return len(v)
-	}
-	return 0
+	return len(textutil.NormalizeStringList(tools))
 }
 
 // validateBodyToolMismatch checks whether tool names declared in frontmatter
@@ -90,27 +82,10 @@ func extractDeclaredTools(tools any) map[string]bool {
 
 	result := make(map[string]bool)
 
-	switch v := tools.(type) {
-	case string:
-		for _, part := range strings.Split(v, ",") {
-			name := strings.TrimSpace(part)
-			if name != "" {
-				result[name] = true
-			}
-		}
-	case []any:
-		for _, item := range v {
-			if s, ok := item.(string); ok && s != "" {
-				result[s] = true
-			}
-		}
-	default:
-		return nil
+	for _, name := range textutil.NormalizeStringList(tools) {
+		result[textutil.ExtractBaseToolName(name)] = true
 	}
 
-	if len(result) == 0 {
-		return nil
-	}
 	return result
 }
 

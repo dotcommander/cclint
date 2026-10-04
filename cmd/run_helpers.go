@@ -121,3 +121,7 @@ func stringValueOr(value *string, fallback string) string {
 	}
 	return *value
 }
+
+func processSelected(cfg *config.Config, opts executionOptions, summary *lint.LintSummary) (*lint.Result, error) {
+	return lint.NewOrchestrator(cfg, lint.OrchestratorConfig{UseBaseline: boolValue(opts.baseline), CreateBaseline: boolValue(opts.baselineCreate), BaselinePath: stringValueOr(opts.baselinePath, ".cclintbaseline.json")}).ProcessSelected(summary)
+}

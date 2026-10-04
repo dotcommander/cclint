@@ -31,16 +31,32 @@ func runComponentLint(opts executionOptions, entry lint.LinterEntry) error {
 		return fmt.Errorf("error running %s linter: %w", entry.Name, err)
 	}
 
-	summary := &lint.LintSummary{}
-	if len(result.Summaries) > 0 {
-		summary = result.Summaries[0]
-	}
-
-	if err := reportLintOutcome(cfg, opts, componentLintOutcome(result, summary), func() error {
-		return formatSummaryOutput(cfg, summary)
-	}); err != nil {
+	if err := reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error { return formatFullRunOutput(cfg, result) }); err != nil {
 		return err
 	}
-
 	return nil
+}
+func runTypesLint(opts executionOptions, types []discovery.FileType) error {
+	cfg, err := loadCLIConfig(opts)
+	if err != nil {
+		return err
+	}
+	var entries []lint.LinterEntry
+	seen := map[discovery.FileType]bool{}
+	for _, ft := range types {
+		if seen[ft] {
+			continue
+		}
+		seen[ft] = true
+		entry, ok := lint.LinterForType(ft)
+		if !ok {
+			return fmt.Errorf("no linter for type %s", ft)
+		}
+		entries = append(entries, entry)
+	}
+	result, err := runOrchestratedLint(cfg, opts, entries)
+	if err != nil {
+		return err
+	}
+	return reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error { return formatFullRunOutput(cfg, result) })
 }

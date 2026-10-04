@@ -2,6 +2,7 @@ package lint
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -22,6 +23,7 @@ var knownSkillFields = map[string]bool{
 	"argument-hint":            true, // Optional: hint shown during autocomplete (e.g., "[issue-number]")
 	"disable-model-invocation": true, // Optional: prevent Claude from auto-loading this skill
 	"user-invocable":           true, // Optional: show in slash command menu (default true)
+	"disallowed-tools":         true,
 	"allowed-tools":            true, // Optional: tool access permissions
 	"model":                    true, // Optional: model to use when skill is active
 	"effort":                   true, // Optional: reasoning effort level (v2.1.80+)
@@ -45,12 +47,24 @@ func LintSkills(rootPath string, quiet bool, verbose bool, noCycleCheck bool, ex
 }
 
 // validateSkillBestPractices checks opinionated best practices for skills
-func validateSkillBestPractices(filePath string, contents string, fmData map[string]any) []cue.ValidationError {
+func validateSkillBestPractices(filePath string, contents string, fmData map[string]any, root ...string) []cue.ValidationError {
 	suggestions := validateBasicSkillFields(fmData, filePath, contents)
 	suggestions = append(suggestions, validateSkillContentSections(filePath, contents)...)
 	suggestions = append(suggestions, textutil.ValidateToolFieldName(fmData, filePath, contents, "skill")...)
 	suggestions = append(suggestions, validateAgentSkillsOSpecFields(fmData, filePath, contents)...)
-	suggestions = append(suggestions, ValidateSkillDirectory(filePath, contents)...)
+	directoryPath := filePath
+	if len(root) > 0 && root[0] != "" && !filepath.IsAbs(filePath) {
+		directoryPath = filepath.Join(root[0], filePath)
+	}
+	directoryIssues := ValidateSkillDirectory(directoryPath, contents)
+	if len(root) > 0 && root[0] != "" {
+		for i := range directoryIssues {
+			if rel, err := filepath.Rel(root[0], directoryIssues[i].File); err == nil {
+				directoryIssues[i].File = filepath.ToSlash(rel)
+			}
+		}
+	}
+	suggestions = append(suggestions, directoryIssues...)
 	return suggestions
 }
 
@@ -109,7 +123,8 @@ func validateAgentSkillsOSpecFields(fmData map[string]any, filePath, contents st
 	var warnings []cue.ValidationError
 
 	// Rule 052: Validate allowed-tools format
-	if allowedTools, ok := fmData["allowed-tools"].(string); ok && allowedTools != "*" {
+	if tools := textutil.NormalizeStringList(fmData["allowed-tools"]); len(tools) > 0 && !(len(tools) == 1 && tools[0] == "*") {
+		allowedTools := strings.Join(tools, " ")
 		toolPattern := regexp.MustCompile(`^[A-Z][a-zA-Z]+(\([^)]+\))?$`)
 		tokens := strings.Fields(allowedTools)
 		for _, token := range tokens {

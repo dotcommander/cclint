@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/dotcommander/cclint/internal/config"
@@ -103,6 +105,9 @@ func runLintWithConfig(cfg *config.Config, opts executionOptions) error {
 
 func runRootCommand(opts executionOptions, cmd *lintCommand) error {
 	if boolValue(cmd.Diff) || boolValue(cmd.Staged) {
+		if len(cmd.Paths) > 0 {
+			return fmt.Errorf("cannot combine Git selection flags with positional paths or types")
+		}
 		return runGitLint(opts, cmd)
 	}
 
@@ -115,13 +120,15 @@ func runRootCommand(opts executionOptions, cmd *lintCommand) error {
 	case len(classified.filePaths) > 0:
 		return runSingleFileLint(opts, cmd, classified.filePaths)
 	case len(classified.typeFilters) > 0:
-		for _, ft := range classified.typeFilters {
-			if err := runTypeLint(opts, ft); err != nil {
+		return runTypesLint(opts, classified.typeFilters)
+	default:
+		if stringValue(cmd.Type) != "" {
+			ft, err := discovery.ParseFileType(stringValue(cmd.Type))
+			if err != nil {
 				return err
 			}
+			return runTypesLint(opts, []discovery.FileType{ft})
 		}
-		return nil
-	default:
 		return runLint(opts)
 	}
 }
@@ -170,12 +177,23 @@ func runSingleFileLint(opts executionOptions, cmd *lintCommand, files []string) 
 		return err
 	}
 
-	summary, err := lint.LintFiles(files, stringValue(opts.root), stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
+	selectionRoot := stringValue(opts.root)
+	if selectionRoot == "" && cfg.RootExplicit {
+		selectionRoot = cfg.Root
+	}
+	summary, err := lint.LintFiles(files, selectionRoot, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
 
-	if err := reportLintOutcome(cfg, opts, summaryLintOutcome(summary), func() error {
+	if stringValue(opts.root) == "" && !cfg.RootExplicit && summary.ProjectRoot != "" {
+		cfg.Root = summary.ProjectRoot
+	}
+	result, err := processSelected(cfg, opts, summary)
+	if err != nil {
+		return err
+	}
+	if err := reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error {
 		return formatSummaryOutput(cfg, summary)
 	}); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)
@@ -193,7 +211,7 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 
 	// Determine git root (use current directory if rootPath not specified)
 	gitRoot := cfg.Root
-	if opts.root == nil {
+	if stringValue(opts.root) == "" && !cfg.RootExplicit {
 		// Use current working directory for git operations
 		gitRoot, err = os.Getwd()
 		if err != nil {
@@ -201,6 +219,11 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		}
 	}
 
+	repoRoot, rootErr := git.RepositoryRoot(gitRoot)
+	if rootErr == nil && stringValue(opts.root) == "" && !cfg.RootExplicit {
+		cfg.Root = repoRoot
+		gitRoot = repoRoot
+	}
 	// Check if in git repository
 	if !git.IsGitRepo(gitRoot) {
 		if !cfg.Quiet {
@@ -220,8 +243,28 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		return fmt.Errorf("error getting git files: %w", err)
 	}
 
+	// Git returns canonical repository paths; keep the explicit root's logical
+	// spelling for discovery, diagnostics and exclusions.
+	canonicalRoot, canonicalErr := filepath.EvalSymlinks(cfg.Root)
+	if canonicalErr != nil {
+		return fmt.Errorf("cannot resolve project root: %w", canonicalErr)
+	}
+	selected := changes.Files[:0]
+	for _, file := range changes.Files {
+		relative, e := filepath.Rel(canonicalRoot, file)
+		if e == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			selected = append(selected, filepath.Join(cfg.Root, relative))
+		}
+	}
+	changes.Files = selected
 	if changes.HasRelevantDeletion() {
-		cfg.Exclude = append(append([]string(nil), cfg.Exclude...), changes.DeletedFiles...)
+		for _, deleted := range changes.DeletedFiles {
+			absolute := filepath.Join(repoRoot, deleted)
+			relative, e := filepath.Rel(canonicalRoot, absolute)
+			if e == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+				cfg.Exclude = append(cfg.Exclude, filepath.ToSlash(relative))
+			}
+		}
 		return runLintWithConfig(cfg, opts)
 	}
 
@@ -232,12 +275,16 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		return nil
 	}
 
-	summary, err := lint.LintFiles(changes.Files, gitRoot, "", cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(changes.Files, cfg.Root, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
 	if err != nil {
 		return err
 	}
 
-	if err := reportLintOutcome(cfg, opts, summaryLintOutcome(summary), func() error {
+	result, err := processSelected(cfg, opts, summary)
+	if err != nil {
+		return err
+	}
+	if err := reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error {
 		return formatSummaryOutput(cfg, summary)
 	}); err != nil {
 		return fmt.Errorf("error formatting output: %w", err)

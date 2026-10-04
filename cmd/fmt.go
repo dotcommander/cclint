@@ -144,7 +144,7 @@ func emitFormatted(opts executionOptions, cmd *fmtCommand, absPath, displayPath,
 	case cmd.Diff:
 		fmt.Print(format.Diff(original, formatted, displayPath))
 	case cmd.Write:
-		if err := os.WriteFile(absPath, []byte(formatted), 0600); err != nil {
+		if err := replaceFormattedFile(absPath, formatted, os.Rename); err != nil {
 			return fmt.Errorf("error writing %s: %w", absPath, err)
 		}
 		if !boolValue(opts.quiet) {
@@ -154,6 +154,42 @@ func emitFormatted(opts executionOptions, cmd *fmtCommand, absPath, displayPath,
 		fmt.Print(formatted)
 	}
 	return nil
+}
+
+// replaceFormattedFile prepares the complete replacement beside the original.
+// All fallible writes finish before rename, so a failed operation preserves the
+// original bytes. Resolve links first to preserve an explicitly selected link.
+func replaceFormattedFile(path, content string, rename func(string, string) error) error {
+	target, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return err
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("cannot replace non-regular file %s", path)
+	}
+	temporary, err := os.CreateTemp(filepath.Dir(target), ".cclint-fmt-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporary.Name())
+	defer temporary.Close()
+	if _, err := temporary.WriteString(content); err != nil {
+		return err
+	}
+	if err := temporary.Chmod(info.Mode()); err != nil {
+		return err
+	}
+	if err := temporary.Sync(); err != nil {
+		return err
+	}
+	if err := temporary.Close(); err != nil {
+		return err
+	}
+	return rename(temporary.Name(), target)
 }
 
 // printFmtSummary prints the formatting summary when multiple files were processed.

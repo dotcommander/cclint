@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -65,7 +66,9 @@ func (g *ImportGraph) DetectCycles() [][]string {
 		path = append(path, node)
 		inPath[node] = true
 
-		for _, neighbor := range g.edges[node] {
+		neighbors := append([]string(nil), g.edges[node]...)
+		sort.Strings(neighbors)
+		for _, neighbor := range neighbors {
 			if state[neighbor] == 0 {
 				visit(neighbor)
 			} else if state[neighbor] == 1 && inPath[neighbor] {
@@ -83,7 +86,12 @@ func (g *ImportGraph) DetectCycles() [][]string {
 	}
 
 	// Visit all nodes (sorted for deterministic output)
+	nodes := make([]string, 0, len(g.edges))
 	for node := range g.edges {
+		nodes = append(nodes, node)
+	}
+	sort.Strings(nodes)
+	for _, node := range nodes {
 		if state[node] == 0 {
 			visit(node)
 		}

@@ -81,3 +81,12 @@ cclint --version
 - Setup path: `docs/setup.md`
 - Command reference: `docs/reference/commands/commands.md`
 - Rule reference: `docs/rules/README.md`
+
+Baseline snapshots created now use version 1.1 fingerprints. Version 1.0 snapshots
+still match legacy fingerprints for the same file and diagnostic source; loading a
+snapshot does not rewrite it. Legacy numeric over-suppression remains until you
+refresh with `cclint --baseline-create`. Historical CUE entries with blank filenames
+cannot safely match a real file. Refresh those entries explicitly by selecting the
+affected files and using a dedicated `--baseline-path`, then review the snapshot.
+Explicit file, directory, and Git selections snapshot or filter only their selected
+results. Multi-type runs produce one report and one baseline operation.

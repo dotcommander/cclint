@@ -37,7 +37,7 @@ func CreateBaseline(issues []cue.ValidationError) *Baseline {
 	sort.Strings(fingerprints)
 
 	return &Baseline{
-		Version:      "1.0",
+		Version:      "1.1",
 		Fingerprints: fingerprints,
 		index:        index,
 	}
@@ -84,7 +84,7 @@ func (b *Baseline) IsKnown(issue cue.ValidationError) bool {
 		return false
 	}
 	fp := fingerprint(issue)
-	return b.index[fp]
+	return b.index[fp] || (b.Version == "1.0" && b.index[legacyFingerprint(issue)])
 }
 
 // fingerprint creates a stable hash of an issue for comparison
@@ -104,7 +104,7 @@ func fingerprint(issue cue.ValidationError) string {
 
 // normalizeMessage normalizes error messages to create stable patterns
 // Replaces specific values with placeholders to match similar issues
-func normalizeMessage(msg string) string {
+func legacyNormalizeMessage(msg string) string {
 	// Replace double-quoted strings with placeholder
 	msg = regexp.MustCompile(`"[^"]+"`).ReplaceAllString(msg, `"*"`)
 
@@ -119,4 +119,58 @@ func normalizeMessage(msg string) string {
 	msg = strings.Join(strings.Fields(msg), " ")
 
 	return msg
+}
+
+// legacyFingerprint retains exact 1.0 matching for the same file and source.
+func legacyFingerprint(issue cue.ValidationError) string {
+	hash := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s", issue.File, issue.Source, legacyNormalizeMessage(issue.Message))))
+	return fmt.Sprintf("%x", hash)
+}
+
+func normalizeMessage(msg string) string {
+	var out strings.Builder
+	for i := 0; i < len(msg); {
+		q := msg[i]
+		// Apostrophes within words are not quote delimiters.
+		if (q == '\'' || q == '"') && !(q == '\'' && i > 0 && isWord(msg[i-1])) {
+			end := i + 1
+			for end < len(msg) {
+				if msg[end] == '\\' {
+					end += 2
+					continue
+				}
+				if msg[end] == q {
+					break
+				}
+				end++
+			}
+			if end < len(msg) && end > i+1 && !(q == '\'' && end+1 < len(msg) && isWord(msg[end+1])) {
+				out.WriteByte(q)
+				out.WriteByte('*')
+				out.WriteByte(q)
+				i = end + 1
+				continue
+			}
+		}
+		out.WriteByte(q)
+		i++
+	}
+	// A version is an indivisible token; numeric count normalization must not
+	// erase changes to versions mentioned without quoting.
+	msg = out.String()
+	version := regexp.MustCompile(`\b[0-9]+\.[0-9]+(?:\.[0-9]+)?(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?\b`)
+	spans := version.FindAllStringIndex(msg, -1)
+	var normalized strings.Builder
+	previous := 0
+	numbers := regexp.MustCompile(`\b\d+\b`)
+	for _, span := range spans {
+		normalized.WriteString(numbers.ReplaceAllString(msg[previous:span[0]], "N"))
+		normalized.WriteString(msg[span[0]:span[1]])
+		previous = span[1]
+	}
+	normalized.WriteString(numbers.ReplaceAllString(msg[previous:], "N"))
+	return strings.Join(strings.Fields(normalized.String()), " ")
+}
+func isWord(b byte) bool {
+	return b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z' || b >= '0' && b <= '9' || b == '_'
 }

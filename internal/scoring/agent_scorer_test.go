@@ -479,3 +479,23 @@ func generateFullContent(frontmatter map[string]any, body string) string {
 	// Simple content generation - just return body since we're passing frontmatter separately
 	return body
 }
+
+func TestAgentScorerReachesCategoryMaxima(t *testing.T) {
+	frontmatter := map[string]any{
+		"name": "complete-agent", "model": "sonnet", "tools": "Read",
+		"description": "PROACTIVELY handles work when user requests it. " + strings.Repeat("Detailed guidance. ", 15),
+	}
+	body := "## Foundation\nSkill: testing\n### Phase 1\nHARD GATE\n## Success Criteria\n## Edge Cases\n## Anti-Patterns\n## Expected Output\n## Details\n"
+	score := NewAgentScorer().Score(body, frontmatter, body)
+	if score.Overall != 100 || score.Tier != "A" || score.Structural != 40 || score.Practices != 40 || score.Composition != 10 || score.Documentation != 10 {
+		t.Fatalf("complete agent must score 100 with category maxima: %#v", score)
+	}
+	points, maxima := 0, 0
+	for _, metric := range score.Details {
+		points += metric.Points
+		maxima += metric.MaxPoints
+	}
+	if points != score.Overall || maxima != 100 {
+		t.Fatalf("metric totals points=%d maxima=%d score=%d", points, maxima, score.Overall)
+	}
+}

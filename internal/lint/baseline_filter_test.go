@@ -127,6 +127,7 @@ func TestFilterResultsUpdatesSuccess(t *testing.T) {
 	summary := &LintSummary{
 		Results: []LintResult{
 			{
+				File:    "test.md",
 				Success: false,
 				Errors: []cue.ValidationError{
 					{File: "test.md", Message: "known error", Source: "test"},

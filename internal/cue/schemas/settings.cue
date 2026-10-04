@@ -5,7 +5,10 @@ package schemas
 // ============================================================================
 
 // Hook matcher pattern
-#Matcher: string
+#Matcher: string | {
+	toolName?: string
+	...
+}
 
 // Hook type - command, prompt, agent, http, or mcp_tool (v2.1.118+ added mcp_tool)
 #HookType: "command" | "prompt" | "agent" | "http" | "mcp_tool"
@@ -71,7 +74,7 @@ package schemas
 
 // Hook definition (can be nested under event arrays)
 #Hook: {
-	matcher: #Matcher
+	matcher?: #Matcher
 	hooks: [...#HookCommand]
 }
 
@@ -177,6 +180,9 @@ package schemas
 	extraKnownMarketplaces?: {
 		[string]: {
 			source: #MarketplaceSource
+			installLocation?: string
+			autoUpdate?: bool
+			...
 		}
 	}
 
@@ -198,6 +204,9 @@ package schemas
 	additionalMarketplaces?: {
 		[string]: {
 			source: #MarketplaceSource
+			installLocation?: string
+			autoUpdate?: bool
+			...
 		}
 	}
 

@@ -15,6 +15,7 @@ import (
 // It also implements optional interfaces for pre-validation, best practices,
 // cross-file validation, scoring, improvements, and batch post-processing.
 type SkillLinter struct {
+	RootPath string
 }
 
 // Compile-time interface compliance checks
@@ -29,8 +30,12 @@ var (
 )
 
 // NewSkillLinter creates a new SkillLinter.
-func NewSkillLinter() *SkillLinter {
-	return &SkillLinter{}
+func NewSkillLinter(root ...string) *SkillLinter {
+	l := &SkillLinter{}
+	if len(root) > 0 {
+		l.RootPath = root[0]
+	}
+	return l
 }
 
 func (l *SkillLinter) Type() string {
@@ -122,7 +127,7 @@ func (l *SkillLinter) ValidateSpecific(data map[string]any, filePath, contents s
 
 // ValidateBestPractices implements BestPracticeValidator interface
 func (l *SkillLinter) ValidateBestPractices(filePath, contents string, data map[string]any) []cue.ValidationError {
-	return validateSkillBestPractices(filePath, contents, data)
+	return validateSkillBestPractices(filePath, contents, data, l.RootPath)
 }
 
 // ValidateCrossFile implements CrossFileValidatable interface
@@ -151,4 +156,28 @@ func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 	applyGhostTriggers(ctx, summary)
 	applyTriggerConflicts(ctx, summary)
 	applySkillRefIssues(ctx, summary)
+	if !ctx.NoCycleCheck && ctx.CrossValidator != nil {
+		for _, cycle := range ctx.CrossValidator.DetectCycles() {
+			for _, node := range cycle.Path {
+				parts := strings.SplitN(node, ":", 2)
+				if len(parts) != 2 || parts[0] != "skill" {
+					continue
+				}
+				for i := range summary.Results {
+					if filepath.Base(filepath.Dir(summary.Results[i].File)) == parts[1] {
+						issue := cue.ValidationError{File: summary.Results[i].File, Message: "Circular dependency detected: " + crossfile.FormatCycle(cycle), Severity: cue.SeverityError, Source: cue.SourceCClintObserve}
+						duplicate := false
+						for _, existing := range summary.Results[i].Errors {
+							if existing.Message == issue.Message {
+								duplicate = true
+							}
+						}
+						if !duplicate {
+							categorizeIssues(&summary.Results[i], []cue.ValidationError{issue})
+						}
+					}
+				}
+			}
+		}
+	}
 }

@@ -436,9 +436,21 @@ func (fd *FileDiscovery) DiscoverFilesWithRegistry(registry []FileTypeEntry) ([]
 func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType) ([]File, error) {
 	var files []File
 
+	canonicalRoot, err := filepath.EvalSymlinks(fd.rootPath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve discovery root %s: %w", fd.rootPath, err)
+	}
+	info, err := os.Stat(canonicalRoot)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("discovery root is not an accessible directory: %s", fd.rootPath)
+	}
 	for _, pattern := range patterns {
 		// Use doublestar for glob matching with ** patterns
-		matches, err := doublestar.Glob(os.DirFS(fd.rootPath), pattern)
+		options := []doublestar.GlobOption{}
+		if !fd.followSymlinks {
+			options = append(options, doublestar.WithNoFollow())
+		}
+		matches, err := doublestar.Glob(os.DirFS(fd.rootPath), pattern, options...)
 		if err != nil {
 			return nil, fmt.Errorf("error evaluating pattern %s: %w", pattern, err)
 		}
@@ -461,18 +473,12 @@ func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bo
 	}
 	fullPath := filepath.Join(fd.rootPath, match)
 
+	if !fd.allowedPath(fullPath) {
+		return File{}, false
+	}
 	info, err := os.Stat(fullPath)
 	if err != nil || info.IsDir() {
 		return File{}, false
-	}
-
-	if info.Mode()&os.ModeSymlink != 0 {
-		resolved, resolvedInfo, ok := fd.resolveSymlink(fullPath)
-		if !ok {
-			return File{}, false
-		}
-		match = resolved
-		info = resolvedInfo
 	}
 
 	contents, err := os.ReadFile(fullPath)
@@ -500,28 +506,59 @@ func (fd *FileDiscovery) isExcluded(relPath string) bool {
 	return false
 }
 
-// resolveSymlink follows a symlink if configured, returning the resolved path and info.
-// Returns false if the symlink should be skipped.
+// allowedPath checks every descendant component, including linked ancestors.
+// The selected root itself may be a symlink; diagnostics keep logical paths.
+func (fd *FileDiscovery) allowedPath(fullPath string) bool {
+	root, err := filepath.Abs(fd.rootPath)
+	if err != nil {
+		return false
+	}
+	path, err := filepath.Abs(fullPath)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(root, path)
+	if err != nil || outsideRoot(rel) {
+		return false
+	}
+	current := root
+	for _, part := range strings.Split(rel, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return false
+		}
+		if info.Mode()&os.ModeSymlink != 0 && !fd.followSymlinks {
+			return false
+		}
+	}
+	canonicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return false
+	}
+	canonicalPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	canonicalRel, err := filepath.Rel(canonicalRoot, canonicalPath)
+	return err == nil && !outsideRoot(canonicalRel)
+}
+
+func outsideRoot(rel string) bool {
+	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel)
+}
+
+// resolveSymlink returns the target only when the discovery policy permits it.
 func (fd *FileDiscovery) resolveSymlink(fullPath string) (string, os.FileInfo, bool) {
-	if !fd.followSymlinks {
+	if !fd.followSymlinks || !fd.allowedPath(fullPath) {
 		return "", nil, false
 	}
-
 	realPath, err := filepath.EvalSymlinks(fullPath)
 	if err != nil {
 		return "", nil, false
 	}
-
-	if !strings.HasPrefix(realPath, fd.rootPath) {
-		return "", nil, false
-	}
-
 	info, err := os.Stat(realPath)
-	if err != nil {
-		return "", nil, false
-	}
-
-	return realPath, info, true
+	return realPath, info, err == nil
 }
 
 // determineFileType determines the file type based on its path.

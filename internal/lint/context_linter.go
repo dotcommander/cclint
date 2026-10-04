@@ -138,7 +138,7 @@ var binaryExtensions = map[string]bool{
 
 // includePattern matches @include directives in CLAUDE.md files.
 // Supports: @include path/to/file or @include ./relative/path
-var includePattern = regexp.MustCompile(`(?m)@include\s+([^\s]+)`)
+var includePattern = regexp.MustCompile(`(?m)(?:^|[ \t])(?:@include\s+|@)([^\s]+)`)
 
 // validateContextSpecific implements context-specific validation rules.
 func validateContextSpecific(data map[string]any, filePath, contents string) []cue.ValidationError {
@@ -198,12 +198,25 @@ func validateContextSections(sections []any, filePath string) []cue.ValidationEr
 func checkBinaryIncludes(contents, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
-	matches := includePattern.FindAllStringSubmatch(contents, -1)
+	var prose strings.Builder
+	inFence := false
+	for _, line := range strings.Split(contents, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if !inFence {
+			prose.WriteString(line)
+			prose.WriteByte('\n')
+		}
+	}
+	matches := includePattern.FindAllStringSubmatch(prose.String(), -1)
 	for _, match := range matches {
 		if len(match) < 2 {
 			continue
 		}
-		includePath := match[1]
+		includePath := strings.TrimRight(match[1], "`.,;:)")
 		ext := strings.ToLower(filepath.Ext(includePath))
 
 		if binaryExtensions[ext] {

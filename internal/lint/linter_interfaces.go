@@ -172,7 +172,7 @@ func runPreValidation(result *LintResult, filePath, contents string, linter Comp
 		return false
 	}
 
-	result.Errors = append(result.Errors, preErrors...)
+	categorizeIssues(result, preErrors)
 
 	// Check if any are fatal (should abort further validation). The Abort
 	// flag is the typed contract — producers set it on errors that must
@@ -197,7 +197,10 @@ func runCUEValidation(result *LintResult, filePath string, linter ComponentLinte
 			Severity: cue.SeverityError,
 		})
 	} else if cueErrors != nil {
-		result.Errors = append(result.Errors, cueErrors...)
+		for i := range cueErrors {
+			cueErrors[i].File = filePath
+		}
+		categorizeIssues(result, cueErrors)
 	}
 }
 
@@ -310,6 +313,7 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 		pp.PostProcessBatch(ctx, summary)
 	}
 
+	recalculateTotals(summary)
 	return summary
 }
 
@@ -325,7 +329,7 @@ func lintBatchFile(ctx *LinterContext, file discovery.File, linter ComponentLint
 
 // semverPattern is the compiled regex for semver validation.
 // Extracted to avoid recompilation on each call.
-var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$`)
+var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$`)
 
 // ValidateSemver checks if a version string follows semver format.
 // Returns nil if valid, or a ValidationError if invalid.

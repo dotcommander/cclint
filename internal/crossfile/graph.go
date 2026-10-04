@@ -3,6 +3,7 @@ package crossfile
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
@@ -15,6 +16,9 @@ var (
 
 	// agentRefPatterns are patterns for extracting agent references from skill content.
 	agentRefPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`delegate via\s+(` + skillRefNamePattern + `)`),
+		regexp.MustCompile(`delegate via\s+["'](` + skillRefNamePattern + `)["']`),
+		regexp.MustCompile("delegate via\\s+`(" + skillRefNamePattern + ")`"),
 		regexp.MustCompile(`delegate to\s+([a-z0-9][a-z0-9-]+)`),
 		regexp.MustCompile(`use\s+([a-z0-9][a-z0-9-]+)`),
 		regexp.MustCompile(`Task\(([a-z0-9][a-z0-9-]+)`),
@@ -173,7 +177,9 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 		inPath[nodeID] = true
 
 		// Visit neighbors
-		for _, neighbor := range v.getNeighbors(componentType, name) {
+		neighbors := v.getNeighbors(componentType, name)
+		sort.Strings(neighbors)
+		for _, neighbor := range neighbors {
 			if visitState[neighbor] == 0 {
 				// White: unvisited, recurse
 				parts := strings.SplitN(neighbor, ":", 2)
@@ -206,27 +212,21 @@ func (v *CrossFileValidator) DetectCycles() []Cycle {
 
 // visitAllNodes visits all nodes starting from each component type.
 func (v *CrossFileValidator) visitAllNodes(visitState map[string]int, visit func(string, string)) {
-	// Visit all commands
-	for cmdName := range v.commands {
-		nodeID := "command:" + cmdName
-		if visitState[nodeID] == 0 {
-			visit("command", cmdName)
-		}
+	var nodes []string
+	for name := range v.commands {
+		nodes = append(nodes, "command:"+name)
 	}
-
-	// Visit all agents
-	for agentName := range v.agents {
-		nodeID := "agent:" + agentName
-		if visitState[nodeID] == 0 {
-			visit("agent", agentName)
-		}
+	for name := range v.agents {
+		nodes = append(nodes, "agent:"+name)
 	}
-
-	// Visit all skills
-	for skillName := range v.skills {
-		nodeID := "skill:" + skillName
-		if visitState[nodeID] == 0 {
-			visit("skill", skillName)
+	for name := range v.skills {
+		nodes = append(nodes, "skill:"+name)
+	}
+	sort.Strings(nodes)
+	for _, node := range nodes {
+		if visitState[node] == 0 {
+			componentType, name, _ := strings.Cut(node, ":")
+			visit(componentType, name)
 		}
 	}
 }

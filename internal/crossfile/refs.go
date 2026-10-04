@@ -5,33 +5,21 @@
 package crossfile
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 )
 
-// Pre-compiled regex patterns for skill reference detection.
-// These compile once at init instead of per-invocation.
+// Pre-compiled regex patterns share the complete local or plugin-qualified name form.
+const skillRefNamePattern = `[a-z0-9][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)?`
+
 var (
-	// skillPlainPattern matches "Skill: foo-bar" (plain format, not inside bold markers).
-	// Note: [^*\n]* prevents matching across newlines (Go regex quirk).
-	skillPlainPattern = regexp.MustCompile(`(?m)^[^*\n]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
-
-	// skillBoldPattern matches "**Skill**: foo-bar" (bold format).
-	skillBoldPattern = regexp.MustCompile(`(?m)\*\*Skill\*\*:\s*([a-z0-9][a-z0-9-]*)`)
-
-	// skillFuncPattern matches Skill("foo-bar") or Skill(foo-bar) (function call format).
-	skillFuncPattern = regexp.MustCompile(`(?m)Skill\(\s*["']?([a-z0-9][a-z0-9-]*)["']?\s*\)`)
-
-	// skillListPattern matches "Skills:" followed by list items.
-	skillListPattern = regexp.MustCompile(`(?m)Skills?:\s*\n\s*[-*]\s*([a-z0-9][a-z0-9-]*)`)
-
-	// skillPatterns is the ordered list of all skill reference patterns.
-	skillPatterns = []*regexp.Regexp{
-		skillPlainPattern,
-		skillBoldPattern,
-		skillFuncPattern,
-		skillListPattern,
-	}
+	skillPlainPattern    = regexp.MustCompile(`(?m)^[^*\n]*\bSkill:[ \t]*(` + skillRefNamePattern + `)`)
+	skillBoldPattern     = regexp.MustCompile(`(?m)\*\*Skill\*\*:[ \t]*(` + skillRefNamePattern + `)`)
+	skillFuncPattern     = regexp.MustCompile(`(?m)Skill\([ \t]*["']?(` + skillRefNamePattern + `)["']?[ \t]*\)`)
+	skillListPattern     = regexp.MustCompile(`(?m)Skills?:[ \t]*\r?\n((?:[ \t]*[-*][ \t]+[^\n]*(?:\n|$))+)`)
+	skillListItemPattern = regexp.MustCompile("(?m)^[ \\t]*[-*][ \\t]+[\"'`]?(" + skillRefNamePattern + ")")
+	skillPatterns        = []*regexp.Regexp{skillPlainPattern, skillBoldPattern, skillFuncPattern}
 )
 
 // Pre-compiled regex patterns for tool parsing and matching.
@@ -45,20 +33,22 @@ var (
 func FindSkillReferences(content string) []string {
 	var skills []string
 	seen := make(map[string]bool)
-
-	for _, pattern := range skillPatterns {
-		matches := pattern.FindAllStringSubmatch(content, -1)
-		for _, match := range matches {
-			if len(match) >= 2 {
-				skill := strings.TrimSpace(match[1])
-				if !seen[skill] && skill != "" {
-					skills = append(skills, skill)
-					seen[skill] = true
-				}
-			}
+	add := func(skill string) {
+		if skill != "" && !seen[skill] {
+			skills = append(skills, skill)
+			seen[skill] = true
 		}
 	}
-
+	for _, pattern := range skillPatterns {
+		for _, match := range pattern.FindAllStringSubmatch(content, -1) {
+			add(match[1])
+		}
+	}
+	for _, list := range skillListPattern.FindAllStringSubmatch(content, -1) {
+		for _, item := range skillListItemPattern.FindAllStringSubmatch(list[1], -1) {
+			add(item[1])
+		}
+	}
 	return skills
 }
 
@@ -127,7 +117,7 @@ func IsToolUsed(tool string, contents string) bool {
 func ExtractAgentName(path string) string {
 	// agents/foo-specialist.md -> foo-specialist
 	// .claude/agents/foo.md -> foo
-	parts := strings.Split(path, "/")
+	parts := strings.Split(normalizeReferencePath(path), "/")
 	filename := parts[len(parts)-1]
 	return strings.TrimSuffix(filename, ".md")
 }
@@ -135,7 +125,7 @@ func ExtractAgentName(path string) string {
 func ExtractSkillName(path string) string {
 	// skills/foo-bar/SKILL.md -> foo-bar
 	// .claude/skills/foo/SKILL.md -> foo
-	parts := strings.Split(path, "/")
+	parts := strings.Split(normalizeReferencePath(path), "/")
 	for i, part := range parts {
 		if part == "skills" && i+1 < len(parts) {
 			return parts[i+1]
@@ -146,7 +136,12 @@ func ExtractSkillName(path string) string {
 
 func ExtractCommandName(path string) string {
 	// commands/foo.md -> foo
-	parts := strings.Split(path, "/")
+	parts := strings.Split(normalizeReferencePath(path), "/")
 	filename := parts[len(parts)-1]
 	return strings.TrimSuffix(filename, ".md")
+}
+
+// normalizeReferencePath also handles foreign-platform paths supplied on Unix.
+func normalizeReferencePath(path string) string {
+	return strings.ReplaceAll(filepath.ToSlash(path), `\`, "/")
 }
