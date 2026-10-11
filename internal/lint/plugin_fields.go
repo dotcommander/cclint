@@ -13,12 +13,15 @@ var knownPluginFields = map[string]bool{
 	"$schema":        true, // Optional: JSON Schema reference (v2.1.120+)
 	"name":           true, // Required: plugin name
 	"description":    true, // Required: plugin description
+	"displayName":    true, // Optional: display name shown in marketplaces and the UI
 	"version":        true, // Recommended: semver version
 	"author":         true, // Required: author object with name
 	"homepage":       true, // Optional: project URL
 	"repository":     true, // Optional: source code URL
 	"license":        true, // Optional: SPDX license identifier
 	"keywords":       true, // Optional: discoverability tags
+	"dependencies":   true, // Optional: plugin dependencies
+	"metadata":       true, // Optional: free-form metadata; preserved on the parsed manifest but not read by Claude Code (v2.1.281+)
 	"readme":         true, // Optional: path to README
 	"commands":       true, // Optional: command definitions
 	"agents":         true, // Optional: agent definitions
@@ -31,6 +34,21 @@ var knownPluginFields = map[string]bool{
 	"themes":         true, // Optional: color theme components (deprecated top-level v2.1.129+ - prefer experimental.themes)
 	"experimental":   true, // Optional: wrapper for experimental components (themes, monitors) (v2.1.129+)
 	"defaultEnabled": true, // Optional: set false to disable plugin by default (v2.1.154+)
+	// Listing metadata (v2.1.281+): accepted in plugin.json and preserved for
+	// marketplace listings; not read by Claude Code directly.
+	"icon":              true, // Optional: path to plugin icon
+	"screenshots":       true, // Optional: screenshots for marketplace listings
+	"classification":    true, // Optional: marketplace classification
+	"privacyPolicyUrl":  true, // Optional: privacy policy URL
+	"privacy_policy":    true, // Optional: privacy policy URL (snake_case variant)
+	"privacyPolicy":     true, // Optional: privacy policy URL (short variant)
+	"supportUrl":        true, // Optional: support URL
+	"support":           true, // Optional: support URL (short variant)
+	"bugs":              true, // Optional: bug tracker URL
+	"termsOfServiceUrl": true, // Optional: terms of service URL
+	"terms_of_service":  true, // Optional: terms of service URL (snake_case variant)
+	"documentationUrl":  true, // Optional: documentation URL
+	"docs":              true, // Optional: documentation URL (short variant)
 }
 
 func validateUnknownPluginFields(data map[string]any, filePath, contents string) []cue.ValidationError {

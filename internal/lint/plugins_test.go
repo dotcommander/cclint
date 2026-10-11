@@ -306,6 +306,26 @@ func TestValidatePluginSpecific(t *testing.T) {
 			contents:      `{"name":"test-plugin","defaultEnabled":false}`,
 			wantMinErrors: 0,
 		},
+		{
+			name: "listing metadata fields recognized (v2.1.281)",
+			data: map[string]any{
+				"name":             "test-plugin",
+				"description":      "A comprehensive test plugin for validation purposes with detailed description",
+				"version":          "1.0.0",
+				"author":           map[string]any{"name": "Test Author"},
+				"homepage":         "https://example.com",
+				"repository":       "https://github.com/test/test",
+				"license":          "MIT",
+				"keywords":         []any{"test"},
+				"displayName":      "Test Plugin",
+				"privacyPolicyUrl": "https://example.com/privacy",
+				"supportUrl":       "https://example.com/support",
+				"metadata":         map[string]any{"foo": "bar"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","displayName":"Test Plugin","privacyPolicyUrl":"https://example.com/privacy","supportUrl":"https://example.com/support","metadata":{"foo":"bar"}}`,
+			wantMinErrors: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -622,10 +642,13 @@ func TestSchemaFieldNoUnknownSuggestion(t *testing.T) {
 func TestKnownPluginFields(t *testing.T) {
 	expected := []string{
 		"$schema",
-		"name", "description", "version", "author", "homepage", "repository",
-		"license", "keywords", "readme", "commands", "agents", "skills",
+		"name", "description", "displayName", "version", "author", "homepage", "repository",
+		"license", "keywords", "dependencies", "metadata", "readme", "commands", "agents", "skills",
 		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors", "themes", "experimental",
 		"defaultEnabled",
+		"icon", "screenshots", "classification", "privacyPolicyUrl", "privacy_policy",
+		"privacyPolicy", "supportUrl", "support", "bugs", "termsOfServiceUrl",
+		"terms_of_service", "documentationUrl", "docs",
 	}
 	for _, field := range expected {
 		if !knownPluginFields[field] {
