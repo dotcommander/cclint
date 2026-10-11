@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	settingsPathPattern = ".claude/settings.json"
-	contextPathPattern  = ".claude/CLAUDE.md"
-	agentGlobPattern    = ".claude/agents/**/*.md"
-	agentRootGlob       = "agents/**/*.md"
-	commandGlobPattern  = ".claude/commands/**/*.md"
+	settingsPathPattern      = ".claude/settings.json"
+	contextPathPattern       = ".claude/CLAUDE.md"
+	contextAgentsPathPattern = ".claude/AGENTS.md"
+	agentGlobPattern         = ".claude/agents/**/*.md"
+	agentRootGlob            = "agents/**/*.md"
+	commandGlobPattern       = ".claude/commands/**/*.md"
 
 	fileTypeAgentName    = "agent"
 	fileTypeCommandName  = "command"
@@ -45,13 +46,15 @@ type FileTypeEntry struct {
 }
 
 const (
-	claudeSettingsPath = "claude/settings.json"
-	claudeContextFile  = "CLAUDE.md"
-	pluralAgents       = "agents"
-	pluralCommands     = "commands"
-	pluralSkills       = "skills"
-	pluralPlugins      = "plugins"
-	pluralRules        = "rules"
+	claudeSettingsPath     = "claude/settings.json"
+	claudeContextFile      = "CLAUDE.md"
+	agentsContextFile      = "AGENTS.md"
+	claudeLocalContextFile = "CLAUDE.local.md"
+	pluralAgents           = "agents"
+	pluralCommands         = "commands"
+	pluralSkills           = "skills"
+	pluralPlugins          = "plugins"
+	pluralRules            = "rules"
 )
 
 // DefaultFileTypes is the registry of file types and their discovery patterns.
@@ -71,8 +74,8 @@ var DefaultFileTypes = []FileTypeEntry{
 	},
 	{
 		Type:                  FileTypeContext,
-		Patterns:              []string{contextPathPattern, claudeContextFile},
-		FallbackBasenames:     []string{claudeContextFile},
+		Patterns:              []string{contextPathPattern, claudeContextFile, contextAgentsPathPattern, agentsContextFile, claudeLocalContextFile},
+		FallbackBasenames:     []string{claudeContextFile, agentsContextFile, claudeLocalContextFile},
 		FallbackPathSubstring: "",
 	},
 	{

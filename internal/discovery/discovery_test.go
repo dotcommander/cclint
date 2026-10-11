@@ -165,6 +165,9 @@ func TestDetectFileType(t *testing.T) {
 		// Context patterns
 		{".claude/CLAUDE.md", ".claude/CLAUDE.md", FileTypeContext, false, ""},
 		{"CLAUDE.md", "CLAUDE.md", FileTypeContext, false, ""},
+		{".claude/AGENTS.md", ".claude/AGENTS.md", FileTypeContext, false, ""},
+		{"AGENTS.md", "AGENTS.md", FileTypeContext, false, ""},
+		{"CLAUDE.local.md", "CLAUDE.local.md", FileTypeContext, false, ""},
 
 		// Plugin patterns
 		{"foo/.claude-plugin/plugin.json", "foo/.claude-plugin/plugin.json", FileTypePlugin, false, ""},

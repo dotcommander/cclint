@@ -29,6 +29,9 @@ func TestDetectFileType(t *testing.T) {
 		{"settings file", ".claude/settings.json", discovery.FileTypeSettings, false, ""},
 		{"context file", "CLAUDE.md", discovery.FileTypeContext, false, ""},
 		{"context in .claude", ".claude/CLAUDE.md", discovery.FileTypeContext, false, ""},
+		{"agents md", "AGENTS.md", discovery.FileTypeContext, false, ""},
+		{"agents md in .claude", ".claude/AGENTS.md", discovery.FileTypeContext, false, ""},
+		{"claude local", "CLAUDE.local.md", discovery.FileTypeContext, false, ""},
 
 		// Non-standard paths (fallback to basename)
 		{"skill by basename", "custom/SKILL.md", discovery.FileTypeSkill, false, ""},
