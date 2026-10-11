@@ -279,7 +279,7 @@ func TestValidateAgent(t *testing.T) {
 			data: map[string]any{
 				"name":        "test-agent",
 				"description": "Agent with task control tools",
-				"tools":       []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
+				"tools":       []string{"TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskStop"},
 			},
 			wantError: false,
 		},
@@ -476,7 +476,7 @@ func TestValidateCommand(t *testing.T) {
 			name: "valid allowed-tools array with newer runtime tools",
 			data: map[string]any{
 				"name":          "test-cmd",
-				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
+				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskStop"},
 			},
 			wantError: false,
 		},
@@ -649,7 +649,7 @@ func TestValidateSkill(t *testing.T) {
 			data: map[string]any{
 				"name":          "test-skill",
 				"description":   "Skill with task control tools",
-				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskOutput"},
+				"allowed-tools": []string{"Agent", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TaskStop", "EnterPlanMode", "KillShell", "TaskStop"},
 			},
 			wantError: false,
 		},

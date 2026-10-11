@@ -302,7 +302,7 @@ var KnownTools = map[string]bool{
 	"Skill": true, "LSP": true, "NotebookEdit": true,
 	"EnterPlanMode": true, "ExitPlanMode": true,
 	"EnterWorktree": true, "ExitWorktree": true,
-	"KillShell": true, "TaskOutput": true, "SendMessage": true, "Monitor": true,
+	"KillShell": true, "SendMessage": true, "Monitor": true,
 	"RemoteTrigger": true, "Workflow": true,
 	// Scheduling / background
 	"CronCreate": true, "CronDelete": true, "CronList": true,
@@ -311,13 +311,15 @@ var KnownTools = map[string]bool{
 	"EndConversation": true,
 	// Session feedback (v2.1.247)
 	"SendFeedback": true,
+	// Current-tool-list additions (verified v2.1.296)
+	"JavaScript": true, "ToolSearch": true, "SendUserMessage": true,
 	// Wildcards
 	"*": true,
 }
 
 // DeprecatedTools maps tool names to their deprecation message.
 var DeprecatedTools = map[string]string{
-	"TaskOutput": "TaskOutput is deprecated (v2.1.83) — use Read on the background task's output file path instead",
+	"TaskOutput": "TaskOutput was removed in v2.1.277 — use Read on the background task's output file path instead",
 }
 
 // ValidateAllowedTools validates that allowed-tools and tools fields contain known tool names

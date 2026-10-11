@@ -11,7 +11,7 @@ import (
 // absent from textutil.KnownTools (Go's body-scan set). They are the documented
 // CUE-only exceptions; keep this list and KnownTools as the two inputs to the
 // generated union.
-var schemaOnlyTools = []string{"BashOutput", "KillBash", "DBClient"}
+var schemaOnlyTools = []string{"KillBash", "DBClient"}
 
 // knownToolUnionCUE generates the CUE #KnownTool definition from the single
 // source of truth: textutil.KnownTools (minus the "*" wildcard, which is a
