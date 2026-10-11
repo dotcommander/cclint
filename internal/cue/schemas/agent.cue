@@ -33,6 +33,7 @@ import (
 	timeout?: int                // timeout in seconds
 	once?:    bool               // run only once per session (v2.1.0+)
 	continueOnBlock?: bool       // PostToolUse only (v2.1.139+)
+	onFailure?:         "continue" | "block" // hook failure policy: continue lets the action through, block stops it (v2.1.295+)
 	"if"?: string                // conditional filter using permission rule syntax (v2.1.85+)
 }
 

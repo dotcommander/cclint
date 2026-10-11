@@ -1243,6 +1243,46 @@ func TestValidateSettings(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid settings v2.1.295 hook onFailure block",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PostToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":      "command",
+									"command":   "echo done",
+									"onFailure": "block",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "reject invalid hook onFailure",
+			data: map[string]any{
+				"hooks": map[string]any{
+					"PostToolUse": []map[string]any{
+						{
+							"matcher": "Bash",
+							"hooks": []map[string]any{
+								{
+									"type":      "command",
+									"command":   "echo done",
+									"onFailure": "explode",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
 			name: "valid settings v2.1.143 worktree bgIsolation",
 			data: map[string]any{
 				"worktree": map[string]any{"bgIsolation": "none"},

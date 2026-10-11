@@ -57,6 +57,12 @@ package schemas
 	// Claude and continue the turn instead of failing.
 	continueOnBlock?: bool
 
+	// What a failure of this hook does: it could not start (a missing script
+	// or plugin directory), timed out, or exited with an unexpected code.
+	// "continue" lets the action through (the default); "block" stops the
+	// action instead (v2.1.295+, type: "command" and "http" hooks).
+	onFailure?: "continue" | "block"
+
 	// Optional: conditional filter using permission rule syntax (v2.1.85+)
 	// e.g., "Bash(git *)" to only run when Bash is called with git commands
 	"if"?: string
