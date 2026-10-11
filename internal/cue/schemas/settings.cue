@@ -480,10 +480,11 @@ package schemas
 	additionalDirectories?: [...string]
 	defaultMode?:           string // permission-mode enum; modeled permissively as string (binary enum members not cleanly extractable)
 
-	// Status line + commit attribution (open structs).
+	// Status line + commit attribution. attribution accepts `false` to hide
+	// all commit and PR attribution (v2.1.281+) or an open struct.
 	statusLine?:          {...}
 	subagentStatusLine?:  {...}
-	attribution?:         {...}
+	attribution?:         bool | {...}
 	includeCoAuthoredBy?: bool // deprecated, superseded by attribution
 
 	// Context / compaction.
@@ -672,6 +673,30 @@ package schemas
 	// "max" exempts from capping.
 	maxEffortLevel?: "low" | "medium" | "high" | "xhigh" | "max"
 
+	// Managed settings only (v2.1.285+): restricts which API providers the
+	// machine may use. Members: anthropic, customEndpoint, bedrock, vertex,
+	// foundry, anthropicAws, mantle, gateway.
+	allowedProviders?: [...("anthropic" | "customEndpoint" | "bedrock" | "vertex" | "foundry" | "anthropicAws" | "mantle" | "gateway")]
+
+	// Managed settings only (v2.1.283+): how availableModels entries match
+	// model IDs. "prefix" (the default) matches version prefixes; "exact"
+	// allows only the model version an entry names, so new releases stay
+	// blocked until listed.
+	availableModelsMatch?: "prefix" | "exact"
+
+	// Managed settings only (v2.1.283+): models users cannot select, even
+	// when availableModels allows them. A family alias ("opus") blocks that
+	// family; a model ID blocks that model.
+	deniedModels?: [...string]
+
+	// Maximum width, in terminal columns, of the prose in Claude's responses;
+	// tables and code blocks keep the full width (v2.1.282+).
+	maxProseWidth?: int & >=40
+
+	// Managed settings only (v2.1.282+): when true, lets `claude --chrome`
+	// run alongside an exclusive managed-mcp.json.
+	allowClaudeInChromeWithManagedMcp?: bool
+
 	// Per-model effort settings (v2.1.267+), keyed by canonical model name
 	// (dated, [1m], Bedrock and Vertex spellings also match); an entry's
 	// maxEffortLevel replaces the top-level cap for that model within one
@@ -679,6 +704,9 @@ package schemas
 	modelSettings?: {[string]: {
 		effortLevel?: "low" | "medium" | "high" | "xhigh"
 		maxEffortLevel?: "low" | "medium" | "high" | "xhigh" | "max"
+		// Per-model auto-compact token count; "auto" follows the global
+		// window (v2.1.296+).
+		autoCompactWindow?: "auto" | number
 		...
 	}}
 
