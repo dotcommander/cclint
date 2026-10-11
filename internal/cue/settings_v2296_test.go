@@ -51,6 +51,12 @@ func TestValidateSettings_v2282Through2296Fields(t *testing.T) {
 			},
 		},
 		{
+			name: "valid maxProseWidth float64 100",
+			data: map[string]any{
+				"maxProseWidth": float64(100),
+			},
+		},
+		{
 			name: "valid allowClaudeInChromeWithManagedMcp true",
 			data: map[string]any{
 				"allowClaudeInChromeWithManagedMcp": true,
@@ -102,6 +108,11 @@ func TestValidateSettings_v2282Through2296Fields(t *testing.T) {
 		{
 			name:      "reject maxProseWidth below min",
 			data:      map[string]any{"maxProseWidth": 39},
+			wantError: true,
+		},
+		{
+			name:      "reject maxProseWidth float64 below min",
+			data:      map[string]any{"maxProseWidth": float64(39.5)},
 			wantError: true,
 		},
 		{

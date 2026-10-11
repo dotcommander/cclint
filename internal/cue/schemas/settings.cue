@@ -697,7 +697,8 @@ package schemas
 
 	// Maximum width, in terminal columns, of the prose in Claude's responses;
 	// tables and code blocks keep the full width (v2.1.282+).
-	maxProseWidth?: int & >=40
+	// number, not int — settings.json decodes integers as float64, and CUE int rejects 1E+2
+	maxProseWidth?: number & >=40
 
 	// Managed settings only (v2.1.282+): when true, lets `claude --chrome`
 	// run alongside an exclusive managed-mcp.json.

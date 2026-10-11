@@ -47,8 +47,8 @@ package schemas
 // CLAUDE.md frontmatter schema
 #ClaudeMD: {
 	// Optional metadata
-	title?:       string
-	description?: string
+	title?:       string | null // null tolerated: ContextLinter injects explicit nils for files without frontmatter
+	description?: string | null // ditto
 
 	// Optional model specification
 	model?: #Model
