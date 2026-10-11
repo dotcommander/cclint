@@ -26,6 +26,21 @@ func TestClaudeMDNullTitleDescription(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "section level field accepted",
+			data: map[string]any{
+				"title":       nil,
+				"description": nil,
+				"sections": []any{
+					map[string]any{
+						"heading": "Overview",
+						"content": "",
+						"level":   1,
+					},
+				},
+			},
+			wantError: false,
+		},
+		{
 			name: "non-string title rejected",
 			data: map[string]any{
 				"title": 123,

@@ -18,6 +18,9 @@ package schemas
 	heading: string
 	content: string
 
+	// Heading depth emitted by the context linter's markdown parser (1 = h1, 2 = h2)
+	level?: int
+
 	// Optional reference links
 	references?: [...#RefLink]
 }
