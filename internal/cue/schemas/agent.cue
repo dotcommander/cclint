@@ -65,8 +65,9 @@ import (
 	color?: #Color                                            // UI display color (set via /agents wizard)
 	tools?: #Tools                                            // tool access allowlist; agents use 'tools:', NOT 'allowed-tools:'
 	disallowedTools?: #Tools                                  // tool access denylist
-	permissionMode?: "default" | "acceptEdits" | "delegate" | "dontAsk" | "bypassPermissions" | "plan"
+	permissionMode?: "default" | "acceptEdits" | "bypassPermissions" | "plan" | "dontAsk" | "auto"
 	maxTurns?: int & >0                                       // max conversation turns (positive integer)
+	autoCompactWindow?: int & >=100000 & <=1000000   // token count at which this agent compacts its own conversation when it runs as a subagent (v2.1.296+)
 	effort?:   string                                         // reasoning effort level (v2.1.78+)
 	skills?: string | [...string]                             // skills to preload into agent context
 	hooks?: #AgentHooks                                       // agent-level hooks (PreToolUse, PostToolUse, Stop)

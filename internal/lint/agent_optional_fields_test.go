@@ -91,14 +91,14 @@ func TestValidateAgentOptionalFields(t *testing.T) {
 			wantSuggCount: 0,
 		},
 		{
-			name: "valid permissionMode delegate",
+			name: "valid permissionMode auto",
 			data: map[string]any{
 				"name":           "test",
 				"description":    "test. Use PROACTIVELY when testing.",
-				"permissionMode": "delegate",
+				"permissionMode": "auto",
 			},
 			filePath:      "agents/test.md",
-			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: delegate\n---\n",
+			contents:      "---\nname: test\ndescription: test. Use PROACTIVELY when testing.\npermissionMode: auto\n---\n",
 			wantErrCount:  0,
 			wantSuggCount: 0,
 		},

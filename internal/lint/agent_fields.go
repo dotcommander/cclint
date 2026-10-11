@@ -20,7 +20,7 @@ var validScopes = map[string]bool{"user": true, "project": true, "local": true}
 
 // validModes is the set of permissionMode values accepted by the CUE #Agent schema.
 var validModes = map[string]bool{
-	"default": true, "acceptEdits": true, "delegate": true,
+	"default": true, "acceptEdits": true, "auto": true,
 	"dontAsk": true, "bypassPermissions": true, "plan": true,
 }
 
@@ -181,7 +181,7 @@ func validateAgentPermissionMode(data map[string]any, filePath, contents string)
 
 	return []cue.ValidationError{{
 		File:     filePath,
-		Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan", permMode),
+		Message:  fmt.Sprintf("Invalid permissionMode value %q; must be one of: default, acceptEdits, bypassPermissions, plan, dontAsk, auto", permMode),
 		Severity: cue.SeverityError,
 		Source:   cue.SourceAnthropicDocs,
 		Line:     textutil.FindFrontmatterFieldLine(contents, "permissionMode"),

@@ -65,8 +65,9 @@ var knownAgentFields = map[string]bool{
 	"color":                               true, // Optional: display color in UI (set via /agents wizard)
 	"tools":                               true, // Optional: tool access allowlist
 	"disallowedTools":                     true, // Optional: tool access denylist
-	"permissionMode":                      true, // Optional: default, acceptEdits, delegate, dontAsk, bypassPermissions, plan
+	"permissionMode":                      true, // Optional: default, acceptEdits, bypassPermissions, plan, dontAsk, auto (auto: v2.1.292)
 	"maxTurns":                            true, // Optional: max conversation turns (positive integer)
+	"autoCompactWindow":                   true, // Optional: subagent auto-compact token threshold, 100000–1000000 (v2.1.296)
 	"skills":                              true, // Optional: skills to preload into context
 	"hooks":                               true, // Optional: agent-level hooks (PreToolUse, PostToolUse, Stop)
 	"memory":                              true, // Optional: persistent memory scope (user, project, local) (v2.1.33+)
