@@ -99,7 +99,10 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 		findLine: textutil.FindFrontmatterFieldLine,
 	})...)
 
-	// Required: name field
+	// Required: name field. Claude Code treats the output-style `name` as a
+	// free-form display label (zod: optional string defaulting to the filename;
+	// built-ins are "Explanatory", "Learning", "Concise", "Proactive"), so no
+	// kebab-case or hyphen-placement constraint applies here.
 	if name, ok := data["name"].(string); !ok || strings.TrimSpace(name) == "" {
 		errors = append(errors, cue.ValidationError{
 			File:     filePath,
@@ -108,8 +111,6 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 			Source:   cue.SourceAnthropicDocs,
 			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
-	} else {
-		errors = append(errors, validateOutputStyleName(name, filePath, contents)...)
 	}
 
 	// Required: description field
@@ -144,33 +145,6 @@ func (l *OutputStyleLinter) ValidateSpecific(data map[string]any, filePath, cont
 			Message:  "Output style body is empty - add markdown content for system prompt customization",
 			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
-		})
-	}
-
-	return errors
-}
-
-// validateOutputStyleName validates kebab-case format and hyphen placement for output style names.
-func validateOutputStyleName(name, filePath, contents string) []cue.ValidationError {
-	var errors []cue.ValidationError
-
-	if !isKebabCase(name) {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  "Name must contain only lowercase letters, numbers, and hyphens (kebab-case)",
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
-		})
-	}
-
-	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
-		errors = append(errors, cue.ValidationError{
-			File:     filePath,
-			Message:  fmt.Sprintf("Name '%s' cannot start or end with a hyphen", name),
-			Severity: cue.SeverityError,
-			Source:   cue.SourceAnthropicDocs,
-			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
 		})
 	}
 

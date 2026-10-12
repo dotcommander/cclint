@@ -135,25 +135,28 @@ func TestOutputStyleLinterEmptyBody(t *testing.T) {
 	}
 }
 
-func TestOutputStyleLinterInvalidNameFormat(t *testing.T) {
+func TestOutputStyleLinterFreeFormDisplayNameAllowed(t *testing.T) {
+	t.Parallel()
+	// Regression: Claude Code v2.1.296 treats the output-style `name` as a
+	// free-form display label (zod schema: optional string, defaults to the
+	// filename; built-ins: Explanatory, Learning, Concise, Proactive).
+	// Kebab-case and hyphen-placement rules must not apply to it.
 	linter := NewOutputStyleLinter()
-	contents := "---\nname: My Style\ndescription: A test style\n---\n\nBody content.\n"
 
-	data, _, err := linter.ParseContent(contents)
-	if err != nil {
-		t.Fatalf("ParseContent() error: %v", err)
-	}
+	for _, name := range []string{"Recommend", "My Style", "concise", "-edge-name"} {
+		contents := "---\nname: " + name + "\ndescription: A test style\n---\n\nBody content.\n"
 
-	errors := linter.ValidateSpecific(data, "output-styles/my-style.md", contents)
-	foundFormatError := false
-	for _, e := range errors {
-		if e.Severity == "error" && containsSubstring(e.Message, "kebab-case") {
-			foundFormatError = true
-			break
+		data, _, err := linter.ParseContent(contents)
+		if err != nil {
+			t.Fatalf("ParseContent() error: %v", err)
 		}
-	}
-	if !foundFormatError {
-		t.Error("ValidateSpecific() should report invalid name format as error")
+
+		errors := linter.ValidateSpecific(data, "output-styles/test.md", contents)
+		for _, e := range errors {
+			if e.Severity == "error" {
+				t.Errorf("name %q: unexpected error: %s", name, e.Message)
+			}
+		}
 	}
 }
 
@@ -176,28 +179,6 @@ func TestOutputStyleLinterUnknownField(t *testing.T) {
 	}
 	if !foundSuggestion {
 		t.Error("ValidateSpecific() should suggest removing unknown frontmatter fields")
-	}
-}
-
-func TestOutputStyleLinterNameStartsWithHyphen(t *testing.T) {
-	linter := NewOutputStyleLinter()
-	contents := "---\nname: -bad-name\ndescription: A test style\n---\n\nBody content.\n"
-
-	data, _, err := linter.ParseContent(contents)
-	if err != nil {
-		t.Fatalf("ParseContent() error: %v", err)
-	}
-
-	errors := linter.ValidateSpecific(data, "output-styles/bad-name.md", contents)
-	foundHyphenError := false
-	for _, e := range errors {
-		if e.Severity == "error" && containsSubstring(e.Message, "hyphen") {
-			foundHyphenError = true
-			break
-		}
-	}
-	if !foundHyphenError {
-		t.Error("ValidateSpecific() should report name starting with hyphen as error")
 	}
 }
 
