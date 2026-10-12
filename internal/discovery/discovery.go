@@ -47,6 +47,7 @@ type FileTypeEntry struct {
 
 const (
 	claudeSettingsPath     = "claude/settings.json"
+	rootSettingsPath       = "settings.json"
 	claudeContextFile      = "CLAUDE.md"
 	agentsContextFile      = "AGENTS.md"
 	claudeLocalContextFile = "CLAUDE.local.md"
@@ -68,7 +69,7 @@ var DefaultFileTypes = []FileTypeEntry{
 	},
 	{
 		Type:                  FileTypeSettings,
-		Patterns:              []string{settingsPathPattern, claudeSettingsPath},
+		Patterns:              []string{settingsPathPattern, claudeSettingsPath, rootSettingsPath},
 		FallbackBasenames:     []string{"settings.json"},
 		FallbackPathSubstring: "",
 	},

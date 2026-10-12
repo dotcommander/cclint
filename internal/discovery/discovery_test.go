@@ -1321,6 +1321,48 @@ func TestDetectFileType_AllPatternTypes(t *testing.T) {
 	}
 }
 
+// TestDiscoverFiles_LayoutRootSettings verifies that a layout-style root
+// (the .claude directory itself, or a plugin-shaped tree, where components sit
+// at the root) discovers settings.json. Single-file detection already accepts
+// a root settings.json via its basename, so directory discovery must too;
+// otherwise `cclint settings --root <.claude dir>` reports a green PASS 0 files
+// while silently skipping the user's hooks/permissions file.
+func TestDiscoverFiles_LayoutRootSettings(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	files := map[string]string{
+		"settings.json":     `{"model": "sonnet"}`,
+		"agents/agent1.md":  "agent content",
+		"CLAUDE.md":         "context content",
+		"sub/settings.json": `{"nested": true}`,
+	}
+	for path, content := range files {
+		absPath := filepath.Join(tmpDir, filepath.FromSlash(path))
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.WriteFile(absPath, []byte(content), 0644)
+	}
+
+	fd := NewFileDiscovery(tmpDir, false)
+	discovered, err := fd.DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+
+	settingsCount := 0
+	for _, f := range discovered {
+		if f.Type == FileTypeSettings {
+			settingsCount++
+			if f.RelPath != "settings.json" {
+				t.Errorf("discovered settings at %q, want root settings.json only", f.RelPath)
+			}
+		}
+	}
+	if settingsCount != 1 {
+		t.Errorf("discovered %d settings files, want 1 (root settings.json only, nested ones excluded): %v", settingsCount, discovered)
+	}
+}
+
 // TestDiscoverFiles_LargeFileSet tests discovery with many files
 func TestDiscoverFiles_LargeFileSet(t *testing.T) {
 	tmpDir := t.TempDir()
