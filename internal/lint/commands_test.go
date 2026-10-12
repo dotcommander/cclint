@@ -205,6 +205,23 @@ func TestValidateCommandBestPractices(t *testing.T) {
 			data:         map[string]any{"name": "test", "allowed-tools": "Task, Skill"},
 			wantContains: []string{},
 		},
+		{
+			// rescue.md shape (real third-party plugin command): delegates via
+			// the Agent tool (declared in allowed-tools) and mentions Skill()
+			// only in prose telling users NOT to call it.
+			name:         "Agent tool declared is delegation, prose Skill mention ignored",
+			filePath:     "commands/test.md",
+			contents:     "---\nname: test\nallowed-tools: Bash(node:*), AskUserQuestion, Agent\n---\nInvoke the subagent via the Agent tool. Do not call Skill(x).",
+			data:         map[string]any{"name": "test", "allowed-tools": "Bash(node:*), AskUserQuestion, Agent"},
+			wantContains: []string{},
+		},
+		{
+			name:         "Agent call in body is delegation",
+			filePath:     "commands/test.md",
+			contents:     "---\nname: test\nallowed-tools: Skill\n---\nAgent(subagent_type: x)\nSkill(some-skill)",
+			data:         map[string]any{"name": "test", "allowed-tools": "Skill"},
+			wantContains: []string{},
+		},
 	}
 
 	for _, tt := range tests {

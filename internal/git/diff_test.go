@@ -63,6 +63,9 @@ func TestFilterRelevantFiles(t *testing.T) {
 		".claude/agents/test-agent.md": true,
 		"commands/test-cmd.md":         true,
 		"CLAUDE.md":                    true,
+		"AGENTS.md":                    true,
+		"CLAUDE.local.md":              true,
+		".claude/settings.local.json":  true,
 		"README.md":                    false, // Should be filtered out
 		"main.go":                      false, // Should be filtered out
 	}
@@ -82,6 +85,9 @@ func TestFilterRelevantFiles(t *testing.T) {
 	gitOutput := `.claude/agents/test-agent.md
 commands/test-cmd.md
 CLAUDE.md
+AGENTS.md
+CLAUDE.local.md
+.claude/settings.local.json
 README.md
 main.go`
 

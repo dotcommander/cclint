@@ -129,24 +129,21 @@ func checkSkillWithoutTaskDelegation(filePath string, contents string, data map[
 	if !strings.Contains(body, "Skill(") {
 		return nil
 	}
-	if strings.Contains(body, "Task(") {
+	// Task is the legacy delegation tool name; Agent is the current one.
+	if strings.Contains(body, "Task(") || strings.Contains(body, "Agent(") {
 		return nil
 	}
 
-	// Also skip if allowed-tools declares both Skill and Task
+	// Skip if allowed-tools declares a delegation tool: a command that can
+	// dispatch through Task (or Agent, its current name) is not a bare
+	// Skill() dispatch, even when its body only mentions Skill() in prose
+	// (e.g. third-party plugin commands telling users NOT to call it).
 	if tools := textutil.NormalizeStringList(data["allowed-tools"]); len(tools) > 0 {
-		hasSkill, hasTask := false, false
 		for _, tool := range tools {
 			base := textutil.ExtractBaseToolName(strings.TrimSpace(tool))
-			if base == "Skill" {
-				hasSkill = true
+			if base == "Task" || base == "Agent" {
+				return nil
 			}
-			if base == "Task" {
-				hasTask = true
-			}
-		}
-		if hasSkill && hasTask {
-			return nil
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -50,7 +51,7 @@ func TestFmtExplicitRootSelections(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := collectFilesToFormat(&tt.cmd, tt.root, tt.root)
+			got, err := collectFilesToFormat(&tt.cmd, tt.root, tt.root, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -82,7 +83,7 @@ func TestFmtSelectionRootVersusCwd(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := collectFilesToFormat(&fmtCommand{Args: []string{"fmt.go"}}, root, selectionRoot)
+			got, err := collectFilesToFormat(&fmtCommand{Args: []string{"fmt.go"}}, root, selectionRoot, nil)
 			if err != nil || !reflect.DeepEqual(got, []string{want}) {
 				t.Fatalf("selected %v, %v; want [%s]", got, err, want)
 			}
@@ -118,7 +119,7 @@ func TestFmtCLIFileSelection(t *testing.T) {
 			if _, err := parser.Parse(tt.args); err != nil {
 				t.Fatal(err)
 			}
-			got, err := collectFilesToFormat(&app.Fmt, root, stringValue(app.Root))
+			got, err := collectFilesToFormat(&app.Fmt, root, stringValue(app.Root), nil)
 			if err != nil || !reflect.DeepEqual(got, []string{tt.want}) {
 				t.Fatalf("parsed selection = %v, %v; want [%s]", got, err, tt.want)
 			}
@@ -177,12 +178,12 @@ func TestFmtExplicitRootMissingFileSelection(t *testing.T) {
 
 	root := t.TempDir()
 	want := filepath.Join(root, "missing.md")
-	got, err := collectFilesToFormat(&fmtCommand{Files: []string{"missing.md"}}, root, root)
+	got, err := collectFilesToFormat(&fmtCommand{Files: []string{"missing.md"}}, root, root, nil)
 	if err != nil || !reflect.DeepEqual(got, []string{want}) {
 		t.Fatalf("explicit file selection = %v, %v; want [%s]", got, err, want)
 	}
 	// Positional selection still validates existence before returning paths.
-	_, err = collectFilesToFormat(&fmtCommand{Args: []string{"missing.md"}}, root, root)
+	_, err = collectFilesToFormat(&fmtCommand{Args: []string{"missing.md"}}, root, root, nil)
 	if err == nil {
 		t.Fatal("missing positional file must be rejected")
 	}
@@ -214,5 +215,40 @@ func TestResolvePathArgsCwdRelativeDirectory(t *testing.T) {
 	}
 	if len(files) != 1 || filepath.Base(files[0]) != "helper.md" {
 		t.Fatalf("got %v, want one helper.md", files)
+	}
+}
+
+// TestFmtDiscoveryHonorsExclude pins that discovery-based fmt selection
+// applies .cclintrc exclude patterns like lint discovery; only explicit
+// --file/arg selections bypass exclusion.
+func TestFmtDiscoveryHonorsExclude(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	for _, rel := range []string{"commands/keep.md", "commands/skip.md"} {
+		absPath := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absPath, []byte("---\nname:   probe\ndescription: d\n---\nbody\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, err := collectFilesToFormat(&fmtCommand{}, root, root, []string{"commands/skip.md"})
+	if err != nil {
+		t.Fatalf("collectFilesToFormat() error = %v", err)
+	}
+	sawKeep, sawSkip := false, false
+	for _, f := range files {
+		if strings.HasSuffix(filepath.ToSlash(f), "commands/keep.md") {
+			sawKeep = true
+		}
+		if strings.HasSuffix(filepath.ToSlash(f), "commands/skip.md") {
+			sawSkip = true
+		}
+	}
+	if !sawKeep || sawSkip {
+		t.Errorf("exclude not honored: keep=%v skip=%v (files: %v)", sawKeep, sawSkip, files)
 	}
 }

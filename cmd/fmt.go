@@ -40,7 +40,7 @@ func runFmt(opts executionOptions, cmd *fmtCommand) error {
 	if cfg.RootExplicit {
 		selectionRoot = cfg.Root
 	}
-	filesToFormat, err := collectFilesToFormat(cmd, cfg.Root, selectionRoot)
+	filesToFormat, err := collectFilesToFormat(cmd, cfg.Root, selectionRoot, cfg.Exclude)
 	if err != nil {
 		return err
 	}

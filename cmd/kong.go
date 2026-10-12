@@ -18,7 +18,7 @@ Run "cclint lint --help" for lint-only flags such as --type, --diff, and --stage
 
 type cli struct {
 	Root           *string        `short:"r" type:"path" help:"Project root directory."`
-	Quiet          *bool          `short:"q" help:"Suppress non-essential output."`
+	Quiet          *bool          `short:"q" help:"Suppress all report output; exit status only."`
 	Verbose        *bool          `short:"v" help:"Enable verbose output."`
 	Scores         *bool          `short:"s" help:"Show quality scores."`
 	Improvements   *bool          `short:"i" help:"Show suggested improvements."`

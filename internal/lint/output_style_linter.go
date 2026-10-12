@@ -32,6 +32,7 @@ var knownOutputStyleFields = map[string]bool{
 	"name":                     true, // Required: output style identifier
 	"description":              true, // Required: what this style does
 	"keep-coding-instructions": true, // Optional: boolean, whether to keep default coding instructions
+	"force-for-plugin":         true, // Optional: boolean, "@internal" — only meaningful for plugin-bundled styles; ignored for user styles (v2.1.296 schema, strict)
 }
 
 // NewOutputStyleLinter creates a new OutputStyleLinter.

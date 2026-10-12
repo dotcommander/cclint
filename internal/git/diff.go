@@ -306,14 +306,21 @@ func isRelevantFile(relPath string) bool {
 		}
 	}
 
-	// Special filenames (case-insensitive)
+	// Special filenames (case-insensitive). Context files and both settings
+	// tiers mirror the discovery registry: AGENTS.md and CLAUDE.local.md are
+	// discovered context files (v2.1.277+), and .claude/settings.local.json
+	// is the project-local settings tier.
 	basename := filepath.Base(relPath)
 	switch {
 	case strings.EqualFold(basename, "SKILL.md"):
 		return true
 	case strings.EqualFold(basename, "CLAUDE.md"):
 		return true
-	case basename == "settings.json":
+	case strings.EqualFold(basename, "AGENTS.md"):
+		return true
+	case strings.EqualFold(basename, "CLAUDE.local.md"):
+		return true
+	case basename == "settings.json", basename == "settings.local.json":
 		return true
 	case basename == "plugin.json":
 		return true

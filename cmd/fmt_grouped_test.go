@@ -31,7 +31,7 @@ func TestFmtGroupedSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := collectFilesToFormat(&tt.cmd, root, root)
+			got, err := collectFilesToFormat(&tt.cmd, root, root, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

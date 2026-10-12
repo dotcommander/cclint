@@ -47,7 +47,7 @@ type FileTypeEntry struct {
 }
 
 const (
-	claudeSettingsPath     = "claude/settings.json"
+	localSettingsPath      = ".claude/settings.local.json"
 	rootSettingsPath       = "settings.json"
 	claudeContextFile      = "CLAUDE.md"
 	agentsContextFile      = "AGENTS.md"
@@ -63,14 +63,25 @@ const (
 // To add a new component type, update one entry here and detection/discovery stay aligned.
 var DefaultFileTypes = []FileTypeEntry{
 	{
-		Type:                  FileTypeSkill,
-		Patterns:              []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md", ".claude/skills/**/skill.md", "skills/**/skill.md"},
+		Type: FileTypeSkill,
+		Patterns: []string{".claude/skills/**/SKILL.md", "skills/**/SKILL.md", ".claude/skills/**/skill.md", "skills/**/skill.md",
+			// Plugin-shipped skills (see the agents entry for locations).
+			"plugins/marketplaces/*/plugins/*/skills/**/SKILL.md",
+			".claude/plugins/marketplaces/*/plugins/*/skills/**/SKILL.md",
+			"plugins/marketplaces/*/plugins/*/skills/**/skill.md",
+			".claude/plugins/marketplaces/*/plugins/*/skills/**/skill.md"},
 		FallbackBasenames:     []string{"SKILL.md", "skill.md"},
 		FallbackPathSubstring: "",
 	},
 	{
-		Type:                  FileTypeSettings,
-		Patterns:              []string{settingsPathPattern, claudeSettingsPath, rootSettingsPath},
+		Type: FileTypeSettings,
+		// Claude Code reads exactly these discoverable settings files:
+		// .claude/settings.json and .claude/settings.local.json (project
+		// tier; local is not checked in), and settings.json at a layout
+		// root (~/.claude, the user tier). The former "claude/settings.json"
+		// pattern matched nothing Claude Code reads (zero hits in the
+		// v2.1.296 binary).
+		Patterns:              []string{settingsPathPattern, localSettingsPath, rootSettingsPath},
 		FallbackBasenames:     []string{"settings.json"},
 		FallbackPathSubstring: "",
 	},
@@ -97,8 +108,11 @@ var DefaultFileTypes = []FileTypeEntry{
 		FallbackPathSubstring: ".claude-plugin",
 	},
 	{
-		Type:                  FileTypeRule,
-		Patterns:              []string{".claude/rules/**/*.md", "rules/**/*.md"},
+		Type: FileTypeRule,
+		Patterns: []string{".claude/rules/**/*.md", "rules/**/*.md",
+			// Plugin-shipped rules (see the agents entry for locations).
+			"plugins/marketplaces/*/plugins/*/rules/**/*.md",
+			".claude/plugins/marketplaces/*/plugins/*/rules/**/*.md"},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},
@@ -107,24 +121,39 @@ var DefaultFileTypes = []FileTypeEntry{
 		Patterns: []string{
 			agentGlobPattern,
 			agentRootGlob,
-			// Plugin-shipped agents (resolved at runtime by Claude Code plugin system).
-			// Patterns cover both rootPath=~/.claude/ (plugins/cache/...)
-			// and rootPath=~ (.claude/plugins/cache/...).
+			// Plugin-shipped components, anchored to the locations Claude
+			// Code loads them from (a plugin dir's top-level component dirs;
+			// binary: "commands/, skills/, agents/, ... at the top level"):
+			// the marketplace tree plugins/marketplaces/<mkt>/plugins/<plugin>/
+			// and the legacy cache tree plugins/cache/<a>/<b>/current/. Both
+			// layout-root (plugins/...) and home/project-root
+			// (.claude/plugins/...) forms. Broad plugins/**/<type>/** forms
+			// over-match skill-internal prompt assets (e.g. skill-creator's
+			// frontmatter-less skills/<skill>/agents/*.md), which Claude Code
+			// does not load as subagents.
 			"plugins/cache/*/*/current/agents/**/*.md",
 			".claude/plugins/cache/*/*/current/agents/**/*.md",
+			"plugins/marketplaces/*/plugins/*/agents/**/*.md",
+			".claude/plugins/marketplaces/*/plugins/*/agents/**/*.md",
 		},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},
 	{
-		Type:                  FileTypeOutputStyle,
-		Patterns:              []string{".claude/output-styles/**/*.md", "output-styles/**/*.md"},
+		Type: FileTypeOutputStyle,
+		Patterns: []string{".claude/output-styles/**/*.md", "output-styles/**/*.md",
+			// Plugin-shipped output-styles (see the agents entry for locations).
+			"plugins/marketplaces/*/plugins/*/output-styles/**/*.md",
+			".claude/plugins/marketplaces/*/plugins/*/output-styles/**/*.md"},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},
 	{
-		Type:                  FileTypeCommand,
-		Patterns:              []string{commandGlobPattern, "commands/**/*.md"},
+		Type: FileTypeCommand,
+		Patterns: []string{commandGlobPattern, "commands/**/*.md",
+			// Plugin-shipped commands (see the agents entry for locations).
+			"plugins/marketplaces/*/plugins/*/commands/**/*.md",
+			".claude/plugins/marketplaces/*/plugins/*/commands/**/*.md"},
 		FallbackBasenames:     nil,
 		FallbackPathSubstring: "",
 	},

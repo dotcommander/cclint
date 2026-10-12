@@ -182,6 +182,26 @@ func TestOutputStyleLinterUnknownField(t *testing.T) {
 	}
 }
 
+// TestOutputStyleLinterPluginFieldAccepted pins the v2.1.296 schema:
+// force-for-plugin is a real (strict-schema) output-style key, "@internal —
+// only meaningful for plugin-bundled styles; ignored for user styles".
+// It must not be suggested as an unknown field.
+func TestOutputStyleLinterPluginFieldAccepted(t *testing.T) {
+	linter := NewOutputStyleLinter()
+	contents := "---\nname: Brand\ndescription: Brand voice\nforce-for-plugin: true\n---\n\nBody content.\n"
+
+	data, _, err := linter.ParseContent(contents)
+	if err != nil {
+		t.Fatalf("ParseContent() error: %v", err)
+	}
+
+	for _, e := range linter.ValidateSpecific(data, "output-styles/brand.md", contents) {
+		if containsSubstring(e.Message, "force-for-plugin") {
+			t.Errorf("ValidateSpecific() flagged force-for-plugin: %s", e.Message)
+		}
+	}
+}
+
 func TestOutputStyleLinterCompileTimeChecks(t *testing.T) {
 	// Verify interface compliance at compile time (already done via var _ declarations,
 	// but this test ensures the linter satisfies the expected interfaces).

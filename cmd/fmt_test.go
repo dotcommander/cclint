@@ -22,11 +22,11 @@ func TestCollectFilesToFormatPrecedence(t *testing.T) {
 	got, err := collectFilesToFormat(&fmtCommand{
 		Files: []string{explicit},
 		Args:  []string{argument},
-	}, root, root)
+	}, root, root, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{explicit}, got)
 
-	got, err = collectFilesToFormat(&fmtCommand{Args: []string{"agents", argument}}, root, root)
+	got, err = collectFilesToFormat(&fmtCommand{Args: []string{"agents", argument}}, root, root, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{argument}, got, "path arguments must take precedence over component types")
 }
@@ -43,11 +43,11 @@ func TestCollectFilesToFormatUsesFormatterCapability(t *testing.T) {
 	require.NoError(t, os.WriteFile(agent, []byte("# Agent\n"), 0o600))
 	require.NoError(t, os.WriteFile(outputStyle, []byte("# Style\n"), 0o600))
 
-	got, err := collectFilesToFormat(&fmtCommand{Args: []string{"agents"}}, root, root)
+	got, err := collectFilesToFormat(&fmtCommand{Args: []string{"agents"}}, root, root, nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{agent}, got, "component selection must use the formatter capability registry")
 
-	_, err = collectFilesToFormat(&fmtCommand{Args: []string{"output-styles"}}, root, root)
+	_, err = collectFilesToFormat(&fmtCommand{Args: []string{"output-styles"}}, root, root, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot access "+filepath.Join(root, "output-styles"),
 		"output styles must remain filesystem arguments rather than formatter component selectors")
@@ -64,7 +64,7 @@ func TestCollectFilesToFormatExpandsDirectories(t *testing.T) {
 	require.NoError(t, os.WriteFile(second, nil, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(root, "ignore.txt"), nil, 0o600))
 
-	got, err := collectFilesToFormat(&fmtCommand{Args: []string{root}}, root, root)
+	got, err := collectFilesToFormat(&fmtCommand{Args: []string{root}}, root, root, nil)
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{first, second}, got)
 }

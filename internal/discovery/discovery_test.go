@@ -1618,12 +1618,12 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 		".claude/CLAUDE.md":                 "context",
 
 		// Alternative locations
-		"agents/alt.md":        "agent",
-		"commands/alt.md":      "command",
-		"skills/alt/SKILL.md":  "skill",
-		"rules/alt.md":         "rule",
-		"claude/settings.json": "{}",
-		"CLAUDE.md":            "context",
+		"agents/alt.md":                           "agent",
+		"commands/alt.md":                         "command",
+		"skills/alt/SKILL.md":                     "skill",
+		"rules/alt.md":                            "rule",
+		".claude/settings.local.json":             "{}",
+		"CLAUDE.md":                               "context",
 		"plugins/demo/.claude-plugin/plugin.json": "{}",
 
 		// Files that should NOT match
@@ -2087,7 +2087,7 @@ func TestDiscoverFiles_AllPatternsCovered(t *testing.T) {
 		"agents/alt.md",
 		"commands/alt.md",
 		"skills/alt/SKILL.md",
-		"claude/settings.json",
+		".claude/settings.local.json",
 		"CLAUDE.md",
 		"rules/alt.md",
 	}
@@ -2466,5 +2466,108 @@ func TestBoundedStarWalkPrunesAndCaps(t *testing.T) {
 			got = append(got, f.RelPath)
 		}
 		t.Fatalf("boundedStarWalk() = %v, want exactly [a/.claude-plugin/plugin.json]", got)
+	}
+}
+
+// TestSettingsLocalDiscovery pins that .claude/settings.local.json — the
+// project-local settings tier Claude Code reads (v2.1.296: "this folder's
+// settings.local.json") — is discovered and linted like settings.json.
+func TestSettingsLocalDiscovery(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	for _, rel := range []string{".claude/settings.json", ".claude/settings.local.json"} {
+		absPath := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absPath, []byte(`{}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	discovered, err := NewFileDiscovery(root, false).DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+	got := map[string]bool{}
+	for _, f := range discovered {
+		if f.Type == FileTypeSettings {
+			got[f.RelPath] = true
+		}
+	}
+	for _, want := range []string{".claude/settings.json", ".claude/settings.local.json"} {
+		if !got[want] {
+			t.Errorf("settings file %s not discovered (got %v)", want, got)
+		}
+	}
+}
+
+// TestPluginShippedComponentsDiscovered pins C8: plugin components loaded by
+// Claude Code from the plugins/ tree (cache/... and marketplaces/...) are
+// discovered for every linted component type, at both layout roots
+// (plugins/ under ~/.claude) and home/project roots (.claude/plugins/).
+func TestPluginShippedComponentsDiscovered(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	files := map[string]FileType{
+		"plugins/marketplaces/mkt/plugins/demo/agents/a.md":            FileTypeAgent,
+		"plugins/marketplaces/mkt/plugins/demo/commands/c.md":          FileTypeCommand,
+		"plugins/marketplaces/mkt/plugins/demo/skills/s/SKILL.md":      FileTypeSkill,
+		"plugins/marketplaces/mkt/plugins/demo/output-styles/o.md":     FileTypeOutputStyle,
+		"plugins/marketplaces/mkt/plugins/demo/rules/r.md":             FileTypeRule,
+		"plugins/cache/src/owner/current/agents/cached.md":             FileTypeAgent,
+		".claude/plugins/marketplaces/mkt/plugins/demo/commands/cc.md": FileTypeCommand,
+	}
+	for rel := range files {
+		absPath := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absPath, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	discovered, err := NewFileDiscovery(root, false).DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+	got := map[string]FileType{}
+	for _, f := range discovered {
+		got[f.RelPath] = f.Type
+	}
+	for rel, wantType := range files {
+		if got[rel] != wantType {
+			t.Errorf("%s: got %v, want %v (all: %v)", rel, got[rel], wantType, got)
+		}
+	}
+}
+
+// TestSkillNestedPromptAssetsNotDiscovered pins C9: frontmatter-less prompt
+// assets in skills/<skill>/agents/ (e.g. the official skill-creator skill)
+// are not subagent definitions and must not be discovered as agents.
+func TestSkillNestedPromptAssetsNotDiscovered(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	rel := "plugins/marketplaces/mkt/skills/some-skill/agents/asset.md"
+	absPath := filepath.Join(root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(absPath, []byte("# Prompt asset\nNo frontmatter.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	discovered, err := NewFileDiscovery(root, false).DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+	for _, f := range discovered {
+		if f.RelPath == rel {
+			t.Errorf("skill-nested prompt asset discovered as %v: %s", f.Type, f.RelPath)
+		}
 	}
 }

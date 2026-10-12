@@ -12,7 +12,7 @@ import (
 )
 
 // collectFilesToFormat determines which files to format based on args and flags.
-func collectFilesToFormat(cmd *fmtCommand, rootPath, selectionRoot string) ([]string, error) {
+func collectFilesToFormat(cmd *fmtCommand, rootPath, selectionRoot string, exclude []string) ([]string, error) {
 	// 1. Explicit --file flag
 	if len(cmd.Files) > 0 {
 		// Preserve --file's historical cwd/tilde expansion without allowing
@@ -57,13 +57,15 @@ func collectFilesToFormat(cmd *fmtCommand, rootPath, selectionRoot string) ([]st
 		return resolved, nil
 	}
 
-	// 4. Discover the union of all requested component types.
+	// 4. Discover the union of all requested component types. Discovery-based
+	// selection honors the exclude config, matching lint discovery (explicit
+	// --file/arg selections are deliberate and stay unfiltered).
 	if len(componentTypeArgs) > 0 {
-		return discoverFilesByType(rootPath, componentTypeArgs...)
+		return discoverFilesByType(rootPath, exclude, componentTypeArgs...)
 	}
 
 	// 5. No args: discover all component files
-	return discoverAllFiles(rootPath)
+	return discoverAllFiles(rootPath, exclude)
 }
 
 // resolveFmtSelectionPaths applies only an explicit project root to selections.
@@ -131,7 +133,7 @@ func discoverFilesInDir(dirPath string) ([]string, error) {
 }
 
 // discoverFilesByType selects requested component types in one discovery pass.
-func discoverFilesByType(rootPath string, componentTypes ...string) ([]string, error) {
+func discoverFilesByType(rootPath string, exclude []string, componentTypes ...string) ([]string, error) {
 	targetTypes := make(map[discovery.FileType]bool, len(componentTypes))
 	for _, componentType := range componentTypes {
 		targetType, err := discovery.ParseFileType(componentType)
@@ -141,7 +143,7 @@ func discoverFilesByType(rootPath string, componentTypes ...string) ([]string, e
 		targetTypes[targetType] = true
 	}
 
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
+	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
 	allFiles, err := discoverer.DiscoverFiles()
 	if err != nil {
 		return nil, err
@@ -158,8 +160,8 @@ func discoverFilesByType(rootPath string, componentTypes ...string) ([]string, e
 }
 
 // discoverAllFiles discovers all component files.
-func discoverAllFiles(rootPath string) ([]string, error) {
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
+func discoverAllFiles(rootPath string, exclude []string) ([]string, error) {
+	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
 	allFiles, err := discoverer.DiscoverFiles()
 	if err != nil {
 		return nil, err
