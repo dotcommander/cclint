@@ -104,7 +104,7 @@ internal/
 
 **Quality Scoring**: Four categories (structural 0-40, practices 0-40, composition 0-10, documentation 0-10) summed to 0-100. Tier grades: A≥85, B≥70, C≥50, D≥30, F<30.
 
-**Discovery Patterns**: Searches `.claude/{agents,commands,skills}/**/*.md`, `{agents,commands,skills}/**/*.md`, and `**/.claude-plugin/plugin.json` paths. Lowercase `skill.md` files are also discovered and flagged as naming errors. Context files: `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/AGENTS.md` (AGENTS.md/CLAUDE.local.md added for v2.1.277+).
+**Discovery Patterns**: Searches `.claude/{agents,commands,skills}/**/*.md`, `{agents,commands,skills}/**/*.md`, and plugin manifests at their anchored locations (`.claude-plugin/plugin.json` at a plugin repo root, `plugins/**/.claude-plugin/plugin.json` at a layout root, `.claude/plugins/**/.claude-plugin/plugin.json` under a home/project root; arbitrary-subtree crawling was removed 2026-10-12 — Claude Code never resolves plugins by crawling, and an unbounded `**`-leading walk hung large roots; `**`-leading registry patterns are now prune- and depth-capped via `boundedStarWalk`). Lowercase `skill.md` files are also discovered and flagged as naming errors. Context files: `CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md`, `.claude/CLAUDE.md`, `.claude/AGENTS.md` (AGENTS.md/CLAUDE.local.md added for v2.1.277+).
 
 ## Lint Rules Enforced
 

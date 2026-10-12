@@ -332,7 +332,7 @@ func TestDiscoverFiles_Integration(t *testing.T) {
 		".claude/settings.json":                 `{"key": "value"}`,
 		".claude/CLAUDE.md":                     "context content",
 		".claude/rules/core.md":                 "rule content",
-		"pkg/.claude-plugin/plugin.json":        `{"name": "test"}`,
+		".claude-plugin/plugin.json":            `{"name": "test"}`,
 
 		// Files that should NOT be discovered (wrong names/locations)
 		".claude/skills/skill1/README.md": "not a skill",
@@ -1383,8 +1383,8 @@ func TestDiscoverFiles_LargeFileSet(t *testing.T) {
 		"agents/alt1.md",
 		"commands/alt2.md",
 		"skills/alt3/SKILL.md",
-		"pkg1/.claude-plugin/plugin.json",
-		"pkg2/.claude-plugin/plugin.json",
+		"plugins/pkg1/.claude-plugin/plugin.json",
+		".claude/plugins/pkg2/.claude-plugin/plugin.json",
 	}
 
 	for _, path := range fileStructure {
@@ -1618,13 +1618,13 @@ func TestDiscoverFiles_StressTest(t *testing.T) {
 		".claude/CLAUDE.md":                 "context",
 
 		// Alternative locations
-		"agents/alt.md":                  "agent",
-		"commands/alt.md":                "command",
-		"skills/alt/SKILL.md":            "skill",
-		"rules/alt.md":                   "rule",
-		"claude/settings.json":           "{}",
-		"CLAUDE.md":                      "context",
-		"pkg/.claude-plugin/plugin.json": "{}",
+		"agents/alt.md":        "agent",
+		"commands/alt.md":      "command",
+		"skills/alt/SKILL.md":  "skill",
+		"rules/alt.md":         "rule",
+		"claude/settings.json": "{}",
+		"CLAUDE.md":            "context",
+		"plugins/demo/.claude-plugin/plugin.json": "{}",
 
 		// Files that should NOT match
 		".claude/agents/README.md":  "readme", // Should match as agent
@@ -2081,7 +2081,7 @@ func TestDiscoverFiles_AllPatternsCovered(t *testing.T) {
 		".claude/settings.json",
 		".claude/CLAUDE.md",
 		".claude/rules/test.md",
-		"pkg/.claude-plugin/plugin.json",
+		".claude-plugin/plugin.json",
 
 		// Alternative patterns
 		"agents/alt.md",
@@ -2368,5 +2368,103 @@ func TestValidTypeNamesMatchParseError(t *testing.T) {
 	want := "invalid type \"definitely-not-a-type\": valid types are " + strings.Join(ValidTypeNames(), ", ")
 	if err.Error() != want {
 		t.Fatalf("error mismatch:\n got %q\nwant %q", err.Error(), want)
+	}
+}
+
+// TestPluginDiscoveryAnchoredLocations verifies plugin manifests are found at
+// the three locations Claude Code resolves them from: a plugin repository's
+// own root, the plugins/ tree at a layout root (~/.claude), and
+// .claude/plugins/ under a home or project root.
+func TestPluginDiscoveryAnchoredLocations(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	locations := []string{
+		".claude-plugin/plugin.json",
+		"plugins/marketplaces/mkt/plugins/demo/.claude-plugin/plugin.json",
+		".claude/plugins/cache/github/owner/repo/current/.claude-plugin/plugin.json",
+	}
+	for _, rel := range locations {
+		absPath := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absPath, []byte(`{"name":"t"}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	discovered, err := NewFileDiscovery(root, false).DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+	var found []string
+	for _, f := range discovered {
+		if f.Type == FileTypePlugin {
+			found = append(found, f.RelPath)
+		}
+	}
+	if len(found) != len(locations) {
+		t.Fatalf("discovered %d plugin manifests (%v), want %d", len(found), found, len(locations))
+	}
+}
+
+// TestDiscoveryDoesNotCrawlArbitrarySubtrees pins the C4 semantic: manifests
+// in unrelated nested directories are not discovered, because Claude Code
+// never resolves plugins by crawling (and an unbounded **-leading walk hangs
+// large roots such as a home directory).
+func TestDiscoveryDoesNotCrawlArbitrarySubtrees(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	absPath := filepath.Join(root, "pkg", ".claude-plugin", "plugin.json")
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(absPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	discovered, err := NewFileDiscovery(root, false).DiscoverFiles()
+	if err != nil {
+		t.Fatalf("DiscoverFiles() error = %v", err)
+	}
+	for _, f := range discovered {
+		if f.Type == FileTypePlugin {
+			t.Errorf("discovered plugin manifest outside anchored locations: %s", f.RelPath)
+		}
+	}
+}
+
+// TestBoundedStarWalkPrunesAndCaps exercises the **-leading-pattern guard:
+// heavyweight directories are pruned, the walk is depth-capped, and in-bounds
+// matches are still found.
+func TestBoundedStarWalkPrunesAndCaps(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	deep := strings.Repeat("d/", maxWalkDepth) + ".claude-plugin/plugin.json"
+	for _, rel := range []string{
+		"a/.claude-plugin/plugin.json",                // in bounds: must be found
+		"node_modules/pkg/.claude-plugin/plugin.json", // pruned directory
+		deep, // beyond the depth cap
+	} {
+		absPath := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(absPath, []byte(`{}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	fd := NewFileDiscovery(root, false)
+	files := fd.boundedStarWalk("**/.claude-plugin/plugin.json", FileTypePlugin)
+	if len(files) != 1 || files[0].RelPath != "a/.claude-plugin/plugin.json" {
+		var got []string
+		for _, f := range files {
+			got = append(got, f.RelPath)
+		}
+		t.Fatalf("boundedStarWalk() = %v, want exactly [a/.claude-plugin/plugin.json]", got)
 	}
 }

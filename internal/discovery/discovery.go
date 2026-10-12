@@ -3,6 +3,7 @@ package discovery
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,8 +81,18 @@ var DefaultFileTypes = []FileTypeEntry{
 		FallbackPathSubstring: "",
 	},
 	{
-		Type:                  FileTypePlugin,
-		Patterns:              []string{"**/.claude-plugin/plugin.json"},
+		Type: FileTypePlugin,
+		// Claude Code resolves plugin manifests only from fixed locations: a
+		// plugin repository's own root, the plugins/ tree at a layout root
+		// (~/.claude), and .claude/plugins/ under a home or project root. It
+		// never crawls arbitrary subtrees, so discovery must not either — a
+		// **-leading glob full-walks the root (measured: 300s+ on a home
+		// directory) and finds nothing Claude Code would load.
+		Patterns: []string{
+			".claude-plugin/plugin.json",
+			"plugins/**/.claude-plugin/plugin.json",
+			".claude/plugins/**/.claude-plugin/plugin.json",
+		},
 		FallbackBasenames:     []string{"plugin.json"},
 		FallbackPathSubstring: ".claude-plugin",
 	},
@@ -449,6 +460,13 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType
 		return nil, fmt.Errorf("discovery root is not an accessible directory: %s", fd.rootPath)
 	}
 	for _, pattern := range patterns {
+		if strings.HasPrefix(pattern, "**/") {
+			// A **-leading glob full-walks the root; bound it. All default
+			// registry patterns are literal-prefixed, so this guard only
+			// protects future registry entries from unbounded walks.
+			files = append(files, fd.boundedStarWalk(pattern, fileType)...)
+			continue
+		}
 		// Use doublestar for glob matching with ** patterns
 		options := []doublestar.GlobOption{}
 		if !fd.followSymlinks {
@@ -468,6 +486,58 @@ func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType
 	}
 
 	return files, nil
+}
+
+// pruneDirNames lists directory basenames never worth walking for Claude
+// Code components: VCS metadata, dependency trees, and OS/user caches that
+// dominate large roots such as a home directory.
+var pruneDirNames = map[string]bool{
+	".git": true, ".hg": true, ".svn": true,
+	"node_modules": true,
+	"Library":      true, "Caches": true, ".cache": true, ".npm": true, ".Trash": true,
+	"__pycache__": true, ".venv": true, "venv": true,
+}
+
+// maxWalkDepth bounds **-leading discovery walks so an oversized root cannot
+// hang a lint run. Claude Code component trees are shallow; the deepest
+// shipped layout (.claude/plugins/cache/<src>/<owner>/<repo>/current/ and
+// marketplaces/<m>/plugins/<p>/) ends by segment 9, leaving margin at 12.
+const maxWalkDepth = 12
+
+// pathDepth returns the number of path segments in a DirFS-relative path
+// ("." is 0, "a" is 1, "a/b" is 2).
+func pathDepth(p string) int {
+	if p == "." {
+		return 0
+	}
+	return strings.Count(p, "/") + 1
+}
+
+// boundedStarWalk walks the discovery root once, pruning pruneDirNames and
+// respecting maxWalkDepth, and returns files matching pattern (a **-leading
+// glob). Unlike doublestar.Glob, which full-walks the root per pattern, the
+// walk is bounded; directory symlinks are never followed (fs.WalkDir
+// semantics), which is the safe default for discovery.
+func (fd *FileDiscovery) boundedStarWalk(pattern string, fileType FileType) []File {
+	var files []File
+	_ = fs.WalkDir(os.DirFS(fd.rootPath), ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable entries, keep walking
+		}
+		if d.IsDir() {
+			if pruneDirNames[d.Name()] || pathDepth(p) >= maxWalkDepth {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if ok, matchErr := doublestar.Match(pattern, p); matchErr == nil && ok {
+			if f, ok := fd.processMatch(p, fileType); ok {
+				files = append(files, f)
+			}
+		}
+		return nil
+	})
+	return files
 }
 
 // processMatch converts a glob match into a File, returning false if the match should be skipped.
