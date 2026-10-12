@@ -6,7 +6,7 @@ user-invocable: false
 
 ## Quick Reference
 
-| Step | Action | Tool |
+| Phase | Action | Tool |
 |------|--------|------|
 | 1. Version gap | Read CLAUDE.md → extract `claude_code_last_updated` | Read |
 | 2. Fetch changelog | `aic claude` (primary) or `gh api` (fallback) | Bash |
@@ -16,6 +16,15 @@ user-invocable: false
 | 6. Verify | `Task(sonnet)`: build, test, cclint | Task |
 | 7. Review docs | Check docs for stale references | Task |
 | 8. Ship | Update version, delegate commit | Task |
+
+Entry-point routing:
+
+| User Question | Action |
+|---------------|--------|
+| "A new Claude Code version shipped — update cclint" | Full run: Phases 1–8 |
+| "Anything lintable since the pinned version?" | Phases 1–3, stop after the classification table |
+| "Is the release empty or did the fetch miss it?" | Phase 2 `--json` check before concluding |
+| "Continue an interrupted sweep" | Phase 4 task list, then Phases 5–8 |
 
 ## Domain Classification Table
 
@@ -41,12 +50,12 @@ Output: `| Changelog Entry | Domain | Action Required |`
 
 ## Workflow
 
-### Step 1: Version gap
+### Phase 1: Version gap
 
 Read `CLAUDE.md` Operational Context → extract `claude_code_last_updated`.
 Report: `v{old} → v{latest}`. If no gap, report and stop (unless `--from` overrides).
 
-### Step 2: Fetch changelog
+### Phase 2: Fetch changelog
 
 **Gotchas to avoid:**
 - `aic claude` with no args prints **only the latest version** — not a full changelog. Don't pipe it straight to a file and expect the gap to be in there.
@@ -72,11 +81,11 @@ gh api repos/anthropics/claude-code/contents/CHANGELOG.md \
 
 Then Read `.work/CHANGELOG.upstream.md` and extract entries between `## {old_version}` and `## {new_version}` headers.
 
-### Step 3: Classify lintable items
+### Phase 3: Classify lintable items
 
 For each changelog entry, classify against the Domain Classification Table above.
 
-**BLOCKING — Emit a user-visible summary table BEFORE proceeding to Step 4.** Cover *every* changelog entry across all versions in the gap, not just the lintable ones. The user wants to see the full surface review and the reasoning for what was skipped.
+**HARD GATE: emit a user-visible summary table BEFORE proceeding to Phase 4.** Cover *every* changelog entry across all versions in the gap, not just the lintable ones. The user wants to see the full surface review and the reasoning for what was skipped.
 
 Required format (one row per entry):
 
@@ -95,9 +104,9 @@ End the table with a one-line summary: `N lintable, M actioned, K documented, re
 
 If zero lintable items found, still emit the table, then report and stop.
 
-### Step 4: Task list
+### Phase 4: Task list
 
-TaskCreate one task per domain group from Step 3. Include:
+TaskCreate one task per domain group from Phase 3. Include:
 - Schema changes (CUE files)
 - Go lint rule changes (`internal/lint/`)
 - Known tools/events updates (`internal/textutil/lineutil.go`, `internal/lint/settings.go`)
@@ -105,7 +114,7 @@ TaskCreate one task per domain group from Step 3. Include:
 
 Set dependencies: verification task blocked by all implementation tasks.
 
-### Step 5: Implement
+### Phase 5: Implement
 
 Dispatch parallel agents. For each task:
 - Use `Task(sonnet)` for code + tests together (not separate agents)
@@ -117,7 +126,7 @@ Dispatch parallel agents. For each task:
   - Known tools → `docs/reference/schemas.md`
   - Schema fields → `docs/reference/schemas.md`
 
-### Step 6: Verify
+### Phase 6: Verify
 
 Delegate to `Task(sonnet)`:
 1. `go build ./...`
@@ -127,7 +136,7 @@ Delegate to `Task(sonnet)`:
 
 If suggestions appear from the new changes, fix them before proceeding.
 
-### Step 7: Review docs
+### Phase 7: Review docs
 
 Check if changes affect user-facing documentation:
 - `docs/rules/settings.md` — valid events, tool names, fail messages
@@ -138,24 +147,24 @@ Check if changes affect user-facing documentation:
 
 Delegate doc fixes to `Task(sonnet)` if needed.
 
-### Step 8: Ship
+### Phase 8: Ship
 
-Ask user before proceeding. Then:
+**HARD GATE:** ask the user before proceeding. Then:
 - Update CLAUDE.md `claude_code_last_updated` to new version
 - Delegate to `Task(sonnet)`: group into logical commits (code, docs, CLAUDE.md)
 - Do NOT push or tag unless user explicitly requests it
 
 ## Anti-Patterns
 
-| Mistake | Why it fails |
-|---------|-------------|
-| Skipping Step 3 classification | Wastes agent time on non-lintable changes |
-| Emitting only the lintable subset | User loses visibility into what was skipped and why — always show every changelog entry in the Step 3 table |
-| Implementing without TaskCreate | No dependency tracking, verification runs too early |
-| Separate test tasks | Tests must ship with code in the same agent |
-| Hardcoding `internal/cli/` paths | Package moved to `internal/lint/` — use Domain Classification Table |
-| Using `WebFetch` for changelog | `aic claude` and `gh api` are more reliable; WebFetch may truncate |
-| Pushing without user confirmation | Step 8 requires explicit user approval |
+| Anti-Pattern | Problem | Fix |
+|--------------|---------|-----|
+| Skipping Phase 3 classification | Wastes agent time on non-lintable changes | Emit the full entry table first; only then create tasks |
+| Emitting only the lintable subset | User loses visibility into what was skipped and why | Show every changelog entry in the Phase 3 table |
+| Implementing without TaskCreate | No dependency tracking, verification runs too early | Phase 4 creates the task list with dependencies first |
+| Separate test tasks | Tests drift from the code they cover | Tests ship with code in the same agent |
+| Hardcoding `internal/cli/` paths | Package moved to `internal/lint/` | Use the Domain Classification Table paths |
+| Using `WebFetch` for changelog | WebFetch may truncate | `aic claude` or `gh api` |
+| Pushing without user confirmation | Publishes unreviewed changes | Phase 8 requires explicit user approval first |
 
 ## Examples
 
