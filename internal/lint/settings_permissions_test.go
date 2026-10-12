@@ -75,6 +75,37 @@ func TestValidatePermissions(t *testing.T) {
 			wantErrors: 0,
 		},
 		{
+			name: "valid disableAutoMode and disableBypassPermissionsMode",
+			perms: map[string]any{
+				"disableAutoMode":              "disable",
+				"disableBypassPermissionsMode": "disable",
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "disableAutoMode not a string",
+			perms: map[string]any{
+				"disableAutoMode": 5,
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
+			name: "valid additionalDirectories",
+			perms: map[string]any{
+				"additionalDirectories": []any{"/tmp/work", "../shared"},
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "additionalDirectories non-string entry",
+			perms: map[string]any{
+				"additionalDirectories": []any{"/tmp", 3},
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
 			name: "unknown key in permissions",
 			perms: map[string]any{
 				"allow":  []any{"Read"},

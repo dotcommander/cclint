@@ -150,8 +150,12 @@ func (v *Validator) validateAgainstSchema(schema cue.Value, data map[string]any,
 }
 
 func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[string]any, schemaType string) ([]ValidationError, error) {
-	// Create a CUE value from the data
-	dataValue := v.ctx.Encode(data)
+	// Create a CUE value from the data. JSON-decoded numbers arrive as
+	// float64, which CUE treats as floats: the integer literal 3 in a settings
+	// file would fail every `int` schema constraint (e.g. hook `timeout?:
+	// *30 | int`). Normalize integral floats to int64 first so integer-valued
+	// JSON numbers unify with integer constraints.
+	dataValue := v.ctx.Encode(normalizeJSONNumbers(data))
 	if encErr := dataValue.Err(); encErr != nil {
 		return nil, fmt.Errorf("error encoding data: %w", encErr)
 	}
@@ -188,6 +192,35 @@ func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[strin
 
 	// Data validates successfully
 	return nil, nil
+}
+
+// normalizeJSONNumbers returns a copy of v with every integral float64
+// replaced by int64. encoding/json decodes all JSON numbers to float64;
+// without this, `"timeout": 3` cannot satisfy CUE `int` constraints. The
+// input is never mutated: callers may reuse the decoded map for Go-side
+// checks that expect encoding/json's float64 representation.
+func normalizeJSONNumbers(v any) any {
+	switch x := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, val := range x {
+			out[k] = normalizeJSONNumbers(val)
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, val := range x {
+			out[i] = normalizeJSONNumbers(val)
+		}
+		return out
+	case float64:
+		if i := int64(x); float64(i) == x {
+			return i
+		}
+		return x
+	default:
+		return v
+	}
 }
 
 // extractErrorsFromCUE flattens a CUE error into one ValidationError per

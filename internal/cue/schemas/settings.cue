@@ -139,6 +139,11 @@ package schemas
 		ask?: [...string]
 		defaultMode?: string // modeled permissively; bypassPermissions is runtime-tier-gated
 		blockReadsOutsideWorkingDirectories?: bool // v2.1.257+
+		// v2.1.296 binary-verified policy keys; each honors the literal "disable"
+		disableAutoMode?: string
+		disableBypassPermissionsMode?: string
+		// Extra directories sessions may read/write (docs; also grantable via --add-dir)
+		additionalDirectories?: [...string]
 		...
 	}
 

@@ -26,11 +26,14 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	}
 
 	for key, val := range permsMap {
-		if key == "defaultMode" {
+		if key == "defaultMode" || key == "disableAutoMode" || key == "disableBypassPermissionsMode" {
+			// Claude Code v2.1.296 reads permissions.disableAutoMode and
+			// permissions.disableBypassPermissionsMode (each honoring the literal
+			// "disable") alongside defaultMode.
 			if _, ok := val.(string); !ok {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
-					Message:  "permissions.defaultMode must be a string",
+					Message:  fmt.Sprintf("permissions.%s must be a string", key),
 					Severity: cue.SeverityError,
 					Source:   cue.SourceAnthropicDocs,
 				})
@@ -48,10 +51,33 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 			}
 			continue
 		}
+		if key == "additionalDirectories" {
+			arr, ok := val.([]any)
+			if !ok {
+				errors = append(errors, cue.ValidationError{
+					File:     filePath,
+					Message:  "permissions.additionalDirectories must be an array of directory paths",
+					Severity: cue.SeverityError,
+					Source:   cue.SourceAnthropicDocs,
+				})
+				continue
+			}
+			for i, entry := range arr {
+				if s, ok := entry.(string); !ok || s == "" {
+					errors = append(errors, cue.ValidationError{
+						File:     filePath,
+						Message:  fmt.Sprintf("permissions.additionalDirectories[%d]: each entry must be a non-empty string", i),
+						Severity: cue.SeverityError,
+						Source:   cue.SourceAnthropicDocs,
+					})
+				}
+			}
+			continue
+		}
 		if key != "allow" && key != "deny" && key != "ask" {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("permissions: unknown key '%s'. Only 'allow', 'deny', and 'ask' are supported", key),
+				Message:  fmt.Sprintf("permissions: unknown key '%s'. Supported keys: allow, deny, ask, defaultMode, disableAutoMode, disableBypassPermissionsMode, blockReadsOutsideWorkingDirectories, additionalDirectories", key),
 				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
