@@ -105,22 +105,14 @@ func validateSymlinkTarget(filePath string) []cue.ValidationError {
 func (l *RuleLinter) ParseContent(contents string) (map[string]any, string, error) {
 	// Rules have optional frontmatter with 'paths' field
 	fm, err := textutil.ParseYAMLFrontmatter(contents)
-
+	if err != nil {
+		return nil, "", err
+	}
 	var paths any
-	if err == nil && fm != nil && fm.Data != nil {
+	if fm.Data != nil {
 		paths = fm.Data["paths"]
 	}
-
-	data := map[string]any{
-		"paths": paths,
-	}
-
-	body := contents
-	if fm != nil {
-		body = fm.Body
-	}
-
-	return data, body, nil
+	return map[string]any{"paths": paths}, fm.Body, nil
 }
 
 func (l *RuleLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {

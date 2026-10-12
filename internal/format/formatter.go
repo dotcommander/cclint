@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/textutil"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,31 +57,6 @@ func NewComponentFormatter(componentType string) Formatter {
 		return factory()
 	}
 	return &SkillFormatter{}
-}
-
-// parseResult holds the result of parsing frontmatter from content.
-type parseResult struct {
-	frontmatter    string
-	body           string
-	hasFrontmatter bool
-	err            error
-}
-
-// parseFrontmatterRaw extracts frontmatter and body without fully parsing YAML.
-func parseFrontmatterRaw(content string) parseResult {
-	lines := strings.SplitAfter(content, "\n")
-	if strings.TrimRight(lines[0], " \t\r\n") != "---" {
-		return parseResult{body: content}
-	}
-	for i := 1; i < len(lines); i++ {
-		if strings.TrimRight(lines[i], " \t\r\n") == "---" {
-			return parseResult{
-				frontmatter: strings.Join(lines[1:i], ""),
-				body:        strings.Join(lines[i+1:], ""), hasFrontmatter: true,
-			}
-		}
-	}
-	return parseResult{body: content, err: fmt.Errorf("unclosed frontmatter (missing closing ---)")}
 }
 
 // normalizeFrontmatter reorders existing YAML nodes without discarding comments,
@@ -224,7 +200,7 @@ func normalizeMarkdown(body string, hasFrontmatter bool) string {
 	if hasFrontmatter {
 		// Ensure exactly one blank line after frontmatter
 		result = strings.TrimLeft(result, "\n")
-		result = "\n" + result
+		result = "\n\n" + result
 	}
 
 	// Ensure file ends with exactly one newline
@@ -235,21 +211,20 @@ func normalizeMarkdown(body string, hasFrontmatter bool) string {
 
 // formatComponent formats a component file with the given priority field ordering.
 func formatComponent(content string, priorityFields []string) (string, error) {
-	result := parseFrontmatterRaw(content)
-	if result.err != nil {
-		return content, result.err
-	}
-
-	if !result.hasFrontmatter {
-		return normalizeMarkdown(result.body, false), nil
-	}
-
-	normalizedFM, err := normalizeFrontmatter(result.frontmatter, priorityFields)
+	result, err := textutil.ExtractRawFrontmatter(content)
 	if err != nil {
 		return content, err
 	}
-
-	normalizedBody := normalizeMarkdown(result.body, true)
+	if !result.HasFrontmatter {
+		return normalizeMarkdown(result.Body, false), nil
+	}
+	normalizedFM, err := normalizeFrontmatter(result.YAML, priorityFields)
+	if err != nil {
+		return content, err
+	}
+	// Raw extraction retains the closing-line suffix; formatting starts after it.
+	_, body, _ := strings.Cut(result.Body, "\n")
+	normalizedBody := normalizeMarkdown(body, true)
 	return "---\n" + normalizedFM + "\n---" + normalizedBody, nil
 }
 

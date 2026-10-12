@@ -8,6 +8,7 @@ import (
 )
 
 func TestParseYAMLFrontmatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name        string
 		input       string
@@ -52,8 +53,8 @@ model: sonnet
 				"model": "sonnet",
 			},
 			wantBody:    "",
-			wantErr:     false,
-			description: "Malformed frontmatter missing closing delimiter gets parsed anyway due to SplitN behavior",
+			wantErr:     true,
+			description: "A complete opening delimiter requires a complete closing delimiter",
 		},
 		{
 			name: "empty_frontmatter",
@@ -168,12 +169,10 @@ More content.`,
 name: test
 ---
 Body`,
-			wantData: map[string]any{
-				"name": "test",
-			},
-			wantBody:    "\nBody",
+			wantData:    map[string]any{},
+			wantBody:    "  \t---\nname: test\n---\nBody",
 			wantErr:     false,
-			description: "Frontmatter with leading spaces and tabs is recognized",
+			description: "An indented opening delimiter remains ordinary Markdown",
 		},
 		{
 			name: "triple_dashes_in_body",
@@ -222,8 +221,8 @@ name: test`,
 			wantData: map[string]any{},
 			wantBody: `---
 name: test`,
-			wantErr:     false,
-			description: "Only opening delimiter without closing returns content as body",
+			wantErr:     true,
+			description: "Only an opening delimiter returns a parse error",
 		},
 		{
 			name: "malformed_yaml",
@@ -378,6 +377,7 @@ Body`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := ParseYAMLFrontmatter(tt.input)
 
 			if tt.wantErr {

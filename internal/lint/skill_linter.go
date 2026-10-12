@@ -78,8 +78,7 @@ func (l *SkillLinter) ParseContent(contents string) (map[string]any, string, err
 	// Skills have optional frontmatter
 	fm, err := textutil.ParseYAMLFrontmatter(contents)
 	if err != nil {
-		// No frontmatter is OK for skills
-		return make(map[string]any), contents, nil
+		return nil, "", err
 	}
 	return fm.Data, fm.Body, nil
 }

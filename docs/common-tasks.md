@@ -40,6 +40,29 @@ cclint a.md b.md c.md
 cclint --type agent ./custom/file.md
 ```
 
+Target a project from another directory:
+
+```bash
+cclint --root /path/to/project .claude/agents/helper.md
+cclint --root /path/to/project fmt --check .claude/agents/
+cclint --root /path/to/project fmt --write --file .claude/agents/helper.md
+```
+
+With an explicit root (CLI, configuration, or `CCLINT_ROOT`), relative lint
+and formatter selections are relative to that root. Absolute paths are unchanged.
+Without an explicit root, file and directory selections remain relative to the
+current directory; component discovery can still use an automatically detected root.
+
+Format selected component groups:
+
+```bash
+cclint fmt --check agents skills
+cclint fmt --write agents skills
+```
+
+Multiple component selectors form one selection. Explicit file or directory
+arguments override component selectors; `--file` overrides positional selections.
+
 Run on changed files:
 
 ```bash

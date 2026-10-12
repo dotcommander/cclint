@@ -1,6 +1,7 @@
 package textutil
 
 import (
+	"fmt"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -12,42 +13,50 @@ type Frontmatter struct {
 	Body string
 }
 
-// ParseYAMLFrontmatter extracts YAML frontmatter from markdown content.
-// Frontmatter must start at the beginning of the file with "---".
+// RawFrontmatter retains YAML bytes and the suffix after the closing three dashes.
+type RawFrontmatter struct {
+	YAML           string
+	Body           string
+	HasFrontmatter bool
+}
+
+// ExtractRawFrontmatter recognizes only complete, unindented delimiter lines.
+// Body includes closing-line whitespace and its line ending for parser compatibility.
+func ExtractRawFrontmatter(content string) (RawFrontmatter, error) {
+	lines := strings.SplitAfter(content, "\n")
+	if !isFrontmatterDelimiter(lines[0]) {
+		return RawFrontmatter{Body: content}, nil
+	}
+	for i := 1; i < len(lines); i++ {
+		if isFrontmatterDelimiter(lines[i]) {
+			return RawFrontmatter{
+				YAML:           strings.Join(lines[1:i], ""),
+				Body:           strings.TrimPrefix(strings.Join(lines[i:], ""), "---"),
+				HasFrontmatter: true,
+			}, nil
+		}
+	}
+	return RawFrontmatter{Body: content}, fmt.Errorf("unclosed frontmatter (missing closing ---)")
+}
+
+func isFrontmatterDelimiter(line string) bool {
+	if withoutLF, ok := strings.CutSuffix(line, "\n"); ok {
+		line = strings.TrimSuffix(withoutLF, "\r")
+	}
+	return strings.TrimRight(line, " \t") == "---"
+}
+
 func ParseYAMLFrontmatter(content string) (*Frontmatter, error) {
-	// Frontmatter must start at the very beginning of the file
-	trimmed := strings.TrimLeft(content, " \t")
-	if !strings.HasPrefix(trimmed, "---") {
-		// No frontmatter - return content as body
-		return &Frontmatter{
-			Data: make(map[string]any),
-			Body: content,
-		}, nil
-	}
-
-	// Split content by ---
-	parts := strings.SplitN(content, "---", 3)
-
-	// If we have less than 3 parts, there's no closing ---
-	if len(parts) < 3 {
-		return &Frontmatter{
-			Data: make(map[string]any),
-			Body: content,
-		}, nil
-	}
-
-	// The frontmatter is the part between the first pair of ---
-	frontmatterYAML := parts[1]
-	body := parts[2]
-
-	// Parse YAML content
-	var data map[string]any
-	if err := yaml.Unmarshal([]byte(frontmatterYAML), &data); err != nil {
+	raw, err := ExtractRawFrontmatter(content)
+	if err != nil {
 		return nil, err
 	}
-
-	return &Frontmatter{
-		Data: data,
-		Body: body,
-	}, nil
+	if !raw.HasFrontmatter {
+		return &Frontmatter{Data: make(map[string]any), Body: raw.Body}, nil
+	}
+	var data map[string]any
+	if err := yaml.Unmarshal([]byte(raw.YAML), &data); err != nil {
+		return nil, err
+	}
+	return &Frontmatter{Data: data, Body: raw.Body}, nil
 }

@@ -36,9 +36,12 @@ func (l *ContextLinter) FileType() discovery.FileType {
 func (l *ContextLinter) ParseContent(contents string) (map[string]any, string, error) {
 	// Context files have optional frontmatter
 	fm, err := textutil.ParseYAMLFrontmatter(contents)
+	if err != nil {
+		return nil, "", err
+	}
 
 	var title, description any
-	if err == nil && fm != nil && fm.Data != nil {
+	if fm.Data != nil {
 		title = fm.Data["title"]
 		description = fm.Data["description"]
 	}
@@ -50,12 +53,7 @@ func (l *ContextLinter) ParseContent(contents string) (map[string]any, string, e
 		"sections":    parseMarkdownSections(contents),
 	}
 
-	body := contents
-	if fm != nil {
-		body = fm.Body
-	}
-
-	return data, body, nil
+	return data, fm.Body, nil
 }
 
 func (l *ContextLinter) ValidateCUE(validator *cue.Validator, data map[string]any) ([]cue.ValidationError, error) {

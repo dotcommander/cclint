@@ -15,7 +15,7 @@ type fmtCommand struct {
 	Check bool     `help:"Exit 1 if files would change."`
 	Write bool     `short:"w" help:"Write changes in place."`
 	Diff  bool     `help:"Show diff of what would change."`
-	Files []string `name:"file" type:"path" help:"Explicit file path to format."`
+	Files []string `name:"file" help:"Explicit file path to format (relative to an explicit project root, otherwise cwd)."`
 	Type  string   `short:"t" help:"Force component type."`
 	Args  []string `arg:"" optional:"" name:"files"`
 }
@@ -29,8 +29,18 @@ func runFmt(opts executionOptions, cmd *fmtCommand) error {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
 
+	// Discovery and type detection must use the same absolute root as selections.
+	cfg.Root, err = filepath.Abs(cfg.Root)
+	if err != nil {
+		return fmt.Errorf("cannot resolve project root: %w", err)
+	}
+
 	// Determine which files to format
-	filesToFormat, err := collectFilesToFormat(cmd, cfg.Root)
+	selectionRoot := ""
+	if cfg.RootExplicit {
+		selectionRoot = cfg.Root
+	}
+	filesToFormat, err := collectFilesToFormat(cmd, cfg.Root, selectionRoot)
 	if err != nil {
 		return err
 	}
@@ -68,10 +78,7 @@ func runFmt(opts executionOptions, cmd *fmtCommand) error {
 func formatOneFile(opts executionOptions, cmd *fmtCommand, filePath, root string) (bool, error) {
 	absPath, err := discovery.ValidateFilePath(filePath)
 	if err != nil {
-		if !boolValue(opts.quiet) {
-			fmt.Fprintf(os.Stderr, "Skipping %s: %v\n", filePath, err)
-		}
-		return false, nil
+		return false, fmt.Errorf("cannot format %s: %w", filePath, err)
 	}
 
 	fileType, skip, err := resolveFileType(opts, cmd, absPath, filePath, root)
@@ -91,19 +98,13 @@ func formatOneFile(opts executionOptions, cmd *fmtCommand, filePath, root string
 
 	content, err := os.ReadFile(absPath)
 	if err != nil {
-		if !boolValue(opts.quiet) {
-			fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", filePath, err)
-		}
-		return false, nil
+		return false, fmt.Errorf("error reading %s: %w", filePath, err)
 	}
 
 	formatter := format.NewComponentFormatter(fileType.String())
 	formatted, err := formatter.Format(string(content))
 	if err != nil {
-		if !boolValue(opts.quiet) {
-			fmt.Fprintf(os.Stderr, "Error formatting %s: %v\n", filePath, err)
-		}
-		return false, nil
+		return false, fmt.Errorf("error formatting %s: %w", filePath, err)
 	}
 
 	if string(content) == formatted {
@@ -208,123 +209,4 @@ func printFmtSummary(opts executionOptions, cmd *fmtCommand, totalFiles, changed
 	} else {
 		fmt.Printf("\n%d of %d files need formatting\n", changedCount, totalFiles)
 	}
-}
-
-// collectFilesToFormat determines which files to format based on args and flags.
-func collectFilesToFormat(cmd *fmtCommand, rootPath string) ([]string, error) {
-	// 1. Explicit --file flag
-	if len(cmd.Files) > 0 {
-		return cmd.Files, nil
-	}
-
-	// 2. Check args for file paths
-	var pathArgs []string
-	var componentTypeArg string
-
-	for _, arg := range cmd.Args {
-		if format.CanFormatComponent(arg) {
-			componentTypeArg = arg
-			continue
-		}
-
-		// Otherwise treat as file/directory path
-		pathArgs = append(pathArgs, arg)
-	}
-
-	// 3. If we have path args, use them
-	if len(pathArgs) > 0 {
-		resolved, err := resolvePathArgs(pathArgs)
-		if err != nil {
-			return nil, err
-		}
-		return resolved, nil
-	}
-
-	// 4. If we have component type arg, discover those files
-	if componentTypeArg != "" {
-		return discoverFilesByType(rootPath, componentTypeArg)
-	}
-
-	// 5. No args: discover all component files
-	return discoverAllFiles(rootPath)
-}
-
-// resolvePathArgs expands a list of file/directory paths into individual file paths.
-func resolvePathArgs(paths []string) ([]string, error) {
-	var files []string
-	for _, path := range paths {
-		info, err := os.Stat(path)
-		if err != nil {
-			return nil, fmt.Errorf("cannot access %s: %w", path, err)
-		}
-
-		if !info.IsDir() {
-			files = append(files, path)
-			continue
-		}
-
-		dirFiles, err := discoverFilesInDir(path)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, dirFiles...)
-	}
-	return files, nil
-}
-
-// discoverFilesInDir finds all .md files in a directory.
-func discoverFilesInDir(dirPath string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && strings.HasSuffix(strings.ToLower(path), ".md") {
-			files = append(files, path)
-		}
-		return nil
-	})
-	return files, err
-}
-
-// discoverFilesByType discovers files of a specific component type.
-func discoverFilesByType(rootPath, componentType string) ([]string, error) {
-	targetType, err := discovery.ParseFileType(componentType)
-	if err != nil || !format.CanFormatComponent(componentType) {
-		return nil, fmt.Errorf("unknown component type: %s", componentType)
-	}
-
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-	allFiles, err := discoverer.DiscoverFiles()
-	if err != nil {
-		return nil, err
-	}
-
-	var files []string
-	for _, f := range allFiles {
-		if f.Type == targetType {
-			files = append(files, f.Path)
-		}
-	}
-
-	return files, nil
-}
-
-// discoverAllFiles discovers all component files.
-func discoverAllFiles(rootPath string) ([]string, error) {
-	discoverer := discovery.NewFileDiscovery(rootPath, false)
-	allFiles, err := discoverer.DiscoverFiles()
-	if err != nil {
-		return nil, err
-	}
-
-	var files []string
-	for _, f := range allFiles {
-		// Only format markdown files
-		if strings.HasSuffix(strings.ToLower(f.Path), ".md") {
-			files = append(files, f.Path)
-		}
-	}
-
-	return files, nil
 }

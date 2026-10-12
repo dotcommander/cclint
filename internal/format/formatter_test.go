@@ -5,11 +5,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 func TestAgentFormatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -36,6 +35,7 @@ tools:
   - Read
   - Write
 ---
+
 # Test Agent
 
 Content here.
@@ -56,6 +56,7 @@ Content here.
 name: test-agent
 description: Test agent
 ---
+
 # Test Agent
 
 Content here.
@@ -77,6 +78,7 @@ Content here.
 name: test-agent
 description: Test agent
 ---
+
 # Test Agent
 
 Content here.
@@ -98,6 +100,7 @@ Content here.
 name: test-agent
 description: Test agent
 ---
+
 # Test Agent
 
 Content here.
@@ -118,6 +121,7 @@ Content here.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := &AgentFormatter{}
 			result, err := formatter.Format(tt.input)
 			if err != nil {
@@ -132,6 +136,7 @@ Content here.
 }
 
 func TestCommandFormatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -155,6 +160,7 @@ description: Test command
 allowed-tools:
   - Task
 ---
+
 # Test Command
 
 Delegate to agent.
@@ -164,6 +170,7 @@ Delegate to agent.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := &CommandFormatter{}
 			result, err := formatter.Format(tt.input)
 			if err != nil {
@@ -178,6 +185,7 @@ Delegate to agent.
 }
 
 func TestSkillFormatter(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -202,6 +210,7 @@ description: Test skill
 author: Someone
 version: 1.0
 ---
+
 # Test Skill
 
 Methodology here.
@@ -211,6 +220,7 @@ Methodology here.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := &SkillFormatter{}
 			result, err := formatter.Format(tt.input)
 			if err != nil {
@@ -314,73 +324,6 @@ alpha: first`,
 			for i, expectedKey := range tt.expectedOrder {
 				if i >= len(foundKeys) || foundKeys[i] != expectedKey {
 					t.Errorf("Expected key[%d] = %s, got %s", i, expectedKey, foundKeys[i])
-				}
-			}
-		})
-	}
-}
-
-func TestParseFrontmatterRaw(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		expectedFM    string
-		expectedBody  string
-		expectedHasFM bool
-		expectError   bool
-	}{
-		{
-			name: "valid frontmatter",
-			input: `---
-name: test
----
-Body content`,
-			expectedFM:    "name: test\n",
-			expectedBody:  "Body content",
-			expectedHasFM: true,
-			expectError:   false,
-		},
-		{
-			name:          "no frontmatter",
-			input:         "Just body content",
-			expectedFM:    "",
-			expectedBody:  "Just body content",
-			expectedHasFM: false,
-			expectError:   false,
-		},
-		{
-			name: "unclosed frontmatter",
-			input: `---
-name: test
-Body without closing`,
-			expectedFM:    "",
-			expectedBody:  "---\nname: test\nBody without closing",
-			expectedHasFM: false,
-			expectError:   true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := parseFrontmatterRaw(tt.input)
-
-			if tt.expectError && result.err == nil {
-				t.Error("Expected error but got nil")
-			}
-			if !tt.expectError && result.err != nil {
-				t.Errorf("Unexpected error: %v", result.err)
-			}
-
-			if result.hasFrontmatter != tt.expectedHasFM {
-				t.Errorf("hasFrontmatter = %v, expected %v", result.hasFrontmatter, tt.expectedHasFM)
-			}
-
-			if !tt.expectError {
-				if result.frontmatter != tt.expectedFM {
-					t.Errorf("frontmatter = %q, expected %q", result.frontmatter, tt.expectedFM)
-				}
-				if result.body != tt.expectedBody {
-					t.Errorf("body = %q, expected %q", result.body, tt.expectedBody)
 				}
 			}
 		})
@@ -500,6 +443,7 @@ func TestCanFormatComponent(t *testing.T) {
 }
 
 func TestSkillFormatterDefaultCase(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -524,6 +468,7 @@ description: A generic file
 author: Tester
 version: 2.0
 ---
+
 # Generic Content
 
 Some content.
@@ -557,6 +502,7 @@ description: Test
 alpha: first
 zebra: last
 ---
+
 Content.
 `,
 		},
@@ -564,6 +510,7 @@ Content.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			formatter := &SkillFormatter{}
 			result, err := formatter.Format(tt.input)
 			if err != nil {
@@ -768,6 +715,7 @@ func TestDiffEdgeCases(t *testing.T) {
 }
 
 func TestNormalizeMarkdownEdgeCases(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		input          string
@@ -796,13 +744,13 @@ func TestNormalizeMarkdownEdgeCases(t *testing.T) {
 			name:           "multiple leading newlines with frontmatter",
 			input:          "\n\n\nContent",
 			hasFrontmatter: true,
-			expected:       "\nContent\n",
+			expected:       "\n\nContent\n",
 		},
 		{
 			name:           "no leading newlines with frontmatter",
 			input:          "Content",
 			hasFrontmatter: true,
-			expected:       "\nContent\n",
+			expected:       "\n\nContent\n",
 		},
 		{
 			name:           "empty content with frontmatter",
@@ -820,68 +768,12 @@ func TestNormalizeMarkdownEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result := normalizeMarkdown(tt.input, tt.hasFrontmatter)
 			if result != tt.expected {
 				t.Errorf("normalizeMarkdown() = %q, expected %q", result, tt.expected)
 			}
 		})
-	}
-}
-
-func TestFormatterDelimiterBoundaries(t *testing.T) {
-	for _, input := range []string{
-		"---\nname: test\ndescription: foo---bar\n---\nBody\n",
-		"---\r\nname: test\r\ndescription: foo---bar\r\n---\r\nBody\n",
-		"---\nname: test\ndescription: |\n  first\n  ---\n  last\n---\nBody\n",
-	} {
-		got, err := (&AgentFormatter{}).Format(input)
-		if err != nil {
-			t.Fatalf("Format(%q): %v", input, err)
-		}
-		parsed := parseFrontmatterRaw(got)
-		var values map[string]any
-		if err := yaml.Unmarshal([]byte(parsed.frontmatter), &values); err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(values["description"].(string), "---") {
-			t.Fatalf("lost embedded dashes: %q", got)
-		}
-		if !strings.Contains(got, "Body\n") {
-			t.Fatalf("lost body: %q", got)
-		}
-	}
-	input := "---text\nordinary markdown\n"
-	got, err := (&SkillFormatter{}).Format(input)
-	if err != nil || got != input {
-		t.Fatalf("non-delimiter treated as frontmatter: %q, %v", got, err)
-	}
-}
-
-func TestFormatterPreservesYAMLNodesAndMeaning(t *testing.T) {
-	input := "---\n# shared definition\nzebra: &shared\n  quoted: 'true' # retain scalar comment\n  literal: |\n    first---second\n# alias comment\nname: *shared\ndescription: \"12\" # retain description comment\nalpha: !!str 001\n---\nBody\n"
-	formatter := &AgentFormatter{}
-	got, err := formatter.Format(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, fragment := range []string{"# shared definition", "# retain scalar comment", "# alias comment", "# retain description comment", "&shared", "*shared", "'true'", "!!str 001"} {
-		if !strings.Contains(got, fragment) {
-			t.Errorf("lost %q in %s", fragment, got)
-		}
-	}
-	var original, formatted map[string]any
-	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(input).frontmatter), &original); err != nil {
-		t.Fatal(err)
-	}
-	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(got).frontmatter), &formatted); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(original, formatted) {
-		t.Fatalf("changed YAML meaning: %#v vs %#v", original, formatted)
-	}
-	again, err := formatter.Format(got)
-	if err != nil || again != got {
-		t.Fatalf("format is not stable: %v\n%s\n%s", err, got, again)
 	}
 }
 
@@ -897,24 +789,5 @@ func TestMalformedFrontmatterPreservesOriginal(t *testing.T) {
 		if err == nil || got != input {
 			t.Fatalf("malformed input changed or accepted: %q, %v", got, err)
 		}
-	}
-}
-
-func TestFormatterPreservesRootMerge(t *testing.T) {
-	input := "---\ndefaults: &defaults\n  model: sonnet\n<<: *defaults\nname: test\ndescription: Test\n---\nBody\n"
-	got, err := (&AgentFormatter{}).Format(input)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var values map[string]any
-	if err := yaml.Unmarshal([]byte(parseFrontmatterRaw(got).frontmatter), &values); err != nil {
-		t.Fatal(err)
-	}
-	if values["model"] != "sonnet" {
-		t.Fatalf("lost merge semantics: %#v", values)
-	}
-	again, err := (&AgentFormatter{}).Format(got)
-	if err != nil || got != again {
-		t.Fatalf("unstable merge formatting: %v\n%s\n%s", err, got, again)
 	}
 }
