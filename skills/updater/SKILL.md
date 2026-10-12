@@ -9,7 +9,7 @@ user-invocable: false
 | Phase | Action | Tool |
 |------|--------|------|
 | 1. Version gap | Read CLAUDE.md → extract `claude_code_last_updated` | Read |
-| 2. Fetch changelog | `aic claude` (primary) or `gh api` (fallback) | Bash |
+| 2. Fetch changelog | `gh api` (primary) or `aic claude` (fallback) | Bash |
 | 3. Classify + summarize | Emit user-visible table covering every changelog entry, then map to cclint domains | — |
 | 4. Task list | TaskCreate per domain group | TaskCreate |
 | 5. Implement | Parallel `Task(sonnet)` per task | Task |
@@ -57,12 +57,13 @@ Report: `v{old} → v{latest}`. If no gap, report and stop (unless `--from` over
 
 ### Phase 2: Fetch changelog
 
-**Gotchas to avoid:**
-- `aic claude` with no args prints **only the latest version** — not a full changelog. Don't pipe it straight to a file and expect the gap to be in there.
-- Version arg to `aic claude --version` takes **no `v` prefix**: `2.1.104` works, `v2.1.104` errors.
-- **Never** wrap exploration commands in `2>/dev/null`. aic writes "version not found" to stderr — silencing it turns a clear error into a phantom empty stdout and wastes turns.
+Primary method — GitHub API (full changelog in one call):
 
-Primary method — walk the gap with `aic claude`:
+```bash
+gh api repos/anthropics/claude-code/contents/CHANGELOG.md --jq '.content' | base64 -d > .work/CHANGELOG.upstream.md
+```
+
+Fallback — if `gh` is not available, walk the gap with `aic claude`:
 
 ```bash
 aic claude --list                          # enumerate all published versions
@@ -72,14 +73,12 @@ aic claude --version 2.1.X --json          # empty changelog bodies still emit J
 
 Concat the `--md` outputs into `.work/CHANGELOG.upstream.md`. Expect some patch versions to be missing or have empty bodies (internal releases).
 
-Fallback — if `aic` is not available, use GitHub API:
-
-```bash
-gh api repos/anthropics/claude-code/contents/CHANGELOG.md \
-  -H "Accept: application/vnd.github.raw" > .work/CHANGELOG.upstream.md
-```
-
 Then Read `.work/CHANGELOG.upstream.md` and extract entries between `## {old_version}` and `## {new_version}` headers.
+
+**Gotchas to avoid:**
+- `aic claude` with no args prints **only the latest version** — not a full changelog. Don't pipe it straight to a file and expect the gap to be in there.
+- Version arg to `aic claude --version` takes **no `v` prefix**: `2.1.104` works, `v2.1.104` errors.
+- **Never** wrap exploration commands in `2>/dev/null`. aic writes "version not found" to stderr — silencing it turns a clear error into a phantom empty stdout and wastes turns.
 
 ### Phase 3: Classify lintable items
 
