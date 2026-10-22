@@ -27,6 +27,9 @@ package schemas
 
 	// Required for type: "prompt"
 	prompt?: string
+	// Model override for type: "prompt" and type: "agent" hooks — alias or full
+	// model ID; falls back to the default small fast model (v2.1.300+)
+	model?: string
 
 	// Required for type: "http"
 	url?: string
@@ -272,6 +275,15 @@ package schemas
 		allowAppleEvents?: bool
 		// Policy-tier gate disabling the dangerouslyDisableSandbox escape hatch (v2.1.181+)
 		allowUnsandboxedCommands?: bool
+		// Linux/WSL only: let sandboxed commands create user namespaces (v2.1.305+)
+		allowNestedUserNamespaces?: bool
+		// Allow sandboxed commands to allocate a PTY (binary-verified v2.1.308)
+		allowPty?: bool
+		// Allow writes to .git/config files (binary-verified v2.1.308)
+		allowGitConfig?: bool
+		// Relax nested-sandbox and network-isolation defaults (binary-verified v2.1.308)
+		enableWeakerNestedSandbox?:  bool
+		enableWeakerNetworkIsolation?: bool
 
 		// Credential file / secret-env blocking for sandboxed commands (v2.1.187+)
 		credentials?: {
@@ -302,6 +314,8 @@ package schemas
 		// Managed-settings paths to custom bubblewrap / socat binaries (v2.1.133+, Linux/WSL only)
 		bwrapPath?: string
 		socatPath?: string
+		// Managed-settings path to a custom ripgrep binary (binary-verified v2.1.308)
+		ripgrep?: string
 
 		// Network-level domain controls (allowedDomains: v2.1.83+; deniedDomains: v2.1.113+)
 		// deniedDomains takes precedence over allowedDomains wildcards
@@ -310,6 +324,12 @@ package schemas
 			deniedDomains?: [...string]
 			// Deterministically deny non-allowlisted hosts instead of prompting (v2.1.219+)
 			strictAllowlist?: bool
+			// Allow sandboxed commands to use Unix-domain sockets (binary-verified v2.1.308)
+			allowAllUnixSockets?: bool
+			// Allow binding to localhost ports directly (binary-verified v2.1.308)
+			allowLocalBinding?: bool
+			// macOS mach-service lookup allowances (binary-verified v2.1.308)
+			allowMachLookup?: string
 			...
 		}
 		// Filesystem isolation controls (v2.1.216+)
@@ -503,6 +523,12 @@ package schemas
 	autoCompactWindow?:        number
 	fileCheckpointingEnabled?: bool
 	alwaysThinkingEnabled?:    bool
+	// Stop compacting a long conversation while the session is idle; default true (v2.1.299+)
+	idleCompaction?:             bool
+	// Precompute the compaction summary in the background; default true (binary-verified v2.1.308)
+	precomputeCompactionEnabled?: bool
+	// Wait for a claude.ai usage limit to reset and continue automatically; default true (binary-verified v2.1.308)
+	autoContinueAtUsageLimit?:   bool
 
 	// Update channel + UX toggles.
 	autoUpdatesChannel?:         "latest" | "stable" | "rc"
@@ -530,8 +556,8 @@ package schemas
 
 	// MCP server enablement.
 	enableAllProjectMcpServers?:      bool
-	enabledMcpjsonServers?:           [...string]
-	disabledMcpjsonServers?:          [...string]
+	enabledMcpjsonServers?:           string | [...string] // single name accepted since v2.1.299+
+	disabledMcpjsonServers?:          string | [...string] // single name accepted since v2.1.299+
 	allowManagedMcpServersOnly?:      bool
 	allowManagedPermissionRulesOnly?: bool
 
@@ -657,6 +683,9 @@ package schemas
 	// Cloud gateway URL pre-filled and auto-connected during login alongside
 	// forceLoginMethod: "gateway" (v2.1.265+, managed settings only)
 	forceLoginGatewayUrl?: string
+
+	// Managed-only: restrict login to one organization UUID (v2.1.299+)
+	forceLoginOrgUUID?: string
 
 	// claude.ai account sync (v2.1.275+): set either to false to stop syncing
 	// the skills or plugins enabled on claude.ai into terminal sessions
