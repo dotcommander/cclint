@@ -18,6 +18,7 @@ var knownPluginFields = map[string]bool{
 	"author":         true, // Required: author object with name
 	"homepage":       true, // Optional: project URL
 	"repository":     true, // Optional: source code URL
+	"types":          true, // Optional: path to the plugin's TypeScript type contract (.d.ts, v2.1.299+)
 	"license":        true, // Optional: SPDX license identifier
 	"keywords":       true, // Optional: discoverability tags
 	"dependencies":   true, // Optional: plugin dependencies

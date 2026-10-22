@@ -326,6 +326,63 @@ func TestValidatePluginSpecific(t *testing.T) {
 			contents:      `{"name":"test-plugin","displayName":"Test Plugin","privacyPolicyUrl":"https://example.com/privacy","supportUrl":"https://example.com/support","metadata":{"foo":"bar"}}`,
 			wantMinErrors: 0,
 		},
+		{
+			name: "types field recognized (v2.1.299)",
+			data: map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author": map[string]any{
+					"name": "Test Author",
+				},
+				"homepage":   "https://example.com",
+				"repository": "https://github.com/test/test",
+				"license":    "MIT",
+				"keywords":   []any{"test"},
+				"types":      "types/index.d.ts",
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","types":"types/index.d.ts"}`,
+			wantMinErrors: 0,
+		},
+		{
+			name: "types must end in .d.ts",
+			data: map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author": map[string]any{
+					"name": "Test Author",
+				},
+				"homepage":   "https://example.com",
+				"repository": "https://github.com/test/test",
+				"license":    "MIT",
+				"keywords":   []any{"test"},
+				"types":      "types/index.ts",
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","types":"types/index.ts"}`,
+			wantMinErrors: 1,
+		},
+		{
+			name: "types must not contain .. segment",
+			data: map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author": map[string]any{
+					"name": "Test Author",
+				},
+				"homepage":   "https://example.com",
+				"repository": "https://github.com/test/test",
+				"license":    "MIT",
+				"keywords":   []any{"test"},
+				"types":      "../shared/contract.d.ts",
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","types":"../shared/contract.d.ts"}`,
+			wantMinErrors: 1,
+		},
 	}
 
 	for _, tt := range tests {

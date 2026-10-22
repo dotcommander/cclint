@@ -2,6 +2,7 @@ package lint
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
@@ -23,6 +24,7 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 	errors = append(errors, validatePluginDescription(data, filePath, contents)...)
 	errors = append(errors, validatePluginVersion(data, filePath, contents)...)
 	errors = append(errors, validatePluginAuthor(data, filePath, contents)...)
+	errors = append(errors, validatePluginTypes(data, filePath, contents)...)
 	errors = append(errors, validatePluginPaths(data, filePath, contents)...)
 	errors = append(errors, validatePluginBestPractices(filePath, contents, data)...)
 
@@ -33,4 +35,37 @@ func validatePluginSpecific(data map[string]any, filePath string, contents strin
 	}
 
 	return errors
+}
+
+// validatePluginTypes checks the optional "types" field, which names the
+// plugin's TypeScript type contract (v2.1.299+). Claude Code accepts only
+// string values ending in ".d.ts" that stay inside the plugin directory.
+func validatePluginTypes(data map[string]any, filePath, contents string) []cue.ValidationError {
+	raw, ok := data["types"]
+	if !ok {
+		return nil
+	}
+
+	name, ok := raw.(string)
+	if !ok || !strings.HasSuffix(name, ".d.ts") {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "types must name a TypeScript declaration file ending in '.d.ts'",
+			Severity: cue.SeverityError,
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "types"),
+		}}
+	}
+
+	if strings.Contains(name, "..") {
+		return []cue.ValidationError{{
+			File:     filePath,
+			Message:  "types must stay inside the plugin directory (no '..' segment)",
+			Severity: cue.SeverityError,
+			Source:   cue.SourceAnthropicDocs,
+			Line:     FindJSONFieldLine(contents, "types"),
+		}}
+	}
+
+	return nil
 }
