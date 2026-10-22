@@ -236,6 +236,12 @@ func TestSkillLinterPreValidate(t *testing.T) {
 			contents:     "content",
 			wantErrCount: 0,
 		},
+		{
+			name:         "folder name with blank-like character",
+			filePath:     "skills/bad\u00a0dir/SKILL.md",
+			contents:     "content",
+			wantErrCount: 1,
+		},
 	}
 
 	for _, tt := range tests {
@@ -561,6 +567,12 @@ func TestValidateSkillNameDirectoryMatch(t *testing.T) {
 			skillName:    "anything",
 			filePath:     ".claude/SKILL.md",
 			wantErrCount: 0,
+		},
+		{
+			name:         "hidden character in name",
+			skillName:    "bad\u200bname",
+			filePath:     "skills/SKILL.md",
+			wantErrCount: 1,
 		},
 	}
 

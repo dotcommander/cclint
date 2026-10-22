@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -58,6 +59,20 @@ func (l *SkillLinter) PreValidate(filePath, contents string) []cue.ValidationErr
 			Severity: cue.SeverityError,
 			Source:   cue.SourceAnthropicDocs,
 		})
+	}
+
+	// Check the skill folder name for characters Claude Code refuses to load (v2.1.299+)
+	parentDir := filepath.Base(filepath.Dir(filePath))
+	isSpecialDir := parentDir == "." || parentDir == "skills" || parentDir == ".claude"
+	if !isSpecialDir {
+		if problem := nameCharacterProblem(parentDir); problem != "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Skill folder name '%s' contains %s; Claude Code ignores such skills until renamed (v2.1.299+)", parentDir, problem),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
 	}
 
 	// Check not empty

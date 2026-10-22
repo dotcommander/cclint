@@ -2,6 +2,7 @@ package lint
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -50,10 +51,30 @@ func validateCommandSpecific(data map[string]any, filePath string, contents stri
 	// Note: name is optional in frontmatter - it's derived from filename (per Anthropic docs)
 	// Check name format if present - format rule from Anthropic docs
 	if name, ok := data["name"].(string); ok && name != "" {
+		if problem := nameCharacterProblem(name); problem != "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Command name '%s' contains %s; Claude Code ignores such commands until renamed (v2.1.299+)", name, problem),
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
 		if !isKebabCase(name) {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
 				Message:  "Name must be lowercase alphanumeric with hyphens only",
+				Severity: cue.SeverityError,
+				Source:   cue.SourceAnthropicDocs,
+			})
+		}
+	}
+
+	fileBase := strings.TrimSuffix(filepath.Base(filePath), ".md")
+	if fileBase != "" {
+		if problem := nameCharacterProblem(fileBase); problem != "" {
+			errors = append(errors, cue.ValidationError{
+				File:     filePath,
+				Message:  fmt.Sprintf("Command file name '%s' contains %s; Claude Code ignores such commands until renamed (v2.1.299+)", fileBase, problem),
 				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})

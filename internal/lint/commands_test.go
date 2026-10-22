@@ -107,6 +107,17 @@ func TestValidateCommandSpecific(t *testing.T) {
 			wantErrCount:  0,
 			wantSuggCount: 0,
 		},
+		{
+			name: "hidden character in file name",
+			data: map[string]any{
+				"name":        "test-cmd",
+				"description": "Test command",
+			},
+			filePath:      "commands/bad\u200bcmd.md",
+			contents:      "---\nname: test-cmd\ndescription: Test command\n---\n",
+			wantErrCount:  1,
+			wantSuggCount: 0,
+		},
 	}
 
 	for _, tt := range tests {

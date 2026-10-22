@@ -156,6 +156,16 @@ func validateSkillName(name, filePath, contents string) []cue.ValidationError {
 		})
 	}
 
+	if problem := nameCharacterProblem(name); problem != "" {
+		errors = append(errors, cue.ValidationError{
+			File:     filePath,
+			Message:  fmt.Sprintf("Skill name '%s' contains %s; Claude Code ignores such names until renamed (v2.1.299+)", name, problem),
+			Severity: cue.SeverityError,
+			Source:   cue.SourceAnthropicDocs,
+			Line:     textutil.FindFrontmatterFieldLine(contents, "name"),
+		})
+	}
+
 	// Rule 048: Name cannot start or end with hyphen (agentskills.io spec)
 	if strings.HasPrefix(name, "-") || strings.HasSuffix(name, "-") {
 		errors = append(errors, cue.ValidationError{
