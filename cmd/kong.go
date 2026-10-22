@@ -87,12 +87,18 @@ func Execute() {
 		return
 	}
 	if app.Version {
-		fmt.Printf("cclint version %s\n", Version)
+		fmt.Println(versionLine())
 		return
 	}
 	if err := ctx.Run(app.executionOptions()); err != nil {
 		exitWithError(err)
 	}
+}
+
+// versionLine is the --version output: cclint's own version plus the newest
+// Claude Code lint surface it tracks.
+func versionLine() string {
+	return fmt.Sprintf("cclint version %s (claude-code surface: %s)", Version, ClaudeCodeSurface)
 }
 
 func parseCLI(parser *kong.Kong, args []string) (ctx *kong.Context, err error) {

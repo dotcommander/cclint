@@ -12,7 +12,7 @@ go build -o cclint . && ln -sf $(pwd)/cclint ~/go/bin/cclint
 go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0" -o cclint .
 
 #-Version
-cclint --version              # show version (defaults to "dev")
+cclint --version              # show version + tracked claude-code lint surface (version defaults to "dev")
 cclint -V                     # short form
 
 #-Run linter (defaults to ~/.claude)
@@ -279,6 +279,7 @@ Surfaced by the v2.1.156 source-read mining pass but deliberately left out of cc
 - CUE `#KnownTool` and `#Model` unions are generated from Go (`KnownTools`/`schemaOnlyTools` and `modelAliases`/`claudeModelRegexCUE`) at validator init — see Validation Surface for detail. Open unification follow-ups: `#MarketplaceSource` has no Go source; per-component hook-command defs (`#Agent/#Command/#SkillHookCommand`) are byte-identical bodies under distinct names.
 |-----|-------|
 | claude_code_last_updated | v2.1.307 (binary installed: v2.1.308) |
+| claude_surface_var | `cmd.ClaudeCodeSurface` in `cmd/root.go` — mirrors the claude_code_last_updated row; /updater bumps both; `TestClaudeCodeSurfaceMatchesAGENTSRow` guards drift |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |
 | body_tool_mismatch_threshold | 8+ declared tools = general-purpose agent, check suppressed |

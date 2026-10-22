@@ -21,6 +21,11 @@ const failOnWarning = "warning"
 //	go build -ldflags "-X github.com/dotcommander/cclint/cmd.Version=1.0.0"
 var Version = "dev"
 
+// ClaudeCodeSurface is the newest Claude Code version whose lint surface
+// cclint models; kept in sync with AGENTS.md's claude_code_last_updated row
+// by /updater sweeps (TestClaudeCodeSurfaceMatchesAGENTSRow guards drift).
+var ClaudeCodeSurface = "v2.1.307"
+
 // exitFunc is the function called to exit the program.
 // It can be overridden in tests to prevent actual process termination.
 var exitFunc = os.Exit
