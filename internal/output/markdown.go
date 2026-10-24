@@ -8,13 +8,15 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/lint"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // MarkdownFormatter formats output as Markdown
 type MarkdownFormatter struct {
-	quiet      bool
-	verbose    bool
-	outputFile string
+	quiet            bool
+	verbose          bool
+	outputFile       string
+	showImprovements bool
 }
 
 // NewMarkdownFormatter creates a new MarkdownFormatter
@@ -105,6 +107,7 @@ func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *
 		f.writeIssues(builder, severityErrors(fileIssues, SeverityError), "Errors")
 		f.writeIssues(builder, severityErrors(fileIssues, SeverityWarning), "Warnings")
 		f.writeIssues(builder, severityErrors(fileIssues, SeveritySuggestion), "Suggestions")
+		f.writeImprovements(builder, result.Improvements)
 
 		if !f.verbose {
 			builder.WriteString("---\n\n")
@@ -116,7 +119,25 @@ func (f *MarkdownFormatter) shouldRenderResult(result lint.LintResult, fileIssue
 	if f.verbose {
 		return true
 	}
-	return !result.Success || len(fileIssues) > 0
+	return !result.Success || len(fileIssues) > 0 || (f.showImprovements && len(result.Improvements) > 0)
+}
+
+func (f *MarkdownFormatter) writeImprovements(builder *strings.Builder, recommendations []textutil.ImprovementRecommendation) {
+	if !f.showImprovements || len(recommendations) == 0 {
+		return
+	}
+	builder.WriteString("#### Improvements\n\n")
+	for _, recommendation := range recommendations {
+		fmt.Fprintf(builder, "- **+%d pts:** %s", recommendation.PointValue, recommendation.Description)
+		if recommendation.Line > 0 {
+			fmt.Fprintf(builder, " (line %d)", recommendation.Line)
+		}
+		if recommendation.Severity != "" {
+			fmt.Fprintf(builder, " `[%s]`", recommendation.Severity)
+		}
+		builder.WriteString("\n")
+	}
+	builder.WriteString("\n")
 }
 
 func (f *MarkdownFormatter) writeIssues(builder *strings.Builder, issues []cue.ValidationError, title string) {

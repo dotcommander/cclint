@@ -53,7 +53,7 @@ func TestIsRelevantFile(t *testing.T) {
 	}
 }
 
-func TestFilterRelevantFiles(t *testing.T) {
+func TestParseNameStatusChangesFiltersRelevantFiles(t *testing.T) {
 	t.Parallel()
 	// Create temp directory
 	tmpDir := t.TempDir()
@@ -81,21 +81,15 @@ func TestFilterRelevantFiles(t *testing.T) {
 		}
 	}
 
-	// Simulate git diff output
-	gitOutput := `.claude/agents/test-agent.md
-commands/test-cmd.md
-CLAUDE.md
-AGENTS.md
-CLAUDE.local.md
-.claude/settings.local.json
-README.md
-main.go`
-
-	// Filter files
-	filtered, err := filterRelevantFiles(gitOutput, tmpDir)
-	if err != nil {
-		t.Fatalf("filterRelevantFiles failed: %v", err)
+	var fields []string
+	for path := range testFiles {
+		fields = append(fields, "M", path)
 	}
+	changes, err := parseNameStatusChanges([]byte(strings.Join(fields, "\x00")+"\x00"), tmpDir)
+	if err != nil {
+		t.Fatalf("parseNameStatusChanges failed: %v", err)
+	}
+	filtered := changes.Files
 
 	// Count expected vs actual
 	expectedCount := 0
@@ -546,27 +540,27 @@ func TestIsRelevantFile_EdgeCases(t *testing.T) {
 	}
 }
 
-func TestFilterRelevantFiles_EmptyInput(t *testing.T) {
+func TestParseNameStatusChangesEmptyInput(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Test with empty git output
-	filtered, err := filterRelevantFiles("", tmpDir)
+	changes, err := parseNameStatusChanges(nil, tmpDir)
 	if err != nil {
-		t.Fatalf("filterRelevantFiles failed: %v", err)
+		t.Fatalf("parseNameStatusChanges failed: %v", err)
 	}
 
-	if len(filtered) != 0 {
-		t.Errorf("expected 0 files for empty input, got %d", len(filtered))
+	if len(changes.Files) != 0 || changes.HasRelevantDeletion() {
+		t.Errorf("expected no changes for empty input, got %+v", changes)
 	}
 }
 
-func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
+func TestParseNameStatusChangesDeletedFiles(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Git output includes a deleted file
-	gitOutput := "agents/deleted-agent.md\ncommands/existing-cmd.md"
+	gitOutput := "D\x00agents/deleted-agent.md\x00M\x00commands/existing-cmd.md\x00"
 
 	// Only create the existing file
 	cmdPath := filepath.Join(tmpDir, "commands", "existing-cmd.md")
@@ -577,11 +571,11 @@ func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
 		t.Fatalf("failed to create file: %v", err)
 	}
 
-	// Filter files
-	filtered, err := filterRelevantFiles(gitOutput, tmpDir)
+	changes, err := parseNameStatusChanges([]byte(gitOutput), tmpDir)
 	if err != nil {
-		t.Fatalf("filterRelevantFiles failed: %v", err)
+		t.Fatalf("parseNameStatusChanges failed: %v", err)
 	}
+	filtered := changes.Files
 
 	// Should only include existing file
 	if len(filtered) != 1 {
@@ -593,12 +587,12 @@ func TestFilterRelevantFiles_DeletedFiles(t *testing.T) {
 	}
 }
 
-func TestFilterRelevantChanges_ReportsRelevantDeletion(t *testing.T) {
+func TestParseNameStatusChangesReportsRelevantDeletion(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	changes, err := filterRelevantChanges("skills/deleted/SKILL.md\nREADME.md", tmpDir)
+	changes, err := parseNameStatusChanges([]byte("D\x00skills/deleted/SKILL.md\x00D\x00README.md\x00"), tmpDir)
 	if err != nil {
-		t.Fatalf("filterRelevantChanges failed: %v", err)
+		t.Fatalf("parseNameStatusChanges failed: %v", err)
 	}
 	if !changes.HasRelevantDeletion() {
 		t.Fatal("relevant deletion was not reported")
@@ -719,29 +713,22 @@ func TestGetChangedFileChangesUnbornAdditionRemovedFromWorktree(t *testing.T) {
 	}
 }
 
-func TestFilterRelevantFiles_WhitespaceHandling(t *testing.T) {
+func TestParseNameStatusChangesPreservesWhitespace(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-
-	// Create test file
-	agentPath := filepath.Join(tmpDir, "agents", "test.md")
-	if err := os.MkdirAll(filepath.Dir(agentPath), 0755); err != nil {
-		t.Fatalf("failed to create directory: %v", err)
+	relPath := "agents/ test .md"
+	agentPath := filepath.Join(tmpDir, relPath)
+	if err := os.MkdirAll(filepath.Dir(agentPath), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if err := os.WriteFile(agentPath, []byte("# Test"), 0644); err != nil {
-		t.Fatalf("failed to create file: %v", err)
+	if err := os.WriteFile(agentPath, []byte("# Test"), 0o644); err != nil {
+		t.Fatal(err)
 	}
-
-	// Git output with extra whitespace
-	gitOutput := "\n  agents/test.md  \n\n  \n"
-
-	// Filter files
-	filtered, err := filterRelevantFiles(gitOutput, tmpDir)
+	changes, err := parseNameStatusChanges([]byte("M\x00"+relPath+"\x00"), tmpDir)
 	if err != nil {
-		t.Fatalf("filterRelevantFiles failed: %v", err)
+		t.Fatal(err)
 	}
-
-	if len(filtered) != 1 {
-		t.Errorf("expected 1 file, got %d", len(filtered))
+	if len(changes.Files) != 1 || changes.Files[0] != agentPath {
+		t.Fatalf("files = %q, want [%q]", changes.Files, agentPath)
 	}
 }

@@ -59,8 +59,9 @@ const (
 	pluralRules            = "rules"
 )
 
-// DefaultFileTypes is the registry of file types and their discovery patterns.
-// To add a new component type, update one entry here and detection/discovery stay aligned.
+// DefaultFileTypes owns discovery and detection patterns, not downstream capabilities.
+// Named types, lint/format bindings and summary selection have separate owners;
+// cmd's component-registry tests guard their intentional participation policies.
 var DefaultFileTypes = []FileTypeEntry{
 	{
 		Type: FileTypeSkill,
@@ -358,9 +359,9 @@ const (
 
 // fileTypeNames is the canonical component-type name vocabulary. The singular
 // and plural spellings of every lintable component type are owned here and
-// derived everywhere else (the CLI --type enum, ParseFileType, the linter
-// registry's display names, and output pluralization). FileTypeConfig is an
-// internal classification with no user-facing name and is deliberately absent.
+// used by ParseFileType, linter display names and output pluralization. The CLI's
+// literal --type enum is checked against this vocabulary in cmd tests, not derived
+// at runtime. FileTypeConfig is internal and deliberately has no user-facing name.
 var fileTypeNames = []struct {
 	fileType FileType
 	singular string
@@ -571,7 +572,7 @@ func (fd *FileDiscovery) boundedStarWalk(pattern string, fileType FileType) []Fi
 
 // processMatch converts a glob match into a File, returning false if the match should be skipped.
 func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bool) {
-	if fd.isExcluded(match) {
+	if IsExcluded(match, fd.exclude) {
 		return File{}, false
 	}
 	fullPath := filepath.Join(fd.rootPath, match)
@@ -597,16 +598,6 @@ func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bo
 		Type:     fileType,
 		Contents: string(contents),
 	}, true
-}
-
-// isExcluded checks if a relative path matches any exclude pattern.
-func (fd *FileDiscovery) isExcluded(relPath string) bool {
-	for _, pattern := range fd.exclude {
-		if matched, err := doublestar.Match(pattern, relPath); err == nil && matched {
-			return true
-		}
-	}
-	return false
 }
 
 // allowedPath checks every descendant component, including linked ancestors.
@@ -651,31 +642,6 @@ func outsideRoot(rel string) bool {
 	return rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel)
 }
 
-// resolveSymlink returns the target only when the discovery policy permits it.
-func (fd *FileDiscovery) resolveSymlink(fullPath string) (string, os.FileInfo, bool) {
-	if !fd.followSymlinks || !fd.allowedPath(fullPath) {
-		return "", nil, false
-	}
-	realPath, err := filepath.EvalSymlinks(fullPath)
-	if err != nil {
-		return "", nil, false
-	}
-	info, err := os.Stat(realPath)
-	return realPath, info, err == nil
-}
-
-// determineFileType determines the file type based on its path.
-// Uses path component matching (not substring) to avoid false positives
-// like matching "/my-agents-backup/" when looking for "/agents/".
-func (fd *FileDiscovery) determineFileType(path string) FileType {
-	normalizedPath := filepath.ToSlash(path)
-	fileType, err := detectFileTypeFromRelativePath(normalizedPath)
-	if err == nil && fileType != FileTypeUnknown {
-		return fileType
-	}
-	return detectFileTypeFromBasename(normalizedPath)
-}
-
 func detectFileTypeFromRelativePath(relPath string) (FileType, error) {
 	for _, tp := range typePatterns {
 		matched, err := doublestar.Match(tp.Pattern, relPath)
@@ -707,13 +673,4 @@ func detectFileTypeFromBasename(path string) FileType {
 	}
 
 	return FileTypeUnknown
-}
-
-// ReadFileContents reads the contents of a file
-func (fd *FileDiscovery) ReadFileContents(path string) (string, error) {
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(contents), nil
 }

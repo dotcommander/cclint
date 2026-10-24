@@ -52,6 +52,7 @@ type Result struct {
 	HasErrors          bool
 	BaselineIgnored    int
 	ErrorsIgnored      int
+	WarningsIgnored    int
 	SuggestionsIgnored int
 	Summaries          []*LintSummary
 }
@@ -73,12 +74,12 @@ func (o *Orchestrator) Run() (*Result, error) {
 	result := &Result{StartTime: startTime}
 
 	// Run all linters and collect summaries
-	allIssues, errs := o.runAllLinters(b, result)
+	allIssues, ctx, errs := o.runAllLinters(b, result)
 	if errs != nil {
 		return nil, errs
 	}
 
-	issues := o.memoryIssues()
+	issues := o.memoryIssues(ctx)
 	if len(issues) > 0 {
 		summary := &LintSummary{ComponentType: "memory"}
 		for _, issue := range issues {
@@ -90,10 +91,7 @@ func (o *Orchestrator) Run() (*Result, error) {
 		result.Summaries = append(result.Summaries, summary)
 		allIssues = append(allIssues, issues...)
 		if o.opts.UseBaseline && b != nil {
-			ignored, errors, suggestions := FilterResults(summary, b)
-			result.BaselineIgnored += ignored
-			result.ErrorsIgnored += errors
-			result.SuggestionsIgnored += suggestions
+			result.accumulateIgnored(FilterResults(summary, b))
 		}
 		result.TotalErrors += summary.TotalErrors
 		result.TotalWarnings += summary.TotalWarnings
@@ -118,15 +116,15 @@ func (o *Orchestrator) Run() (*Result, error) {
 }
 
 // runAllLinters runs all configured linters and collects results.
-func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, error) {
+func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cue.ValidationError, *LinterContext, error) {
 	var allIssues []cue.ValidationError
 	if len(o.linters) == 0 {
-		return allIssues, nil
+		return allIssues, nil, nil
 	}
 
 	ctx, err := NewLinterContext(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude, o.cfg.FollowSymlinks)
 	if err != nil {
-		return nil, fmt.Errorf("initialize lint context: %w", err)
+		return nil, nil, fmt.Errorf("initialize lint context: %w", err)
 	}
 
 	for _, l := range o.linters {
@@ -144,10 +142,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 
 		// Filter with baseline if active
 		if o.opts.UseBaseline && b != nil {
-			ignored, errIgnored, suggIgnored := FilterResults(summary, b)
-			result.BaselineIgnored += ignored
-			result.ErrorsIgnored += errIgnored
-			result.SuggestionsIgnored += suggIgnored
+			result.accumulateIgnored(FilterResults(summary, b))
 		}
 
 		// Collect summary for compact output
@@ -171,7 +166,7 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		}
 	}
 
-	return allIssues, nil
+	return allIssues, ctx, nil
 }
 
 // resolveBaselinePath returns the absolute path to the baseline file.
@@ -215,15 +210,22 @@ func (o *Orchestrator) saveBaseline(issues []cue.ValidationError, baselineFile s
 	return nil
 }
 
-// runMemoryChecks performs project-wide memory checks.
-func (o *Orchestrator) memoryIssues() []cue.ValidationError {
+// memoryIssues reuses component discovery, including successful empty snapshots.
+func (o *Orchestrator) memoryIssues(ctx *LinterContext) []cue.ValidationError {
 	issues := CheckClaudeLocalGitignore(o.cfg.Root)
-	fd := discovery.NewFileDiscovery(o.cfg.Root, o.cfg.FollowSymlinks).WithExclude(o.cfg.Exclude)
-	allFiles, err := fd.DiscoverFiles()
-	if err == nil {
-		issues = append(issues, CheckCombinedMemorySize(o.cfg.Root, allFiles)...)
+	var files []discovery.File
+	var err error
+	if ctx != nil {
+		files = ctx.Files
+	} else {
+		// Memory-only runs have no component context and retain soft discovery errors.
+		fd := discovery.NewFileDiscovery(o.cfg.Root, o.cfg.FollowSymlinks).WithExclude(o.cfg.Exclude)
+		files, err = fd.DiscoverFiles()
 	}
-	return append(issues, CheckReflectOutput(o.cfg.Root)...)
+	if err == nil {
+		issues = append(issues, CheckCombinedMemorySize(o.cfg.Root, files)...)
+	}
+	return append(issues, checkReflectOutput(o.cfg.Root, o.cfg.Exclude)...)
 }
 
 // ProcessSelected applies the same baseline lifecycle to an explicitly selected
@@ -243,7 +245,7 @@ func (o *Orchestrator) ProcessSelected(summary *LintSummary) (*Result, error) {
 			return nil, err
 		}
 		if b != nil {
-			result.BaselineIgnored, result.ErrorsIgnored, result.SuggestionsIgnored = FilterResults(summary, b)
+			result.accumulateIgnored(FilterResults(summary, b))
 		}
 	}
 	result.TotalFiles = summary.TotalFiles

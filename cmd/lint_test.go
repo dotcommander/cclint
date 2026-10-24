@@ -9,16 +9,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunTypeLintUsesRegistry(t *testing.T) {
+func TestRunTypesLintUsesRegistry(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	quiet := true
 
-	err := runTypeLint(executionOptions{root: &root, quiet: &quiet}, discovery.FileTypeAgent)
+	err := runTypesLint(executionOptions{root: &root, quiet: &quiet}, []discovery.FileType{discovery.FileTypeAgent})
 	require.NoError(t, err)
 }
 
-func TestRunTypeLintRejectsUnregisteredType(t *testing.T) {
-	err := runTypeLint(executionOptions{}, discovery.FileTypeUnknown)
+func TestRunTypesLintRejectsUnregisteredType(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	quiet := true
+
+	err := runTypesLint(executionOptions{root: &root, quiet: &quiet}, []discovery.FileType{discovery.FileTypeUnknown})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no linter for type")
 }

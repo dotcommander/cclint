@@ -8,6 +8,7 @@ import (
 )
 
 func TestFilterResults(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name              string
 		summary           *LintSummary
@@ -75,18 +76,19 @@ func TestFilterResults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			totalIgnored, errorsIgnored, suggsIgnored := FilterResults(tt.summary, tt.baseline)
+			t.Parallel()
+			ignored := FilterResults(tt.summary, tt.baseline)
 
-			if totalIgnored != tt.wantTotalIgnored {
-				t.Errorf("FilterResults() totalIgnored = %d, want %d", totalIgnored, tt.wantTotalIgnored)
+			if ignored.Total != tt.wantTotalIgnored {
+				t.Errorf("FilterResults() totalIgnored = %d, want %d", ignored.Total, tt.wantTotalIgnored)
 			}
 
-			if errorsIgnored != tt.wantErrorsIgnored {
-				t.Errorf("FilterResults() errorsIgnored = %d, want %d", errorsIgnored, tt.wantErrorsIgnored)
+			if ignored.Errors != tt.wantErrorsIgnored {
+				t.Errorf("FilterResults() errorsIgnored = %d, want %d", ignored.Errors, tt.wantErrorsIgnored)
 			}
 
-			if suggsIgnored != tt.wantSuggsIgnored {
-				t.Errorf("FilterResults() suggsIgnored = %d, want %d", suggsIgnored, tt.wantSuggsIgnored)
+			if ignored.Suggestions != tt.wantSuggsIgnored {
+				t.Errorf("FilterResults() suggsIgnored = %d, want %d", ignored.Suggestions, tt.wantSuggsIgnored)
 			}
 		})
 	}

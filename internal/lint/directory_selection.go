@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/discovery"
+	"github.com/dotcommander/cclint/internal/project"
 )
 
 // fileWithHint pairs a file path with an optional type hint inferred during
@@ -19,7 +20,7 @@ type fileWithHint struct {
 
 // expandDirectories expands any directory paths in the input list to their
 // contained .md and .json files. Non-directory paths are kept as-is.
-// Hidden child directories (.git, etc.) are skipped during traversal.
+// Hidden child directories other than .claude and .claude-plugin are skipped.
 //
 // When typeOverride is empty, files are filtered through DetectFileType so
 // that non-component files (references/, prompts/, usage-data/, etc.) are
@@ -54,7 +55,15 @@ func expandDirectoriesAtRoot(paths []string, rootPath, typeOverride string) ([]f
 			result = append(result, fileWithHint{Path: p, TypeHint: typeOverride})
 			continue
 		}
-		rootPath := filepath.Dir(absDir)
+		var detectionRoot string
+		if rootPath != "" {
+			detectionRoot, err = filepath.Abs(rootPath)
+		} else {
+			detectionRoot, err = project.FindProjectRoot(absDir)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("cannot resolve directory %s: %w", p, err)
+		}
 
 		// Pre-check: can the directory name itself hint at a component type?
 		dirHint := ""
@@ -69,7 +78,7 @@ func expandDirectoriesAtRoot(paths []string, rootPath, typeOverride string) ([]f
 				return err
 			}
 			if d.IsDir() {
-				if path != absDir && strings.HasPrefix(d.Name(), ".") {
+				if path != absDir && strings.HasPrefix(d.Name(), ".") && d.Name() != ".claude" && d.Name() != ".claude-plugin" {
 					return fs.SkipDir
 				}
 				return nil
@@ -86,7 +95,7 @@ func expandDirectoriesAtRoot(paths []string, rootPath, typeOverride string) ([]f
 			if err != nil {
 				return err
 			}
-			if _, err := discovery.DetectFileType(absPath, rootPath); err == nil {
+			if _, err := discovery.DetectFileType(absPath, detectionRoot); err == nil {
 				result = append(result, fileWithHint{Path: path})
 			} else if dirHint != "" {
 				// Skills require SKILL.md filename — don't apply dirHint to arbitrary .md files

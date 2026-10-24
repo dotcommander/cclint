@@ -26,7 +26,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dotcommander/cclint/internal/crossfile"
@@ -34,28 +33,6 @@ import (
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/project"
 )
-
-// DiscoveryCache caches the result of file discovery for a given root path.
-// This prevents repeated full-discovery scans when linting multiple files
-// in single-file mode (e.g., LintFiles iterating over N files).
-//
-// Thread-safe via sync.Once: the first call to Get() triggers discovery,
-// subsequent calls return the cached result.
-type DiscoveryCache struct {
-	once  sync.Once
-	files []discovery.File
-	err   error
-}
-
-// Get returns cached discovery results, performing discovery on first call.
-// The rootPath is used to create the FileDiscovery instance.
-func (dc *DiscoveryCache) Get(rootPath string) ([]discovery.File, error) {
-	dc.once.Do(func() {
-		discoverer := discovery.NewFileDiscovery(rootPath, false)
-		dc.files, dc.err = discoverer.DiscoverFiles()
-	})
-	return dc.files, dc.err
-}
 
 // SingleFileLinterContext holds state for single-file linting operations.
 //
@@ -288,10 +265,8 @@ func findProjectRootForFile(absPath string) (string, error) {
 //   - quiet: Suppress non-essential output
 //   - verbose: Enable verbose output
 //
-// Exit codes (for CLI):
-//   - 0: Success (no errors)
-//   - 1: Lint errors found
-//   - 2: Invalid invocation (returned as error)
+// Returns a summary and error; it does not exit. The CLI uses exit code 1 for
+// invocation errors or results meeting its --fail-on threshold, and 0 otherwise.
 func LintSingleFile(filePath, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
 	return lintSingleFileRequest(SingleFileRequest{
 		FilePath:     filePath,
@@ -359,9 +334,8 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		StartTime: time.Now(),
 	}
 
-	// Shared discovery cache prevents N+1 full-discovery scans when
-	// linting multiple files. The first file triggers discovery; all
-	// subsequent files reuse the cached result.
+	// Share one discovery snapshot per root across this invocation.
+	// Files from different projects keep independent discovery results.
 	cache := &DiscoveryCache{}
 
 	var firstRoot string

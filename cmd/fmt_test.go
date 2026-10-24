@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -124,17 +125,44 @@ func TestEmitFormattedModePrecedence(t *testing.T) {
 	assert.Equal(t, "formatted\n", string(contents))
 }
 
-func TestRunFmtUsesCLIOnlyQuietAndVerbose(t *testing.T) {
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".cclintrc.yaml"), []byte("quiet: true\nverbose: true\n"), 0o600))
-	nonMarkdown := filepath.Join(root, "notes.txt")
-	require.NoError(t, os.WriteFile(nonMarkdown, []byte("notes"), 0o600))
-
-	stderr := captureFile(t, os.Stderr, func() {
-		require.NoError(t, runFmt(executionOptions{root: &root}, &fmtCommand{Args: []string{nonMarkdown}}))
-	})
-	assert.Contains(t, stderr, "Skipping "+nonMarkdown,
-		"fmt must use absent CLI quiet as false instead of inheriting quiet=true from config")
+func TestRunFmtConfiguredQuietControlsDiagnostics(t *testing.T) {
+	t.Parallel()
+	// The child owns process output so parallel cases never replace shared stderr.
+	if root := os.Getenv("CCLINT_FMT_DIAGNOSTICS_ROOT"); root != "" {
+		opts := executionOptions{root: &root}
+		if os.Getenv("CCLINT_FMT_DIAGNOSTICS_QUIET") == "false" {
+			opts.quiet = ptr(false)
+		}
+		require.NoError(t, runFmt(opts, &fmtCommand{Args: []string{filepath.Join(root, "notes.txt")}}))
+		os.Exit(0)
+	}
+	if testing.Short() {
+		t.Skip("subprocess formatter diagnostics")
+	}
+	for _, tc := range []struct {
+		name     string
+		cliQuiet string
+	}{
+		{"configured quiet", ""},
+		{"explicit CLI override", "false"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(root, ".cclintrc.yaml"), []byte("quiet: true\nverbose: true\n"), 0o600))
+			nonMarkdown := filepath.Join(root, "notes.txt")
+			require.NoError(t, os.WriteFile(nonMarkdown, []byte("notes"), 0o600))
+			child := exec.CommandContext(t.Context(), os.Args[0], "-test.run=^TestRunFmtConfiguredQuietControlsDiagnostics$")
+			child.Env = append(os.Environ(), "CCLINT_FMT_DIAGNOSTICS_ROOT="+root, "CCLINT_FMT_DIAGNOSTICS_QUIET="+tc.cliQuiet)
+			out, err := child.CombinedOutput()
+			require.NoError(t, err, "%s", out)
+			if tc.cliQuiet == "false" {
+				assert.Contains(t, string(out), "Skipping "+nonMarkdown)
+			} else {
+				assert.Empty(t, out, "configured quiet must suppress diagnostics even with verbose enabled")
+			}
+		})
+	}
 }
 
 func TestResolveFileTypeOverride(t *testing.T) {

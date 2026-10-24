@@ -78,12 +78,16 @@ func formatFullRunOutput(cfg *config.Config, result *lint.Result) error {
 	return output.FormatAll(cfg, result.Summaries, result.StartTime)
 }
 
-func printBaselineSummary(total, errors, suggestions int, quiet bool) {
-	if total == 0 || quiet {
+func printBaselineSummary(ignored lint.IgnoredCounts, quiet bool) {
+	if ignored.Total == 0 || quiet {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors, %d suggestions)\n",
-		total, errors, suggestions)
+	warnings := ""
+	if ignored.Warnings > 0 {
+		warnings = fmt.Sprintf(", %d warnings", ignored.Warnings)
+	}
+	fmt.Fprintf(os.Stderr, "\n%d baseline issues ignored (%d errors%s, %d suggestions)\n",
+		ignored.Total, ignored.Errors, warnings, ignored.Suggestions)
 }
 
 func printValidationReminder(cfg *config.Config) {

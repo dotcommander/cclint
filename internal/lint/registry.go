@@ -18,7 +18,7 @@ type LinterEntry struct {
 	New      ComponentLinterFactory
 }
 
-var linterRegistry = []LinterEntry{ //nolint:gochecknoglobals // Immutable canonical component registry.
+var linterRegistry = []LinterEntry{ //nolint:gochecknoglobals // Immutable linter dispatch registry.
 	{FileType: discovery.FileTypeAgent, Name: discovery.Plural(discovery.FileTypeAgent), Default: true, New: func(string) ComponentLinter { return NewAgentLinter() }},
 	{FileType: discovery.FileTypeCommand, Name: discovery.Plural(discovery.FileTypeCommand), Default: true, New: func(string) ComponentLinter { return NewCommandLinter() }},
 	{FileType: discovery.FileTypeSkill, Name: discovery.Plural(discovery.FileTypeSkill), Default: true, New: func(root string) ComponentLinter { return NewSkillLinter(root) }},

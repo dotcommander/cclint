@@ -8,14 +8,16 @@ import (
 
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/lint"
+	"github.com/dotcommander/cclint/internal/textutil"
 )
 
 // JSONFormatter formats output as JSON
 type JSONFormatter struct {
-	quiet      bool
-	indent     bool
-	outputFile string
-	version    string
+	quiet            bool
+	indent           bool
+	outputFile       string
+	version          string
+	showImprovements bool
 }
 
 // NewJSONFormatter creates a new JSONFormatter
@@ -53,23 +55,23 @@ func (f *JSONFormatter) Format(summary *lint.LintSummary) error {
 			TotalSuggestions: summary.TotalSuggestions,
 			Duration:         time.Since(summary.StartTime).Round(time.Millisecond).String(),
 		},
-		Results: convertResults(summary.Results),
+		Results: convertResults(summary.Results, f.showImprovements),
 	}
 
 	return f.writeJSON(report)
 }
 
 // convertResults maps lint results to JSON-serializable form.
-func convertResults(results []lint.LintResult) []JSONResult {
+func convertResults(results []lint.LintResult, showImprovements bool) []JSONResult {
 	out := make([]JSONResult, len(results))
 	for i, r := range results {
-		out[i] = convertResult(r)
+		out[i] = convertResult(r, showImprovements)
 	}
 	return out
 }
 
 // convertResult maps a single lint result to its JSON representation.
-func convertResult(r lint.LintResult) JSONResult {
+func convertResult(r lint.LintResult, showImprovements bool) JSONResult {
 	jr := JSONResult{
 		File:        r.File,
 		Type:        r.Type,
@@ -89,7 +91,26 @@ func convertResult(r lint.LintResult) JSONResult {
 			Documentation: r.Quality.Documentation,
 		}
 	}
+	if showImprovements {
+		jr.Improvements = convertImprovements(r.Improvements)
+	}
 	return jr
+}
+
+func convertImprovements(recommendations []textutil.ImprovementRecommendation) []JSONImprovement {
+	if len(recommendations) == 0 {
+		return nil
+	}
+	out := make([]JSONImprovement, len(recommendations))
+	for i, recommendation := range recommendations {
+		out[i] = JSONImprovement{
+			Description: recommendation.Description,
+			PointValue:  recommendation.PointValue,
+			Line:        recommendation.Line,
+			Severity:    recommendation.Severity,
+		}
+	}
+	return out
 }
 
 // convertValidationErrors maps validation errors to JSON form.
@@ -163,14 +184,23 @@ type JSONSummary struct {
 
 // JSONResult represents a single file's linting result
 type JSONResult struct {
-	File        string                `json:"file"`
-	Type        string                `json:"type"`
-	Success     bool                  `json:"success"`
-	Duration    int64                 `json:"duration_ms,omitempty"`
-	Errors      []JSONValidationError `json:"errors,omitempty"`
-	Warnings    []JSONValidationError `json:"warnings,omitempty"`
-	Suggestions []JSONValidationError `json:"suggestions,omitempty"`
-	Quality     *JSONQualityScore     `json:"quality,omitempty"`
+	File         string                `json:"file"`
+	Type         string                `json:"type"`
+	Success      bool                  `json:"success"`
+	Duration     int64                 `json:"duration_ms,omitempty"`
+	Errors       []JSONValidationError `json:"errors,omitempty"`
+	Warnings     []JSONValidationError `json:"warnings,omitempty"`
+	Suggestions  []JSONValidationError `json:"suggestions,omitempty"`
+	Quality      *JSONQualityScore     `json:"quality,omitempty"`
+	Improvements []JSONImprovement     `json:"improvements,omitempty"`
+}
+
+// JSONImprovement represents a requested recommendation in a JSON report.
+type JSONImprovement struct {
+	Description string `json:"description"`
+	PointValue  int    `json:"point_value"`
+	Line        int    `json:"line,omitempty"`
+	Severity    string `json:"severity,omitempty"`
 }
 
 // JSONQualityScore represents the quality score for a component

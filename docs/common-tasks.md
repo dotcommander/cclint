@@ -11,7 +11,7 @@ Copy/paste commands for daily cclint workflows.
 
 ## Main workflow
 
-Run all components:
+Run the default component set (context files are opt-in with `cclint context`):
 
 ```bash
 cclint
@@ -83,6 +83,13 @@ cclint --scores
 cclint --improvements
 ```
 
+`summary` aggregates agents, commands, and skills. Its default output is a console
+quality overview. Use `cclint summary --format json` (or `markdown`) for the shared
+lint report format; JSON includes each component's quality score, while Markdown
+shows diagnostics (add `--verbose` to list clean files too). `--output` saves the
+report to a file. `--quiet` suppresses reports and `--fail-on` selects the failure
+threshold, as for lint.
+
 Inspect commands and the installed version:
 
 ```bash
@@ -93,10 +100,62 @@ cclint summary --help
 cclint --version
 ```
 
+## Combine plugins, exclusions, baselines, and Git selection
+
+Run from the project root containing `.claude/` and your plugin layout. A local
+`.cclintrc.yaml` can exclude a plugin you do not maintain:
+
+```yaml
+format: json
+failOn: error
+exclude:
+  - "plugins/marketplaces/acme/plugins/vendor/**"
+```
+
+Exclusions are root-relative globs. Full-project and Git-selected lint both honor
+them. Other discovered, non-excluded components remain available to resolve skill
+and agent references even when they are not selected for reporting.
+
+Review existing findings before accepting them into a baseline: snapshots include
+errors as well as advisories.
+
+```bash
+cclint --format json
+cclint --baseline-create
+cclint --baseline
+```
+
+The filtered report still lists the selected files, but accepted diagnostics no
+longer count toward failure. After editing and staging components with your usual
+Git workflow, check only new findings:
+
+```bash
+cclint --staged --baseline --format json
+cclint --diff --baseline --format json
+```
+
+`--staged` selects staged paths; `--diff` also includes unstaged and untracked
+paths. Both lint the current file contents, not a separate copy from the index.
+A new error remains in the report and exits 1 with `failOn: error`; fixing it
+restores exit 0 when no other unaccepted errors remain. Do not recreate the
+baseline merely to hide the new error.
+
+Configuration precedence is defaults → file → environment → CLI. For example,
+this still emits JSON despite the environment requesting Markdown:
+
+```bash
+CCLINT_FORMAT=markdown cclint --staged --baseline --format json
+```
+
+Use `--quiet` for exit-status-only checks, or `--output report.json` to save a
+non-quiet report. Baselines filter diagnostics; exclusions remove files from
+automatic selection and reference discovery.
+
 ## Verification
 
 - JSON report file exists after CI command
-- `--staged` returns only files in the index
+- `--staged` normally reports staged paths; a relevant deletion triggers
+  project-wide validation to detect references to the removed component
 - score output includes grade bands (`A` to `F`)
 
 ## Related docs

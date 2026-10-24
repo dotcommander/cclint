@@ -24,6 +24,9 @@ type summaryFormatter interface {
 
 // FormatSummary formats one lint summary using the configured output format.
 func FormatSummary(cfg *config.Config, summary *lint.LintSummary) error {
+	if cfg.Quiet {
+		return nil
+	}
 	if summary.StartTime.IsZero() {
 		summary.StartTime = time.Now()
 	}
@@ -49,9 +52,13 @@ func newSummaryFormatter(cfg *config.Config) (summaryFormatter, error) {
 	case formatConsole:
 		return NewConsoleFormatter(cfg.Quiet, cfg.Verbose, cfg.ShowScores, cfg.ShowImprovements), nil
 	case formatJSON:
-		return NewJSONFormatterWithVersion(cfg.Quiet, true, cfg.Output, cfg.Version), nil
+		formatter := NewJSONFormatterWithVersion(cfg.Quiet, true, cfg.Output, cfg.Version)
+		formatter.showImprovements = cfg.ShowImprovements
+		return formatter, nil
 	case formatMarkdown:
-		return NewMarkdownFormatter(cfg.Quiet, cfg.Verbose, cfg.Output), nil
+		formatter := NewMarkdownFormatter(cfg.Quiet, cfg.Verbose, cfg.Output)
+		formatter.showImprovements = cfg.ShowImprovements
+		return formatter, nil
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", cfg.Format)
 	}

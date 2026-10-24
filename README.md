@@ -13,7 +13,7 @@ go install github.com/dotcommander/cclint@latest
 ## Usage
 
 ```bash
-cclint                    # lint everything under ~/.claude
+cclint                    # lint detected Claude project, or ~/.claude otherwise
 cclint agents             # one component type
 cclint ./path/to/file.md  # lint specific files
 cclint --staged           # only staged files (pre-commit)
@@ -42,7 +42,7 @@ Commit `.cclintbaseline.json` and tighten over time.
 
 ## Quality scoring
 
-Every component gets a 0-100 score across structural completeness, practices, composition, and documentation. Tier grades A-F. Useful for prioritizing what to fix first.
+Agents, commands, skills, plugins, and output styles get a 0-100 score across structural completeness, practices, composition, and documentation. Tier grades A-F. Useful for prioritizing what to fix first.
 
 ## More
 

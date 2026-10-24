@@ -43,12 +43,9 @@ type ScoredComponent struct {
 	Tier  string
 }
 
-func runSummary(opts executionOptions) error {
-	cfg, err := loadCLIConfig(opts)
-	if err != nil {
-		return err
-	}
-
+// summaryLinterEntries preserves summary's narrower agent/command/skill policy;
+// it deliberately does not use the broader default lint selection.
+func summaryLinterEntries() ([]lint.LinterEntry, error) {
 	entries := make([]lint.LinterEntry, 0, 3)
 	for _, fileType := range []discovery.FileType{
 		discovery.FileTypeAgent,
@@ -57,9 +54,22 @@ func runSummary(opts executionOptions) error {
 	} {
 		entry, ok := lint.LinterForType(fileType)
 		if !ok {
-			return fmt.Errorf("no linter for type %s", fileType)
+			return nil, fmt.Errorf("no linter for type %s", fileType)
 		}
 		entries = append(entries, entry)
+	}
+	return entries, nil
+}
+
+func runSummary(opts executionOptions) error {
+	cfg, err := loadCLIConfig(opts)
+	if err != nil {
+		return err
+	}
+
+	entries, err := summaryLinterEntries()
+	if err != nil {
+		return err
 	}
 
 	result, err := runOrchestratedLint(cfg, opts, entries)
@@ -67,34 +77,40 @@ func runSummary(opts executionOptions) error {
 		return fmt.Errorf("error building summary: %w", err)
 	}
 
-	summary := &ComponentSummary{
-		TierCounts: make(map[string]int),
-		TopIssues:  make(map[string]int),
-	}
-
-	for _, componentSummary := range result.Summaries {
-		switch componentSummary.ComponentType {
-		case componentTypeAgent:
-			summary.AgentCount = componentSummary.TotalFiles
-		case componentTypeCommand:
-			summary.CommandCount = componentSummary.TotalFiles
-		case componentTypeSkill:
-			summary.SkillCount = componentSummary.TotalFiles
+	return reportLintOutcome(cfg, opts, fullLintOutcome(result), func() error {
+		if cfg.Quiet {
+			return nil
 		}
-		aggregateResults(summary, componentSummary.Results)
-	}
+		if cfg.Format != "console" || cfg.Output != "" {
+			return formatFullRunOutput(cfg, result)
+		}
+		summary := &ComponentSummary{
+			TierCounts: make(map[string]int),
+			TopIssues:  make(map[string]int),
+		}
 
-	summary.TotalComponents = summary.AgentCount + summary.CommandCount + summary.SkillCount
+		for _, componentSummary := range result.Summaries {
+			switch componentSummary.ComponentType {
+			case componentTypeAgent:
+				summary.AgentCount = componentSummary.TotalFiles
+			case componentTypeCommand:
+				summary.CommandCount = componentSummary.TotalFiles
+			case componentTypeSkill:
+				summary.SkillCount = componentSummary.TotalFiles
+			}
+			aggregateResults(summary, componentSummary.Results)
+		}
 
-	// Sort lowest scoring
-	sort.Slice(summary.LowestScoring, func(i, j int) bool {
-		return summary.LowestScoring[i].Score < summary.LowestScoring[j].Score
+		summary.TotalComponents = summary.AgentCount + summary.CommandCount + summary.SkillCount
+
+		// Sort lowest scoring
+		sort.Slice(summary.LowestScoring, func(i, j int) bool {
+			return summary.LowestScoring[i].Score < summary.LowestScoring[j].Score
+		})
+
+		printSummaryReport(summary)
+		return nil
 	})
-
-	// Print summary report
-	printSummaryReport(summary)
-
-	return nil
 }
 
 func aggregateResults(summary *ComponentSummary, results []lint.LintResult) {
@@ -114,6 +130,9 @@ func aggregateResults(summary *ComponentSummary, results []lint.LintResult) {
 		// Aggregate issues
 		for _, err := range result.Errors {
 			summary.TopIssues[categorizeIssue(err.Message)]++
+		}
+		for _, warning := range result.Warnings {
+			summary.TopIssues[categorizeIssue(warning.Message)]++
 		}
 		for _, sug := range result.Suggestions {
 			summary.TopIssues[categorizeIssue(sug.Message)]++

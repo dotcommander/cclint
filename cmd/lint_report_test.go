@@ -13,6 +13,7 @@ import (
 )
 
 func TestLintOutcomeAdapters(t *testing.T) {
+	t.Parallel()
 	summary := &lint.LintSummary{
 		TotalErrors:      2,
 		TotalWarnings:    3,
@@ -36,22 +37,10 @@ func TestLintOutcomeAdapters(t *testing.T) {
 		errors:      5,
 		warnings:    6,
 		suggestions: 7,
-		baseline:    lintBaselineOutcome{total: 8, errors: 9, suggestions: 10},
+		baseline:    lint.IgnoredCounts{Total: 8, Errors: 9, Suggestions: 10},
 	}
 	if got != want {
 		t.Fatalf("fullLintOutcome() = %+v, want %+v", got, want)
-	}
-
-	componentSummary := &lint.LintSummary{TotalErrors: 11, TotalWarnings: 12, TotalSuggestions: 13}
-	got = componentLintOutcome(result, componentSummary)
-	want = lintOutcome{
-		errors:      11,
-		warnings:    12,
-		suggestions: 13,
-		baseline:    lintBaselineOutcome{total: 8, errors: 9, suggestions: 10},
-	}
-	if got != want {
-		t.Fatalf("componentLintOutcome() = %+v, want %+v", got, want)
 	}
 }
 
@@ -70,7 +59,7 @@ func TestReportLintOutcomeAppliesPostLintClosureInOrder(t *testing.T) {
 	cfg := &config.Config{Verbose: true}
 	outcome := lintOutcome{
 		errors:   1,
-		baseline: lintBaselineOutcome{total: 2, errors: 1, suggestions: 1},
+		baseline: lint.IgnoredCounts{Total: 2, Errors: 1, Suggestions: 1},
 	}
 	err := reportLintOutcome(cfg, executionOptions{}, outcome, func() error {
 		fmt.Fprintln(os.Stderr, "format")

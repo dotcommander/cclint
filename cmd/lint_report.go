@@ -5,14 +5,6 @@ import (
 	"github.com/dotcommander/cclint/internal/lint"
 )
 
-// lintBaselineOutcome carries ignored-issue counts produced by baseline
-// filtering. Zero values mean the run did not use a baseline.
-type lintBaselineOutcome struct {
-	total       int
-	errors      int
-	suggestions int
-}
-
 // lintOutcome is the CLI-owned result shape shared by every lint source.
 // It separates how a result was produced from the invariant post-lint closure:
 // format, report baseline filtering, remind, and apply the failure policy.
@@ -20,7 +12,7 @@ type lintOutcome struct {
 	errors      int
 	warnings    int
 	suggestions int
-	baseline    lintBaselineOutcome
+	baseline    lint.IgnoredCounts
 }
 
 func fullLintOutcome(result *lint.Result) lintOutcome {
@@ -28,22 +20,13 @@ func fullLintOutcome(result *lint.Result) lintOutcome {
 		errors:      result.TotalErrors,
 		warnings:    result.TotalWarnings,
 		suggestions: result.TotalSuggestions,
-		baseline: lintBaselineOutcome{
-			total:       result.BaselineIgnored,
-			errors:      result.ErrorsIgnored,
-			suggestions: result.SuggestionsIgnored,
+		baseline: lint.IgnoredCounts{
+			Total:       result.BaselineIgnored,
+			Errors:      result.ErrorsIgnored,
+			Warnings:    result.WarningsIgnored,
+			Suggestions: result.SuggestionsIgnored,
 		},
 	}
-}
-
-func componentLintOutcome(result *lint.Result, summary *lint.LintSummary) lintOutcome {
-	outcome := summaryLintOutcome(summary)
-	outcome.baseline = lintBaselineOutcome{
-		total:       result.BaselineIgnored,
-		errors:      result.ErrorsIgnored,
-		suggestions: result.SuggestionsIgnored,
-	}
-	return outcome
 }
 
 func summaryLintOutcome(summary *lint.LintSummary) lintOutcome {
@@ -59,7 +42,7 @@ func reportLintOutcome(cfg *config.Config, opts executionOptions, outcome lintOu
 		return err
 	}
 
-	printBaselineSummary(outcome.baseline.total, outcome.baseline.errors, outcome.baseline.suggestions, cfg.Quiet)
+	printBaselineSummary(outcome.baseline, cfg.Quiet)
 	printValidationReminder(cfg)
 	applyFailurePolicy(cfg, opts, outcome.errors, outcome.warnings, outcome.suggestions)
 	return nil

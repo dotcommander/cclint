@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/cue"
+	"github.com/dotcommander/cclint/internal/discovery"
 )
 
 var reflectSlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+){1,9}\.md$`)
@@ -26,14 +27,18 @@ const (
 	ReflectMaxBodyLines = 500
 )
 
-// CheckReflectOutput validates every *.md under <root>/kb/ against deterministic
-// /dc:reflect output rules: slug shape, H1+source presence, body-size bounds.
-// Walks kb/ directly because DefaultFileTypes discovery does not cover kb/.
+// CheckReflectOutput validates regular Markdown entries under <root>/kb/.
+// It does not follow symlinks. Walks kb/ directly because discovery omits kb/.
 func CheckReflectOutput(rootPath string) []cue.ValidationError {
+	return checkReflectOutput(rootPath, nil)
+}
+
+// checkReflectOutput applies configured exclusions before diagnostics or reads.
+func checkReflectOutput(rootPath string, exclude []string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
 	kbRoot := filepath.Join(rootPath, "kb")
-	if info, err := os.Stat(kbRoot); err != nil || !info.IsDir() {
+	if info, err := os.Lstat(kbRoot); err != nil || !info.IsDir() {
 		return nil
 	}
 
@@ -46,18 +51,25 @@ func CheckReflectOutput(rootPath string) []cue.ValidationError {
 				// Hidden scratch trees (e.g. kb/.work/) are not entries.
 				return filepath.SkipDir
 			}
-			return nil
-		}
-		if !strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
-			return nil
-		}
-		if reflectSkipNames[strings.ToLower(d.Name())] {
-			return nil
+		} else {
+			name := strings.ToLower(d.Name())
+			if !d.Type().IsRegular() || !strings.HasSuffix(name, ".md") || reflectSkipNames[name] {
+				return nil
+			}
 		}
 
 		rel, relErr := filepath.Rel(rootPath, path)
 		if relErr != nil {
 			rel = path
+		}
+		if discovery.IsExcluded(filepath.ToSlash(rel), exclude) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			return nil
 		}
 
 		if !reflectSlugPattern.MatchString(d.Name()) {

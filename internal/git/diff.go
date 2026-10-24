@@ -134,11 +134,7 @@ func GetChangedFileChanges(rootPath string) (FileChanges, error) {
 		if err != nil {
 			return FileChanges{}, err
 		}
-		untrackedFiles, err := filterRelevantFiles(untracked, rootPath)
-		if err != nil {
-			return FileChanges{}, err
-		}
-		changes.Files = append(changes.Files, untrackedFiles...)
+		changes.Files = append(changes.Files, untracked...)
 		return changes, nil
 	}
 
@@ -159,11 +155,7 @@ func GetChangedFileChanges(rootPath string) (FileChanges, error) {
 	if err != nil {
 		return FileChanges{}, err
 	}
-	untrackedFiles, err := filterRelevantFiles(untracked, rootPath)
-	if err != nil {
-		return FileChanges{}, err
-	}
-	changes.Files = append(changes.Files, untrackedFiles...)
+	changes.Files = append(changes.Files, untracked...)
 	return changes, nil
 }
 
@@ -187,16 +179,6 @@ func IsGitRepo(rootPath string) bool {
 	return err == nil
 }
 
-func getUntrackedFiles(rootPath string) (string, error) {
-	cmd, cancel := gitCommand(rootPath, "ls-files", "--others", "--exclude-standard")
-	defer cancel()
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", gitTimeoutError("ls-files --others", err, output)
-	}
-	return string(output), nil
-}
-
 func combineGitOutputs(outputs ...string) string {
 	seen := make(map[string]bool)
 	var combined []string
@@ -211,47 +193,6 @@ func combineGitOutputs(outputs ...string) string {
 		}
 	}
 	return strings.Join(combined, "\n")
-}
-
-// filterRelevantFiles filters git diff output to only include Claude Code component files.
-// Filters by:
-//   - Extension: .md or .json
-//   - Path patterns: agents/, commands/, skills/, .claude/, or specific filenames
-//
-// Returns absolute paths.
-func filterRelevantFiles(gitOutput, rootPath string) ([]string, error) {
-	changes, err := filterRelevantChanges(gitOutput, rootPath)
-	return changes.Files, err
-}
-
-func filterRelevantChanges(gitOutput, rootPath string) (FileChanges, error) {
-	var files []string
-	var deletedFiles []string
-	lines := strings.Split(strings.TrimSpace(gitOutput), "\n")
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		if !isRelevantFile(line) {
-			continue
-		}
-
-		// Convert to absolute path
-		absPath := filepath.Join(rootPath, line)
-
-		// Check if file exists (git reports deletions too)
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
-			deletedFiles = append(deletedFiles, filepath.ToSlash(line))
-			continue
-		}
-
-		files = append(files, absPath)
-	}
-
-	return FileChanges{Files: files, DeletedFiles: deletedFiles}, nil
 }
 
 func parseNameStatusChanges(output []byte, rootPath string) (FileChanges, error) {

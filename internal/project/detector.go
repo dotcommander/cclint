@@ -14,11 +14,6 @@ func FindProjectRoot(startPath string) (string, error) {
 		return "", err
 	}
 
-	// If no path provided, start from current directory
-	if absPath == "." {
-		absPath, _ = os.Getwd()
-	}
-
 	// Climb up the directory tree
 	currentDir := absPath
 	for {

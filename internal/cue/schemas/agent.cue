@@ -21,34 +21,9 @@ import (
 // Tools specification - can be "*" for all, comma-separated string, or array of specific tools/Task(agent) refs
 #Tools: "*" | string | [...(#KnownTool | #TaskAgentTool | =~"^mcp__" | =~"^[A-Za-z]+\\(.*\\)$")]
 
-// ============================================================================
-// Agent Hook Definitions
-// ============================================================================
-
-// Hook command definition (same as settings.cue)
-#AgentHookCommand: {
-	type:     "command"
-	command?: string             // shell form
-	args?:    [...string]        // exec form (v2.1.139+), alternative to command
-	timeout?: int                // timeout in seconds
-	once?:    bool               // run only once per session (v2.1.0+)
-	continueOnBlock?: bool       // PostToolUse only (v2.1.139+)
-	onFailure?:         "continue" | "block" // hook failure policy: continue lets the action through, block stops it (v2.1.295+)
-	"if"?: string                // conditional filter using permission rule syntax (v2.1.85+)
-}
-
-// Agent hook entry - matcher is optional (e.g., Stop hook doesn't need a matcher)
-#AgentHook: {
-	matcher?: string                    // optional tool matcher (e.g., "Bash", "Write")
-	hooks: [...#AgentHookCommand]       // array of commands to run
-}
-
-// Agent hooks configuration - maps event names to hook arrays
-// Known events: PreToolUse, PostToolUse, Stop, Start
-// Allow any string key for future event types
-#AgentHooks: {
-	[string]: [...#AgentHook]
-}
+// Component hook definitions (#AgentHookCommand, #AgentHook, #AgentHooks) are
+// shared verbatim with command/skill: see component_hooks.cue, appended to
+// every root by the schema loader (schema_loader.go).
 
 // ============================================================================
 // Agent Schema

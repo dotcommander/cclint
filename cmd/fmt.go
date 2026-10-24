@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dotcommander/cclint/internal/config"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/format"
 )
@@ -24,7 +23,7 @@ func (cmd *fmtCommand) Run(opts executionOptions) error { return runFmt(opts, cm
 
 func runFmt(opts executionOptions, cmd *fmtCommand) error {
 	// Load configuration
-	cfg, err := config.LoadConfig(stringValue(opts.root))
+	cfg, err := loadCLIConfig(opts)
 	if err != nil {
 		return fmt.Errorf("error loading configuration: %w", err)
 	}
@@ -34,6 +33,10 @@ func runFmt(opts executionOptions, cmd *fmtCommand) error {
 	if err != nil {
 		return fmt.Errorf("cannot resolve project root: %w", err)
 	}
+
+	opts.quiet = &cfg.Quiet
+	verbose := cfg.Verbose && !cfg.Quiet
+	opts.verbose = &verbose
 
 	// Determine which files to format
 	selectionRoot := ""

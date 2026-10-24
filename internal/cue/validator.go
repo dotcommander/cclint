@@ -1,10 +1,7 @@
 package cue
 
 import (
-	"bytes"
-	"embed"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -15,9 +12,6 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	cuerrors "cuelang.org/go/cue/errors"
 )
-
-//go:embed schemas/*.cue
-var schemaFS embed.FS
 
 // Re-export types and constants from internal/types for backward compatibility.
 type ValidationError = types.ValidationError
@@ -50,59 +44,6 @@ func NewValidator() *Validator {
 		ctx:     cuecontext.New(),
 		schemas: make(map[string]cue.Value),
 	}
-}
-
-// LoadSchemas loads all CUE schema files from the embedded filesystem
-func (v *Validator) LoadSchemas() error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
-
-	// List all files in the embedded schemas directory
-	entries, err := schemaFS.ReadDir("schemas")
-	if err != nil {
-		return fmt.Errorf("warning: could not read embedded schemas: %w", err)
-	}
-
-	// Load each .cue file
-	for _, entry := range entries {
-		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".cue" {
-			content, err := schemaFS.ReadFile(filepath.Join("schemas", entry.Name()))
-			if err != nil {
-				continue
-			}
-
-			// Inject generated CUE unions (single source in Go) so schemas never hand-maintain these lists.
-			for _, inj := range []struct {
-				token string
-				gen   func() string
-			}{
-				{"#KnownTool", knownToolUnionCUE},
-				{"#Model", modelUnionCUE},
-			} {
-				if bytes.Contains(content, []byte(inj.token)) {
-					content = append(content, []byte("\n"+inj.gen()+"\n")...)
-				}
-			}
-
-			// Compile the CUE schema
-			inst := v.ctx.CompileBytes(content, cue.Filename(entry.Name()))
-			if instErr := inst.Err(); instErr != nil {
-				// Log but don't fail - schema files might have issues
-				continue
-			}
-
-			// Store the compiled schema
-			// Extract base name (agent.cue -> agent)
-			schemaName := entry.Name()[:len(entry.Name())-4]
-			v.schemas[schemaName] = inst.Value()
-		}
-	}
-
-	if len(v.schemas) == 0 {
-		return fmt.Errorf("warning: no CUE schemas loaded, using Go validation")
-	}
-
-	return nil
 }
 
 // ValidateAgent validates agent data against the agent schema

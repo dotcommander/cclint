@@ -211,7 +211,7 @@ func GetCommandImprovements(content string, data map[string]any) []ImprovementRe
 		})
 	}
 
-	if !strings.Contains(content, "Task(") {
+	if !strings.Contains(content, "Task(") && !strings.Contains(content, "Agent(") {
 		recs = append(recs, ImprovementRecommendation{
 			Description: "Add Task(X-specialist) delegation - commands should delegate",
 			PointValue:  10,

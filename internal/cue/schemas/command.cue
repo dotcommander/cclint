@@ -7,34 +7,14 @@ import "strings"
 // ============================================================================
 
 // Known Claude Code tools for validation (#KnownTool is generated from
-// textutil.KnownTools at load time; see validator.go).
+// textutil.KnownTools at load time; see schema_loader.go).
 
 // ============================================================================
 // Command Hook Definitions
 // ============================================================================
 
-// Hook command definition
-#CommandHookCommand: {
-	type:     "command"
-	command?: string             // shell form
-	args?:    [...string]        // exec form (v2.1.139+), alternative to command
-	timeout?: int                // timeout in seconds
-	once?:    bool               // run only once per session
-	continueOnBlock?: bool       // PostToolUse only (v2.1.139+)
-	onFailure?:         "continue" | "block" // hook failure policy: continue lets the action through, block stops it (v2.1.295+)
-	"if"?: string                // conditional filter using permission rule syntax (v2.1.85+)
-}
-
-// Command hook entry
-#CommandHook: {
-	matcher?: string                      // optional tool matcher (e.g., "Bash", "Write")
-	hooks: [...#CommandHookCommand]       // array of commands to run
-}
-
-// Command hooks configuration
-#CommandHooks: {
-	[string]: [...#CommandHook]
-}
+// Component hook definitions (#CommandHookCommand, #CommandHook, #CommandHooks)
+// are aliases from component_hooks.cue, composed by schema_loader.go.
 
 // ============================================================================
 // Command Schema

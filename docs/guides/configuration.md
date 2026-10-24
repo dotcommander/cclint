@@ -110,7 +110,7 @@ Configuration values are applied in the following order (later sources override 
 ### `root`
 
 **Type:** `string`
-**Default:** `~/.claude`
+**Default:** nearest ancestor containing `.claude/` or `.claude-plugin/plugin.json`, falling back to `~/.claude`.
 
 The root directory containing Claude Code components to lint.
 
@@ -141,7 +141,7 @@ Output format for lint results.
 **Type:** `string`
 **Default:** `""` (stdout)
 
-File path to write output. Required when `format` is not `console`.
+File path to write output. If omitted, all formats write to stdout.
 
 ### `failOn`
 
@@ -156,7 +156,7 @@ Minimum severity level that causes a non-zero exit code.
 **Type:** `boolean`
 **Default:** `false`
 
-Suppress warnings and suggestions, showing only errors.
+Suppress all report output; communicate the result through exit status only.
 
 ### `verbose`
 

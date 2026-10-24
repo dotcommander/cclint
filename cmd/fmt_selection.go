@@ -57,11 +57,30 @@ func collectFilesToFormat(cmd *fmtCommand, rootPath, selectionRoot string, exclu
 		return resolved, nil
 	}
 
-	// 4. Discover the union of all requested component types. Discovery-based
-	// selection honors the exclude config, matching lint discovery (explicit
-	// --file/arg selections are deliberate and stay unfiltered).
-	if len(componentTypeArgs) > 0 {
-		return discoverFilesByType(rootPath, exclude, componentTypeArgs...)
+	// 4. Discovery-based selection honors the exclude config, matching lint
+	// discovery (explicit --file/arg selections are deliberate and stay
+	// unfiltered). A --type filter narrows discovery to one supported component
+	// type so the later per-file force cannot apply its fields to unrelated
+	// discovered components; positional component types must agree with it
+	// after alias normalization or selection fails before any formatting.
+	if len(componentTypeArgs) > 0 || cmd.Type != "" {
+		requestedTypes := componentTypeArgs
+		if cmd.Type != "" {
+			targetType, err := parseFormattableType(cmd.Type)
+			if err != nil {
+				return nil, err
+			}
+			for _, componentType := range componentTypeArgs {
+				// Positional types passed CanFormatComponent above.
+				positionalType, _ := discovery.ParseFileType(componentType)
+				if positionalType != targetType {
+					return nil, fmt.Errorf(
+						"component type %s conflicts with --type %s", componentType, cmd.Type)
+				}
+			}
+			requestedTypes = []string{cmd.Type}
+		}
+		return discoverFilesByType(rootPath, exclude, requestedTypes...)
 	}
 
 	// 5. No args: discover all component files
@@ -132,13 +151,21 @@ func discoverFilesInDir(dirPath string) ([]string, error) {
 	return files, err
 }
 
+func parseFormattableType(name string) (discovery.FileType, error) {
+	fileType, err := discovery.ParseFileType(name)
+	if err != nil || !format.CanFormatComponent(name) {
+		return discovery.FileTypeUnknown, fmt.Errorf("unknown component type: %s", name)
+	}
+	return fileType, nil
+}
+
 // discoverFilesByType selects requested component types in one discovery pass.
 func discoverFilesByType(rootPath string, exclude []string, componentTypes ...string) ([]string, error) {
 	targetTypes := make(map[discovery.FileType]bool, len(componentTypes))
 	for _, componentType := range componentTypes {
-		targetType, err := discovery.ParseFileType(componentType)
-		if err != nil || !format.CanFormatComponent(componentType) {
-			return nil, fmt.Errorf("unknown component type: %s", componentType)
+		targetType, err := parseFormattableType(componentType)
+		if err != nil {
+			return nil, err
 		}
 		targetTypes[targetType] = true
 	}

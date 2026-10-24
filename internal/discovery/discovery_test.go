@@ -611,83 +611,6 @@ func TestFindFilesByPattern_SymlinksOutsideRoot(t *testing.T) {
 	}
 }
 
-// TestDetermineFileType tests internal file type detection
-func TestDetermineFileType(t *testing.T) {
-	fd := &FileDiscovery{}
-
-	tests := []struct {
-		path string
-		want FileType
-	}{
-		// Rules must be checked first (only .claude/rules, not bare rules/)
-		{".claude/rules/core.md", FileTypeRule},
-		{".claude/rules/nested/quality.md", FileTypeRule},
-
-		// Agents
-		{".claude/agents/test.md", FileTypeAgent},
-		{"agents/nested/test.md", FileTypeAgent},
-
-		// Commands
-		{".claude/commands/test.md", FileTypeCommand},
-		{"commands/test.md", FileTypeCommand},
-
-		// Settings
-		{".claude/settings.json", FileTypeSettings},
-		{"config/settings.json", FileTypeSettings},
-
-		// Context
-		{".claude/CLAUDE.md", FileTypeContext},
-		{"CLAUDE.md", FileTypeContext},
-		{".claude/claude.md", FileTypeContext}, // Case insensitive
-
-		// Plugins
-		{".claude-plugin/plugin.json", FileTypePlugin},
-		{"pkg/.claude-plugin/plugin.json", FileTypePlugin},
-
-		// Unknown
-		{"random/file.md", FileTypeUnknown},
-		{"data.json", FileTypeUnknown},
-		{"README.md", FileTypeUnknown},
-		{"rules/go.md", FileTypeRule},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			got := fd.determineFileType(tt.path)
-			if got != tt.want {
-				t.Errorf("determineFileType(%q) = %v, want %v", tt.path, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestReadFileContents tests file reading
-func TestReadFileContents(t *testing.T) {
-	tmpDir := t.TempDir()
-	fd := NewFileDiscovery(tmpDir, false)
-
-	testContent := "test file content\nwith multiple lines"
-	testFile := filepath.Join(tmpDir, "test.md")
-	_ = os.WriteFile(testFile, []byte(testContent), 0644)
-
-	t.Run("valid file", func(t *testing.T) {
-		content, err := fd.ReadFileContents(testFile)
-		if err != nil {
-			t.Fatalf("ReadFileContents() error = %v", err)
-		}
-		if content != testContent {
-			t.Errorf("ReadFileContents() = %q, want %q", content, testContent)
-		}
-	})
-
-	t.Run("nonexistent file", func(t *testing.T) {
-		_, err := fd.ReadFileContents(filepath.Join(tmpDir, "missing.md"))
-		if err == nil {
-			t.Error("ReadFileContents() expected error for missing file, got nil")
-		}
-	})
-}
-
 // TestTypePatterns_Coverage tests that all type patterns are well-formed
 func TestTypePatterns_Coverage(t *testing.T) {
 	// Verify typePatterns array is not empty
@@ -942,22 +865,6 @@ func TestDiscoverFiles_MixedContent(t *testing.T) {
 		if f.Type == FileTypeUnknown {
 			t.Errorf("File %s has FileTypeUnknown", f.RelPath)
 		}
-	}
-}
-
-// TestReadFileContents_EmptyFile tests reading empty file
-func TestReadFileContents_EmptyFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	emptyFile := filepath.Join(tmpDir, "empty.md")
-	_ = os.WriteFile(emptyFile, []byte(""), 0644)
-
-	fd := NewFileDiscovery(tmpDir, false)
-	content, err := fd.ReadFileContents(emptyFile)
-	if err != nil {
-		t.Errorf("ReadFileContents() unexpected error for empty file: %v", err)
-	}
-	if content != "" {
-		t.Errorf("ReadFileContents() = %q, want empty string", content)
 	}
 }
 

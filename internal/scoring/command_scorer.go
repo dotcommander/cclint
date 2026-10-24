@@ -27,7 +27,7 @@ func (s *CommandScorer) scoreStructural(frontmatter map[string]any, body string)
 	}
 	points, details := ScoreRequiredFields(frontmatter, fieldSpecs)
 
-	hasTaskDelegation, _ := regexp.MatchString(`Task\([^)]+\)`, body)
+	hasTaskDelegation, _ := regexp.MatchString(`(?:Task|Agent)\([^)]+\)`, body)
 	points += recordMetric(&details, "structural", "Task() delegation", hasTaskDelegation, 10)
 
 	return points, details
@@ -41,7 +41,7 @@ func (s *CommandScorer) scorePractices(body string) (int, []Metric) {
 	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, body)
 	points += recordMetric(&details, "practices", "Success criteria", hasSuccessCriteria, 15)
 
-	taskCount := strings.Count(body, "Task(")
+	taskCount := strings.Count(body, "Task(") + strings.Count(body, "Agent(")
 	hasTask := taskCount >= 1
 	points += recordMetric(&details, "practices", "Task delegation", hasTask, 15, pluralize(taskCount, "Task() call"))
 
