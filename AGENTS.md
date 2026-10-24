@@ -287,7 +287,7 @@ Surfaced by the v2.1.156 source-read mining pass but deliberately left out of cc
 | knowntools_location | `internal/textutil/lineutil.go` exported `KnownTools` var (shared by tool validation and body scanning) |
 | stale_binary_trap | Always `go build -o cclint .` before running `./cclint` — stale binary causes phantom results |
 | golangci_lint_version | v2 config format required (`version: "2"` in `.golangci.yml`) |
-| updater_changelog_fetch | `gh api repos/anthropics/claude-code/contents/CHANGELOG.md` with base64 decoding is primary for `/updater`; `aic claude` is fallback only |
+| updater_changelog_fetch | `gh api -H "Accept: application/vnd.github.raw" repos/anthropics/claude-code/contents/CHANGELOG.md` is primary for `/updater` (plain `--jq '.content'` returns an empty body above 1 MB, which CHANGELOG.md crossed 2026-10-23); WebFetch on raw.githubusercontent.com is fallback (`aic claude` returns only the newest entry — never use it for gaps) |
 Read and apply `/Users/vampire/.agents/AGENTS.md` completely, then
 `/Users/vampire/code/go/src/AGENTS.md`, before this file. This file contains
 repository-specific guidance only.
