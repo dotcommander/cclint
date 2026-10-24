@@ -56,3 +56,13 @@ claude-agents-report.html
 
 # No test files in docs/
 docs/**/*_test.go
+
+# Track the paths-conditional lint-surface rule (moved out of AGENTS.md to
+# keep always-loaded memory under the 20KB threshold) even though the user's
+# global gitignore excludes .claude/. Un-ignore the directory chain first —
+# git cannot re-include a file under an excluded directory.
+!.claude/
+.claude/*
+!.claude/rules/
+.claude/rules/*
+!.claude/rules/lint-surface.md

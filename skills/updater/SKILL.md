@@ -26,7 +26,7 @@ cost — treat it as the exception, never the default.
 | 3. Judge scope | root | confirmed change list; `--dry-run` stops here |
 | 4. Locate anchors | root (`rg -n` per edit site) | file:line + verbatim spans |
 | 5. Implement | root direct edits (dispatch only for >100-line steps) | code + tests, one logical group at a time |
-| 6. Docs | root direct edits | AGENTS.md surface + row, `cmd.ClaudeCodeSurface` |
+| 6. Docs | root direct edits | lint-surface.md surface + AGENTS.md row, `cmd.ClaudeCodeSurface` |
 | 7. Smoke + close | root | exit codes, commits, FUI handoff |
 
 Entry-point routing:
@@ -82,11 +82,11 @@ For each changelog entry, classify against these domains:
 | Lint rules (commands) | New command validation requirement | `internal/lint/command_linter.go` |
 | Cross-file validation | New reference pattern, new component type | `internal/lint/crossfile/` |
 | Discovery | New file path pattern, new component directory | `internal/discovery/` |
-| Docs + surface row | Any modeled change above | `docs/rules/settings.md`, `docs/reference/schemas.md`, `AGENTS.md`, `cmd/root.go` |
+| Docs + surface row | Any modeled change above | `docs/rules/settings.md`, `docs/reference/schemas.md`, `.claude/rules/lint-surface.md`, `AGENTS.md`, `cmd/root.go` |
 
 **Skip**: CLI flags, UI changes, SDK fields, env vars, performance
-improvements, bug fixes to existing behavior, and anything on AGENTS.md's
-"Intentionally Not Modeled" guardrail (runtime hook stdout contract,
+improvements, bug fixes to existing behavior, and anything on the
+"Intentionally Not Modeled" guardrail in `.claude/rules/lint-surface.md` (runtime hook stdout contract,
 PermissionRequest agent hooks, instructionFiles/projectInstructions,
 claudeMdProcessingMode, yoloClassifier).
 
@@ -98,6 +98,7 @@ claudeMdProcessingMode, yoloClassifier).
 claude --version; BIN=$(readlink -f "$(command -v claude)"); echo "$BIN"
 git status --porcelain --untracked-files=all | head -40
 rg -n 'claude_code_last_updated' AGENTS.md | head -1
+rg -n '## Validation Surface' .claude/rules/lint-surface.md | head -1
 rg -n 'ClaudeCodeSurface = ' cmd/root.go
 ```
 
@@ -177,7 +178,7 @@ just the lintable ones:
 
 - ✅ Yes — schema/lint surface change, will be implemented
 - ⚠️ Partial — adjacent to lintable surface but out of scope; document in
-  AGENTS.md operational context
+  `.claude/rules/lint-surface.md` operational context
 - ❌ No — runtime/UX/CLI/SDK/bugfix, no lint surface
 
 End with a one-line summary: `N lintable, M actioned, K documented, rest
@@ -187,7 +188,8 @@ still emit the table, then report and stop.
 ### Phase 4 — Locate anchors (root `rg -n`)
 
 For every edit site the confirmed list touches: CUE schemas, Go validators,
-test tables, doc pages, the AGENTS.md `claude_code_last_updated` row, and
+test tables, doc pages, `.claude/rules/lint-surface.md`, the AGENTS.md
+`claude_code_last_updated` row, and
 `cmd/root.go` `ClaudeCodeSurface`. Grep each, record `file:line` plus
 verbatim ±3-line spans — those spans are the exact old→new text for Phase 5/6
 edits. A docs-only sweep needs only the row + var anchors, both already in
@@ -213,11 +215,17 @@ Local-vs-Dispatch Boundary.
 
 ### Phase 6 — Docs (root direct edits)
 
-AGENTS.md (the physical repo-root file; CLAUDE.md is a symlink to it — never
-target the symlink): Validation Surface entries, enum lines, an Operational
-Context sweep bullet (versions covered, what was modeled, what was excluded
-and why), and the `claude_code_last_updated` table row — plus the matching
-`cmd.ClaudeCodeSurface` var in `cmd/root.go` in the same change
+Split across two files — never target the CLAUDE.md symlink, always the
+physical repo-root AGENTS.md:
+
+- `.claude/rules/lint-surface.md` (paths-conditional rule, the lint-surface
+  ledger): Validation Surface entries, enum lines, and an Operational
+  Context sweep bullet (versions covered, what was modeled, what was excluded
+  and why).
+- AGENTS.md: only the `claude_code_last_updated` table row.
+
+Plus the matching `cmd.ClaudeCodeSurface` var in `cmd/root.go` in the same
+change
 (`TestClaudeCodeSurfaceMatchesAGENTSRow` guards the sync). Check
 `docs/cross-file-validation.md` and `docs/common-tasks.md` only when the
 change adds a validation type or component surface.
@@ -271,7 +279,7 @@ Changelog says: "Added `WorktreeCreate` hook event"
 2. Edit `internal/lint/settings.go` valid events map + `internal/cue/schemas/settings.cue` hook event enum
 3. Add test case in `internal/lint/settings_hooks_test.go`
 4. Doc-sync: `docs/rules/settings.md` + `docs/reference/schemas.md`
-5. Phase 6: AGENTS.md surface entry + Operational Context bullet
+5. Phase 6: lint-surface.md surface entry + Operational Context bullet
 
 ### New tool name
 
@@ -282,7 +290,7 @@ Changelog says: "Added `EnterWorktree` tool"
    union is generated from it — no `.cue` edit)
 3. Add test case in `internal/textutil/lineutil_test.go`
 4. Doc-sync: `docs/reference/schemas.md` Known Tools section
-5. Phase 6: AGENTS.md surface entry
+5. Phase 6: lint-surface.md surface entry
 
 ## Success Criteria
 
@@ -291,6 +299,6 @@ Changelog says: "Added `EnterWorktree` tool"
 - [ ] Classification table covered every gap entry before implementation
 - [ ] Code changes include tests; scoped `go build` + `go test` pass clean
 - [ ] Every mechanical task handled root-side; dispatch used only for a >100-line step, if any
-- [ ] AGENTS.md surface + `claude_code_last_updated` updated, `cmd.ClaudeCodeSurface` bumped to match, same commit
+- [ ] `.claude/rules/lint-surface.md` surface + AGENTS.md `claude_code_last_updated` row updated, `cmd.ClaudeCodeSurface` bumped to match, same commit
 - [ ] Smoke fixture passed and was removed; commits (if any) follow the Phase 0 policy; no push or tag
 - [ ] FUI sweep thread carries the classification record and final handoff; whole invocation under 10 minutes
