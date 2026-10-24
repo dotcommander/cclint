@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.61.0 (2026-10-23)
+
+### Features
+
+- report the tracked Claude Code lint surface alongside the cclint version.
+
+### Changed
+
+- deduplicate CUE hook schemas and simplify command and discovery internals.
+- update the lint-surface ledger through Claude Code v2.1.310 and move it to a paths-conditional rule.
+- make the updater workflow local-first and fix changelog fetching for large upstream files.
+
 ## v0.58.0 (2026-10-04)
 
 ### Fixed
