@@ -10,6 +10,7 @@
 ### Changed
 
 - clarify user and maintainer documentation, schema references, Git workflows, and the updater procedure.
+- omit assistant and developer-only files from the Go module source ZIP while retaining checkout paths via symlinks; Git ignore rules remain included.
 
 ## v0.61.0 (2026-10-23)
 

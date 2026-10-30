@@ -19,6 +19,11 @@ func TestVersionLineIncludesSurface(t *testing.T) {
 func TestClaudeCodeSurfaceMatchesAGENTSRow(t *testing.T) {
 	t.Parallel()
 	data, err := os.ReadFile(filepath.Join("..", "AGENTS.md"))
+	if os.IsNotExist(err) {
+		if _, gitErr := os.Stat(filepath.Join("..", ".git")); os.IsNotExist(gitErr) {
+			t.Skip("AGENTS.md is not included in module source archives")
+		}
+	}
 	if err != nil {
 		t.Fatalf("read AGENTS.md: %v", err)
 	}
