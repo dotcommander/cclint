@@ -4,13 +4,13 @@ cclint can be configured through configuration files or environment variables. T
 
 ## Configuration File Formats
 
-cclint supports three configuration file formats, searched in order of precedence:
+cclint reads the first valid configuration file in this precedence order at the lookup directory:
 
 1. `.cclintrc.json` - JSON format
 2. `.cclintrc.yaml` - YAML format (recommended)
 3. `.cclintrc.yml` - YAML format
 
-The configuration file must be located in your project root directory.
+With `--root`, cclint looks in that directory only. Otherwise it starts in the working directory and walks up to the nearest ancestor with a readable config. An unreadable or invalid file is skipped during lookup; correct syntax and verify the loaded settings if a file appears ignored.
 
 ## Example Configuration
 
@@ -18,7 +18,7 @@ The configuration file must be located in your project root directory.
 
 ```yaml
 # .cclintrc.yaml
-root: ~/.claude
+root: /path/to/project
 exclude:
   - "**/vendor/**"
   - "**/node_modules/**"
@@ -53,7 +53,7 @@ schemas:
 
 ```json
 {
-  "root": "~/.claude",
+  "root": "/path/to/project",
   "exclude": ["**/vendor/**", "**/node_modules/**"],
   "followSymlinks": false,
   "format": "console",
@@ -76,12 +76,12 @@ schemas:
 
 ## Environment Variables
 
-All configuration options can be overridden using environment variables with the `CCLINT_` prefix:
+The loader binds these `CCLINT_` variables. For compound keys it accepts both the historical spelling shown below and a snake-case alias (for example, `CCLINT_FAIL_ON`). Shells do not expand `~` in quoted YAML/JSON values; use an absolute path for `root`.
 
 | Configuration | Environment Variable | Example |
 |---------------|---------------------|---------|
 | `root` | `CCLINT_ROOT` | `export CCLINT_ROOT=/custom/path` |
-| `exclude` | `CCLINT_EXCLUDE` | `export CCLINT_EXCLUDE="**/vendor/**,**/test/**"` (comma-separated) |
+| `exclude` | `CCLINT_EXCLUDE` | `export CCLINT_EXCLUDE="**/vendor/**,**/test/**"` (comma-separated patterns) |
 | `followSymlinks` | `CCLINT_FOLLOWSYMLINKS` | `export CCLINT_FOLLOWSYMLINKS=true` |
 | `format` | `CCLINT_FORMAT` | `export CCLINT_FORMAT=json` |
 | `output` | `CCLINT_OUTPUT` | `export CCLINT_OUTPUT=report.json` |
@@ -110,7 +110,7 @@ Configuration values are applied in the following order (later sources override 
 ### `root`
 
 **Type:** `string`
-**Default:** nearest ancestor containing `.claude/` or `.claude-plugin/plugin.json`, falling back to `~/.claude`.
+**Default:** nearest ancestor of the working directory containing `.claude/` or `.claude-plugin/plugin.json`, falling back to `~/.claude`.
 
 The root directory containing Claude Code components to lint.
 
@@ -220,4 +220,4 @@ Enable CUE schema validation for component frontmatter.
 **Type:** `object`
 **Default:** `{}`
 
-Custom schema extensions for specialized component types.
+Stored in the configuration object; this guide does not imply that custom CUE schemas are loaded automatically.

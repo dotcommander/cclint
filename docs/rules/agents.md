@@ -8,11 +8,11 @@ Comprehensive reference for all validation rules applied to agent components.
 
 This document catalogs all validation rules enforced by `cclint` when linting agent files. Rules are organized by category and include severity levels, exact error messages, and source attribution.
 
-**Rule Numbering:** Rules 001-021 cover structural, security, best-practice, and documentation requirements.
+**Rule Numbering:** Rules 001-021 are reference labels for structural, security, best-practice, and documentation checks; the CLI emits findings, not these numeric IDs.
 
 **Source Attribution:**
 - `anthropic-docs`: Official Anthropic documentation requirements
-- `cclint-observe`: Best practices observed from high-quality components
+- `cclint-observation`: Best practices observed from high-quality components
 
 ---
 
@@ -442,9 +442,9 @@ Agent descriptions MUST include "Use PROACTIVELY when..." pattern for agent disc
 
 Beyond the 21 core rules, agents undergo additional validations:
 
-### Allowed-Tools Validation
+### Tool Validation
 - **Category:** security
-- Validates `allowed-tools` field syntax
+- Validates the agent `tools` field syntax (commands and skills use `allowed-tools`)
 - Ensures referenced tools exist
 - Prevents overly permissive tool access
 
@@ -472,16 +472,16 @@ Beyond the 21 core rules, agents undergo additional validations:
 
 | Severity | Count | Rule IDs |
 |----------|-------|----------|
-| error | 7 | 001-006, 009 |
-| suggestion | 14 | 007-008, 010-021 |
+| error | 8 | 001-006, 009, 021 |
+| suggestion | 13 | 007-008, 010-020 |
 
 ## Rule Summary by Category
 
 | Category | Count | Rule IDs |
 |----------|-------|----------|
-| structural | 8 | 001-008 |
+| structural | 7 | 001-006, 008 |
 | security | 1 | 009 |
-| best-practice | 11 | 007-008, 010-020 |
+| best-practice | 12 | 007, 010-020 |
 | documentation | 1 | 021 |
 
 ---

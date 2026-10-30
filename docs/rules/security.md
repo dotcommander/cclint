@@ -1,6 +1,6 @@
 # Security Rules
 
-Rules that detect potential security vulnerabilities and sensitive data exposure.
+Heuristic checks for tool-name mistakes and potential sensitive data exposure. A warning is not proof of a vulnerability; review matches before acting. The numeric labels here are reference labels, not IDs emitted by the CLI.
 
 ---
 
@@ -16,7 +16,7 @@ Rules that detect potential security vulnerabilities and sensitive data exposure
 Validates that tool names in `allowed-tools` and `tools` frontmatter fields are recognized Claude Code tools. Prevents typos and ensures proper tool restrictions.
 
 **Pass Criteria:**
-- Tool names must match known tools: Read, Write, Edit, MultiEdit, Glob, Grep, LS, Bash, Task, WebFetch, WebSearch, AskUserQuestion, TodoWrite, Skill, LSP, NotebookEdit, EnterPlanMode, ExitPlanMode, KillShell, TaskOutput, or `*`
+- Tool names must match the shared `textutil.KnownTools` inventory (including newly supported tools), supported scoped forms, or `*`; consult `internal/textutil/lineutil.go` for the current set
 - Patterns like `Task(specialist-name)` and `Bash(npm:*)` are validated by base tool name
 - Empty or whitespace-only tool names are ignored
 
@@ -264,4 +264,4 @@ Detects AWS secret access keys by their assignment pattern and 40-character base
 **Pre-Commit Protection:**
 - Run `cclint` as a pre-commit hook to catch secrets before they're committed
 - Review all warnings, even in generated code or examples
-- Use `.gitignore` to exclude files containing real credentials
+- Do not put real credentials in the lint target or repository; `.gitignore` alone does not protect already tracked files

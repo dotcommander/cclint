@@ -66,7 +66,7 @@ go test ./internal/scoring/...            # test specific package
 ## Architecture
 
 ```
-cmd/                    # Cobra commands (root, agents, commands, skills, etc.)
+cmd/                    # Kong CLI (root lint with positional type filters, fmt, summary)
 internal/
 ├── discovery/          # File discovery using doublestar glob patterns
 ├── types/              # Shared types: ValidationError, constants

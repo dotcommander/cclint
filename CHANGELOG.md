@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.61.1 (2026-10-30)
+
+### Fixed
+
+- skip non-component files during Git-selected linting unless a type is explicitly specified.
+- correct summary issue-label punctuation and include rules in file-type guidance.
+
+### Changed
+
+- clarify user and maintainer documentation, schema references, Git workflows, and the updater procedure.
+
 ## v0.61.0 (2026-10-23)
 
 ### Features

@@ -6,8 +6,8 @@ Set up cclint and run your first reliable lint loop.
 
 ## Prerequisites
 
-- Go 1.25+
-- A Claude Code project with component files (`agents/`, `commands/`, `skills/`, `.claude-plugin/plugin.json`)
+- Go 1.26+
+- A Claude Code project containing the components you want to check
 
 ## Main workflow
 
@@ -17,11 +17,15 @@ Set up cclint and run your first reliable lint loop.
 go install github.com/dotcommander/cclint@latest
 ```
 
-2. Run a full lint pass:
+2. Run the default lint pass from your project root:
 
 ```bash
 cclint
 ```
+
+Context files are not part of the default pass; use `cclint context` to check
+them. If project discovery does not select the intended root, pass
+`--root /path/to/project`.
 
 3. Run a targeted pass while you work:
 
@@ -44,7 +48,7 @@ cclint --baseline
 
 ## Related docs
 
-- Common workflows: `docs/common-tasks.md`
-- Config options: `docs/guides/configuration.md`
-- Git hooks: `docs/guides/git-hooks.md`
-- Troubleshooting: `docs/guides/troubleshooting.md`
+- [Common workflows](common-tasks.md)
+- [Configuration](guides/configuration.md)
+- [Git hooks](guides/git-hooks.md)
+- [Troubleshooting](guides/troubleshooting.md)

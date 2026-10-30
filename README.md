@@ -2,7 +2,8 @@
 
 A linter for Claude Code components. Catches schema errors, enforces structure, and flags cross-file problems before they surface as confusing runtime behavior.
 
-Handles agents, commands, skills, plugins, and settings.
+It checks agents, commands, skills, plugins, settings, rules, and output styles.
+Context files can be checked explicitly with `cclint context`.
 
 ## Install
 
@@ -44,6 +45,8 @@ Commit `.cclintbaseline.json` and tighten over time.
 
 Agents, commands, skills, plugins, and output styles get a 0-100 score across structural completeness, practices, composition, and documentation. Tier grades A-F. Useful for prioritizing what to fix first.
 
-## More
+## Documentation and maintenance
 
-See `docs/README.md` for setup, CI integration, and contributor guides.
+- [Documentation index](docs/README.md): setup, workflows, and reference material.
+- [Maintainer guide](docs/change-cclint.md): development and keeping cclint aligned with Claude Code.
+- [Updater procedure](skills/updater/SKILL.md): an assistant-guided workflow for reviewing upstream changes; not an autonomous cclint command.

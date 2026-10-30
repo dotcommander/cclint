@@ -1,6 +1,6 @@
 # Settings Lint Rules
 
-Rules enforced when linting `settings.json` files.
+Reference for numbered `settings.json` lint checks. These labels are not emitted rule IDs; the settings schema and Go validators also support fields not cataloged here.
 
 ---
 
@@ -89,10 +89,10 @@ Each array element is a JSON object (not a string, number, or array).
 **Category:** structural
 
 **Description:**
-Each hook matcher object must contain a `matcher` field that defines when the hook should trigger.
+Tool-scoped events require a `matcher`; lifecycle events may omit it. The Go validator applies this requirement by event.
 
 **Pass Criteria:**
-Hook matcher object contains the required `matcher` field.
+A `matcher` is present for events that require one; omitted matchers are allowed on lifecycle events.
 
 **Fail Message:**
 `Event '[eventName]' hook [index]: missing required field 'matcher'`
@@ -165,7 +165,7 @@ Each element in the inner `hooks` array is a JSON object.
 **Category:** structural
 
 **Description:**
-Each hook object must specify its `type` field (either "command" or "prompt").
+Each hook object must specify its `type` field. See rule 058 for the supported types.
 
 **Pass Criteria:**
 Hook object contains the required `type` field.
@@ -224,13 +224,13 @@ The `type` field value is exactly "command", "prompt", "agent", or "http".
 **Category:** structural
 
 **Description:**
-When hook type is "command", the hook object must include a `command` field containing the shell command to execute.
+When hook type is `command`, the Go validator requires either a `command` string or `args` for exec form.
 
 **Pass Criteria:**
-Hook object with `"type": "command"` contains a `command` field.
+Hook object with `"type": "command"` contains `command` or `args`.
 
 **Fail Message:**
-`Event '[eventName]' hook [index] inner hook [innerIndex]: type 'command' requires 'command' field`
+`Event '[eventName]' hook [index] inner hook [innerIndex]: type 'command' requires 'command' or 'args' field`
 
 **Source:** [Anthropic Docs - Hooks](https://code.claude.com/docs/en/hooks) - "When hook type is 'command', the hook object must include a 'command' field containing the shell command to execute"
 
@@ -525,7 +525,7 @@ Command does not redirect to `/dev/` paths, or redirection is verified to be int
 
 ## New Settings Fields (v2.1.0+)
 
-Claude Code 2.1.0 introduced new settings.json fields:
+Examples of settings fields introduced in Claude Code 2.1.0 (not a full settings schema):
 
 | Field | Type | Description |
 |-------|------|-------------|

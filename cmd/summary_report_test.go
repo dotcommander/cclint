@@ -1,12 +1,17 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/lipgloss"
 )
+
+var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func TestSummaryRowAlignment(t *testing.T) {
 	t.Parallel()
@@ -39,5 +44,33 @@ func TestSummaryRowAlignment(t *testing.T) {
 				t.Fatalf("lost row content: %q", got)
 			}
 		})
+	}
+}
+
+// Serial: printTopIssues writes through the process-global os.Stdout swap.
+func TestPrintTopIssuesLabelPunctuation(t *testing.T) {
+	summary := &ComponentSummary{TopIssues: map[string]int{"Other issues": 3, "Missing description": 1}}
+	output := captureFile(t, os.Stdout, func() {
+		printTopIssues(summary, newPrintStyles())
+	})
+	if strings.Contains(output, ".:") {
+		t.Fatalf("double punctuation in TOP ISSUES labels: %q", output)
+	}
+	if !strings.Contains(output, "Other issues") || !strings.Contains(output, "Missing description") {
+		t.Fatalf("lost issue rows: %q", output)
+	}
+	var ordinal int
+	for _, line := range strings.Split(output, "\n") {
+		if !strings.Contains(line, "Other issues") && !strings.Contains(line, "Missing description") {
+			continue
+		}
+		ordinal++
+		plain := ansiPattern.ReplaceAllString(line, "")
+		if !strings.Contains(plain, fmt.Sprintf("  %d. ", ordinal)) {
+			t.Fatalf("issue %d label not in \"N. \" style: %q", ordinal, plain)
+		}
+	}
+	if ordinal != 2 {
+		t.Fatalf("expected 2 issue rows, got %d: %q", ordinal, output)
 	}
 }

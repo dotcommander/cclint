@@ -1,69 +1,67 @@
 ---
 name: updater
-description: "Local-first Claude Code lint-surface sweep for cclint: fetch the changelog gap, verify candidate shapes against the installed binary, then edit schemas, lint rules, tests, and docs directly — all parent-side, dispatch only as an escape hatch for large generation. Use when a new Claude Code version ships, when CLAUDE.md claude_code_last_updated is stale, for version gap detection and domain classification, or to re-verify a changelog claim against the binary."
+description: "Assistant-guided Claude Code lint-surface sweep for cclint: compare the changelog gap with an available installed binary, then review and update relevant schemas, lint rules, tests, and docs. Use when a new Claude Code version ships, the AGENTS.md surface row is stale, or a changelog claim needs checking."
 ---
 
 # Updater — Claude Code Lint-Surface Sweep
 
-Every phase runs parent-side with direct tools. The full changelog, raw binary
-strings, and whole source files never enter root context — only the gap slice,
-classified candidates, and edit anchors do. Root judges scope, edits directly,
-and sequences; an LLM dispatch is reserved for a single step that must generate
-more than ~100 lines of new code (Local-vs-Dispatch Boundary below).
+This is an **assistant-guided maintainer procedure**, not a cclint command or
+an autonomous update. To use it, point a coding assistant with access to this
+checkout at `skills/updater/SKILL.md` and ask it to follow the relevant phases.
+The maintainer supplies the desired version range and scope, an installed Claude
+Code binary when binary verification is needed, and access to the upstream
+changelog (or a trusted copy). Classification-only and an older starting
+version are requests to the assistant, **not flags implemented by cclint or
+this skill**.
 
-**Time budget: the whole invocation finishes in under 10 minutes.** Phases 0–3
-≤ 4 min combined; implementation and docs are direct edits; smoke ≤ 1 min; FUI
-two batched posts ≤ 1 min. A dispatch, when it applies at all, is the dominant
-cost — treat it as the exception, never the default.
+Review the classification and binary evidence before accepting any modeled
+change; review the scoped source/docs diff and verification results before
+release or commit. Missing tools or a binary that predates a candidate leave
+that candidate unverified; report the gap rather than inferring its shape.
+The changelog is a candidate source, not a schema authority. Keep large raw
+changelog and binary output out of assistant context; work from bounded excerpts.
+Use direct edits by default; delegation is optional when a change is too large
+for a useful direct edit. The phases are a checklist, not a time guarantee.
 
 ## Quick Reference
 
-| Phase | Owner | Returns to root |
-|-------|-------|-----------------|
-| 0. Preflight | root, one Bash block | binary identity, commit policy, row + var anchors |
-| 1. Gap + classify | root fast path | gap slice + candidate table — never the full changelog |
-| 2. Verify shapes | root (`rg -a` on the installed binary) | snippet + type determination per candidate |
-| 3. Judge scope | root | confirmed change list; `--dry-run` stops here |
-| 4. Locate anchors | root (`rg -n` per edit site) | file:line + verbatim spans |
-| 5. Implement | root direct edits (dispatch only for >100-line steps) | code + tests, one logical group at a time |
-| 6. Docs | root direct edits | lint-surface.md surface + AGENTS.md row, `cmd.ClaudeCodeSurface` |
-| 7. Smoke + close | root | exit codes, commits, FUI handoff |
+| Phase | Owner | Output |
+|-------|-------|--------|
+| 0. Preflight | assistant | available binary identity, working-tree state, row + var anchors |
+| 1. Gap + classify | assistant | gap slice + candidate table — never the full changelog |
+| 2. Verify shapes | assistant (`rg -a` on a compiled binary) | snippet + type determination per candidate |
+| 3. Judge scope | assistant + maintainer review | candidate list; a classification-only request stops here |
+| 4. Locate anchors | assistant (`rg -n` per edit site) | file:line + verbatim spans |
+| 5. Implement | assistant direct edits | code + tests, one logical group at a time |
+| 6. Docs | assistant direct edits | lint-surface.md surface + AGENTS.md row, `cmd.ClaudeCodeSurface` |
+| 7. Smoke + close | assistant | focused evidence and handoff; commit only if authorized |
 
 Entry-point routing:
 
 | User question | Action |
 |---------------|--------|
 | "A new Claude Code version shipped — sweep it" | Full workflow, Phases 0–7 |
-| "Anything lintable since the pinned version?" | `--dry-run`: Phases 0–3, candidate table only |
-| "Re-scan from an older baseline" | `--from <ver>` override, then full workflow |
+| "Anything lintable since the pinned version?" | Ask for classification only (Phases 0–3); no edits |
+| "Re-scan from an older baseline" | Tell the assistant which version to start from, then follow the requested workflow |
 | "The changelog says X — does the binary agree?" | Phase 2 shape verification before any edit |
 
 ## Local-vs-Dispatch Boundary
 
-Tasks this workflow formerly delegated to an LLM and now handles locally —
-keep them local:
+The invoking assistant handles these tasks directly when practical:
 
-| Task | Was | Now |
-|------|-----|-----|
-| Large-gap classification (> 5 versions) | general-purpose WebFetch agent | Local grep triage of the gap slice (Phase 1) |
-| Edit-site anchors | pi-agent read drive (~1.5 min) | Root `rg -n` (Phase 4) |
-| Implementation | serial pi-agent write drives | Root direct edits for mechanical changes (Phase 5) |
-| Docs + version row | pi-agent write drive | Root direct edits (Phase 6) |
-| Commits | rode in write drives | Root commits at close (Phase 7) |
-| Build / test / cclint verification | Task dispatch | Root runs the commands (Phase 7) |
-| Smoke fixture run | never dispatched — keep it that way | Root (Phase 7) |
+| Task | Approach |
+|------|----------|
+| Large-gap classification | Triage the gap slice locally (Phase 1) |
+| Edit-site anchors | Use `rg -n` (Phase 4) |
+| Implementation and docs | Edit confirmed changes directly (Phases 5–6) |
+| Build, test and fixture smoke | Run focused checks locally (Phase 7) |
+| Commits | Only with explicit authorization; otherwise leave the diff uncommitted |
 
-**Dispatch escape hatch:** one pi-agent write drive per logical change ONLY
-when that change exceeds ~100 lines of new code (typically a new linter rule
-with its test file). Spec carries: exact old→new text from Phase 4 anchors
-(never paraphrase), every file a failing gate may force the worker to touch —
-fixture tests asserting old behavior — declared as a TARGET up front,
-`VERIFY LANDED:` grep, `BUILD CHECK: go build ./... && go test ./internal/cue/ ./internal/lint/`
-(scoped, never `go test ./...`), and `COMMIT MESSAGE:` only when every TARGET
-was clean at preflight. Never instruct a dispatched agent to call TaskUpdate —
-it is a deferred tool that fails silently in dispatch; root owns task
-lifecycle. After any drive, verify tree state with `git status` / `git log`
-directly — a `baseline-unchanged` self-report can be blind to surviving edits.
+**Optional dispatch:** for a large change (for example, a new rule and tests),
+use an available assistant/agent only if useful. Supply exact edit anchors,
+scoped targets and a focused verification request. Keep task ownership with the
+invoking assistant; inspect the resulting diff yourself. Do not ask a worker to
+commit unless the maintainer explicitly authorized that commit.
 
 ## Domain Classification Table
 
@@ -92,58 +90,65 @@ claudeMdProcessingMode, yoloClassifier).
 
 ## Workflow
 
-### Phase 0 — Preflight (root, one Bash block)
+### Phase 0 — Preflight
+
+From the repository root, check the available tools and locate the installed
+binary without assuming a particular installation path or `readlink -f` support.
+For example:
 
 ```bash
-claude --version; BIN=$(readlink -f "$(command -v claude)"); echo "$BIN"
-git status --porcelain --untracked-files=all | head -40
-rg -n 'claude_code_last_updated' AGENTS.md | head -1
-rg -n '## Validation Surface' .claude/rules/lint-surface.md | head -1
+command -v claude && claude --version
+command -v gh; command -v rg
+git status --porcelain --untracked-files=all
+rg -n 'claude_code_last_updated' AGENTS.md
+rg -n '## Validation Surface' .claude/rules/lint-surface.md
 rg -n 'ClaudeCodeSurface = ' cmd/root.go
 ```
 
+Set `BIN` to a verified readable path to the installed Claude Code binary if
+binary inspection is possible (`command -v claude` may return a wrapper or
+symlink; resolve it using tools available on the host). Record its version.
+
 Decisions this block drives:
 
-- **Binary identity**: `~/.local/bin/claude` resolves to
-  `~/.local/share/claude/versions/<ver>` — a compiled binary, not cli.js.
-  Every grep needs `rg -a`; plain rg reports only "binary file matches". If
-  the binary is older than the changelog's newest entry, later versions are
-  changelog-classified-only — record that.
-- **Commit policy**: the close (Phase 7) commits only when the tree was clean
-  at preflight. If any sweep target is pre-dirty (modified or untracked), make
-  no commits — a half-committed sweep is worse than one uniform uncommitted
-  delta — and report commit sequencing at close. Never commit the AGENTS.md
-  row without the root.go var in the same commit:
-  `TestClaudeCodeSurfaceMatchesAGENTSRow` breaks mid-history.
-- **Dirty-tree health**: if the tree is dirty on gate-relevant paths, one
-  scoped probe before editing so failures are attributable:
-  `go build ./... && go test ./internal/cue/ ./internal/lint/`. Plain
-  `go build` works while no ancestor go.work exists; if one reappears, prefix
-  gates with `GOWORK=off` (this repo is not in it).
+- **Binary identity**: when inspecting a compiled binary, use `rg -a`; plain
+  `rg` may report only "binary file matches". If the available binary is older
+  than a candidate, mark that candidate changelog-only, not binary-verified.
+- **Preservation and commits**: preserve pre-existing changes. Do not commit
+  merely because the tree was clean or this procedure says to close. A commit
+  requires explicit authorization; if authorized, review its exact contents and
+  keep the AGENTS.md row and `cmd/root.go` var together
+  (`TestClaudeCodeSurfaceMatchesAGENTSRow` guards their agreement).
+- **Dirty-tree health**: if existing changes overlap a relevant check, establish
+  a focused baseline where needed so failures can be attributed. Check
+  `go env GOWORK`; use `GOWORK=off` for repo-local Go commands when this module
+  is not included in an active workspace.
 
 ### Phase 1 — Gap + classify (root, no dispatch at any gap size)
 
-Fetch, enumerate headers, then triage locally — only matching bullets and
-version headers enter context, never the whole gap:
+If `gh` is available and authenticated, fetch and triage locally. First set
+`CHANGELOG` and `GAP` to unique temporary file paths you own; clean them up
+when finished. Locate the exact prior-version header before setting
+`PREV_HEADER_LINE` (do not run the slice command with an unset value). Only
+matching bullets and version headers need enter assistant context:
 
 ```bash
-gh api -H "Accept: application/vnd.github.raw" repos/anthropics/claude-code/contents/CHANGELOG.md > /tmp/cclint-changelog.md
-test -s /tmp/cclint-changelog.md && grep -qm1 '^## ' /tmp/cclint-changelog.md || { echo "fetch failed: empty or headerless changelog"; exit 1; }
-grep -n '^## ' /tmp/cclint-changelog.md | head -8
-sed -n "1,$((PREV_HEADER_LINE-1))p" /tmp/cclint-changelog.md > /tmp/cclint-gap.md
-grep -nE '^## |settings|frontmatter|hook|tool|model|plugin|marketplace|schema|sandbox|permission' /tmp/cclint-gap.md
+gh api -H "Accept: application/vnd.github.raw" repos/anthropics/claude-code/contents/CHANGELOG.md > "$CHANGELOG"
+test -s "$CHANGELOG" && grep -qm1 '^## ' "$CHANGELOG" || { echo "fetch failed: empty or headerless changelog"; exit 1; }
+grep -n '^## ' "$CHANGELOG" | head -8
+# Locate the exact prior-version header; set PREV_HEADER_LINE from that match.
+sed -n "1,$((PREV_HEADER_LINE-1))p" "$CHANGELOG" > "$GAP"
+grep -nE '^## |settings|frontmatter|hook|tool|model|plugin|marketplace|schema|sandbox|permission' "$GAP"
 ```
 
 Read the ±3-line context of matching bullets only when classification needs
 it. The changelog is newest-first, so the gap is everything above the previous
 version's header.
 
-- NOT `aic claude` — it returns only the newest entry (and takes no `v`
-  prefix, and never wrap fetches in `2>/dev/null`: aic writes "version not
-  found" to stderr; silencing it fabricates empty output). If `gh` fails,
-  WebFetch on raw.githubusercontent.com works, but its small model caps
-  verbatim quotes at ~125 chars — cross-check long bullets with a second
-  targeted pass.
+- A maintainer-provided changelog copy or another available fetch route may
+  replace `gh`; check that it includes the entire requested gap. Do not rely
+  on `aic claude` for multi-version gaps: this setup observed only the newest
+  entry. Do not suppress fetch errors or infer coverage from a partial result.
 - Newest header == previous version → current. Report and stop; no Phase 6
   bump.
 - Classify the slice in-root against the Domain Classification Table and the
@@ -151,22 +156,25 @@ version's header.
 
 ### Phase 2 — Pin exact shapes against the binary (root)
 
-HARD GATE: never model from changelog prose — binary-grepped shapes only. One
+HARD GATE: never model a new shape from changelog prose. Verify against an
+installed binary at or beyond the candidate version; without one, classify
+only and report what remains unverified. For compiled binaries, use one
 discriminating grep per candidate:
 
 ```bash
 rg -a -o '.{0,100}<candidateKey>.{0,180}' "$BIN" | head -5
 ```
 
-The snippet determines string / [...string] / bool / enum members / union.
-When a candidate's names are already modeled (KnownTools, knownPluginFields,
-schema fields), the grep only confirms the surface didn't move — no edit
-follows.
+Use the surrounding evidence to determine the shape (string, array, bool,
+enum, or union). A matching snippet alone may be ambiguous or incomplete; if
+it does not establish the shape, leave the candidate unverified. For names
+already modeled (KnownTools, knownPluginFields, schema fields), check for
+actual changes before editing.
 
 ### Phase 3 — Root judgment (no dispatch)
 
-Drop anything hitting the scope guardrail. Genuinely ambiguous →
-AskUserQuestion. HARD GATE: emit a user-visible classification table BEFORE
+Drop anything hitting the scope guardrail. Ask the maintainer to resolve
+materially ambiguous scope before editing. HARD GATE: emit a user-visible classification table BEFORE
 any implementation — one row per changelog entry across the whole gap, not
 just the lintable ones:
 
@@ -182,8 +190,8 @@ just the lintable ones:
 - ❌ No — runtime/UX/CLI/SDK/bugfix, no lint surface
 
 End with a one-line summary: `N lintable, M actioned, K documented, rest
-skipped (runtime/UX/bugfixes).` `--dry-run` stops here. If zero candidates,
-still emit the table, then report and stop.
+skipped (runtime/UX/bugfixes).` A classification-only request stops here. If
+zero candidates, still emit the table, then report and stop.
 
 ### Phase 4 — Locate anchors (root `rg -n`)
 
@@ -207,11 +215,13 @@ aliases + test entries), using the Phase 4 spans as literal old→new edits:
   same group — hook events → `docs/rules/settings.md` +
   `docs/reference/schemas.md`; Known tools → `docs/reference/schemas.md`;
   schema fields → `docs/reference/schemas.md`.
-- After all groups: `go build ./... && go test ./internal/cue/ ./internal/lint/`
-  (scoped). Fix task-owned failures; rerun only what failed.
+- After all groups, select a focused build and test for the affected packages
+  (for example, `go build ./...` and `go test ./internal/cue/ ./internal/lint/`
+  when those packages changed). Fix task-owned failures; rerun only affected
+  checks. Do not run the full repository test suite by default.
 
-Use the dispatch escape hatch only for a >100-line single change, per the
-Local-vs-Dispatch Boundary.
+Use optional dispatch only when it makes a large change easier to review;
+the invoking assistant remains responsible for the final diff.
 
 ### Phase 6 — Docs (root direct edits)
 
@@ -243,13 +253,15 @@ gitignored). Then:
 
 Close:
 
-- **Commits** per the Phase 0 policy — clean tree → logical groups (code,
-  docs, AGENTS.md row + var together); pre-dirty tree → no commits, report
-  sequencing. No push, no tag unless explicitly requested.
-- **FUI**: two batched posts on the sweep thread — the classification record
-  and the final handoff. Before re-posting after a suspected delivery
-  failure, check `fui post list`: exit 0 ≠ indexed (apply-lock expiry);
-  `fui scan` reconciles.
+- Review the classification, scoped diff and check results with the maintainer.
+  Leave changes uncommitted unless a commit was explicitly authorized; never
+  push or tag without separate authorization. If authorized to commit, keep the
+  AGENTS.md row and `cmd/root.go` var in the same commit.
+- A personal FUI forum/thread is specific to the original maintainer's setup,
+  not a requirement for independent use. If the maintainer provides a
+  collaboration channel, send a concise classification and final handoff there;
+  otherwise include both in the assistant's response. Do not invent a FUI
+  command, thread, or delivery receipt.
 
 ## Gotchas
 
@@ -257,17 +269,17 @@ Close:
 |--------|---------|-----|
 | `gh api ... --jq '.content' \| base64 -d` | Contents API omits `content` for files > 1 MB — CHANGELOG.md crossed 1 MB; 200 OK with an empty body | Raw Accept header form (Phase 1 command) |
 | `aic claude` for multi-version gaps | Returns only the newest entry | `gh api` raw form; WebFetch fallback |
-| Plain `rg` on the claude binary | Versioned install is a compiled binary; plain rg says "binary file matches" | `rg -a` |
+| Plain `rg` on a compiled Claude binary | May only say "binary file matches" | `rg -a` |
 | Modeling from changelog prose | Prose misstates shapes | Phase 2 binary grep is the only shape source |
 | Skipping the classification table | Wastes effort on non-lintable changes | Phase 3 HARD GATE: full-entry table first |
 | Returning the full changelog into root context | Token sink | Slice + grep-triage only the gap |
-| WebFetch for the whole gap | Small model caps verbatim quotes at ~125 chars | Second targeted pass on long bullets |
+| Partial fetch of the gap | Missing versions can be overlooked | Confirm the previous-version header and inspect targeted context |
 | Stale `./cclint` binary | Phantom results | `go build -o cclint .` before smoke |
 | Unscoped `go test ./...` | Slow; scope creep | `./internal/cue/ ./internal/lint/` |
 | Committing AGENTS.md row without the root.go var | `TestClaudeCodeSurfaceMatchesAGENTSRow` breaks mid-history | Same commit, always |
-| Editing CLAUDE.md (symlink) | Edits the symlink, not the file | Edit physical AGENTS.md |
-| Committing over a pre-dirty tree | Half-committed sweep | Phase 0 policy: no commits, report sequencing |
-| Dispatching small mechanical edits | ~1.5 min + drift risk per drive | Root direct edits; hatch is >100-line only |
+| Editing an AGENTS.md alias | May edit a different file than intended | Edit the physical repo-root AGENTS.md |
+| Assuming a clean tree authorizes a commit | Unauthorized history change | Commit only with explicit authorization; preserve pre-existing changes |
+| Dispatching small mechanical edits | Adds coordination and drift risk | Prefer direct edits; review any delegated diff |
 
 ## Examples
 
@@ -295,10 +307,9 @@ Changelog says: "Added `EnterWorktree` tool"
 ## Success Criteria
 
 - [ ] Version gap identified or confirmed current
-- [ ] Candidate shapes verified against the installed binary, not changelog prose
+- [ ] Any modeled candidate shapes verified against a suitable installed binary, not changelog prose; unavailable verification reported
 - [ ] Classification table covered every gap entry before implementation
-- [ ] Code changes include tests; scoped `go build` + `go test` pass clean
-- [ ] Every mechanical task handled root-side; dispatch used only for a >100-line step, if any
-- [ ] `.claude/rules/lint-surface.md` surface + AGENTS.md `claude_code_last_updated` row updated, `cmd.ClaudeCodeSurface` bumped to match, same commit
-- [ ] Smoke fixture passed and was removed; commits (if any) follow the Phase 0 policy; no push or tag
-- [ ] FUI sweep thread carries the classification record and final handoff; whole invocation under 10 minutes
+- [ ] Code changes include tests; relevant focused checks pass or their limits are reported
+- [ ] Relevant `.claude/rules/lint-surface.md` entries and AGENTS.md `claude_code_last_updated` row updated; `cmd.ClaudeCodeSurface` matches when a version bump is justified
+- [ ] Scoped diff and focused checks reviewed; any smoke fixture removed
+- [ ] Classification, binary-verification limits and handoff reported; changes remain uncommitted unless explicitly authorized

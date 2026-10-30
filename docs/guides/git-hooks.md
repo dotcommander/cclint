@@ -1,24 +1,21 @@
 # Git Hooks
 
-Automated linting with Git hooks ensures code quality before commits are pushed.
+A local pre-commit hook can lint Claude Code components before a commit is created. Hooks run on each machine where they are installed; they do not replace checks in shared automation.
 
 ## Pre-Commit Hook
 
 ### Basic Shell Script
 
-Create `.git/hooks/pre-commit`:
+Create a pre-commit hook at your repository's Git hooks path (usually `.git/hooks/pre-commit`; use `git rev-parse --git-path hooks/pre-commit` to find it for worktrees or custom layouts):
 
 ```bash
 #!/bin/bash
 
-# Run cclint on staged files
-cclint --staged
-
-# Exit with cclint's status
-exit $?
+# Exit with cclint's status; only relevant staged components are selected.
+exec cclint --staged
 ```
 
-Make it executable:
+Make the hook executable (adjust the path if Git reports a different one):
 
 ```bash
 chmod +x .git/hooks/pre-commit
@@ -55,7 +52,7 @@ cclint --staged
 
 **Use case**: Pre-commit hooks - only validate files being committed.
 
-**Behavior**: Uses `git diff --cached --name-only --diff-filter=ACM` to find staged files.
+**Behavior**: Selects relevant staged `.md` and `.json` component paths. A staged component deletion triggers a full project lint so broken cross-file references can be reported. Untracked files are not selected until staged.
 
 ### `--diff`
 
@@ -67,7 +64,7 @@ cclint --diff
 
 **Use case**: Pre-commit validation when you want to catch issues in working directory.
 
-**Behavior**: Uses `git diff --name-only --diff-filter=ACM` to find all modified files.
+**Behavior**: Selects relevant tracked changes against `HEAD` plus untracked component files; a relevant tracked deletion triggers a full project lint. Files outside the configured root and non-component changes are skipped.
 
 ## Husky Integration
 
@@ -82,42 +79,13 @@ npx husky init
 
 ### Configure Pre-Commit Hook
 
-```bash
-npx husky set .husky/pre-commit "cclint --staged"
-```
+After `npx husky init`, replace the contents of `.husky/pre-commit` with the following. The older `npx husky set .husky/pre-commit` command is not used by current Husky:
 
-This creates `.husky/pre-commit`:
-
-```bash
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
+```sh
 cclint --staged
 ```
 
-### With Lint-Staged (Optional)
-
-For better performance with large repositories, combine with [lint-staged](https://github.com/okonet/lint-staged):
-
-```bash
-npm install -D lint-staged
-```
-
-Add to `package.json`:
-
-```json
-{
-  "lint-staged": {
-    "*.md": "cclint --file"
-  }
-}
-```
-
-Update `.husky/pre-commit`:
-
-```bash
-npx husky set .husky/pre-commit "npx lint-staged"
-```
+Ensure `cclint` is on the hook's `PATH`. Avoid invoking it through `lint-staged`: cclint selects staged files itself, including relevant deletions that filename-based runners may not pass through.
 
 ## Bypassing Hooks
 
@@ -130,17 +98,6 @@ git commit --no-verify -m "WIP: work in progress"
 ## Exit Codes
 
 - `0`: All checks passed
-- `1`: Linting errors found
-- Other: Tool error (missing config, invalid arguments, etc.)
+- `1`: Lint threshold reached or invocation/tool error; read the diagnostic to distinguish them.
 
-## CI/CD Integration
-
-For CI pipelines, prefer explicit checks over Git hooks:
-
-```bash
-# GitHub Actions example
-- name: Lint with cclint
-  run: cclint --format json --output cclint-report.json
-```
-
-Git hooks are not executed in CI environments.
+Git hooks run only where installed; run cclint explicitly in any separate validation environment.

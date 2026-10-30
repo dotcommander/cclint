@@ -115,7 +115,7 @@ func printTopIssues(summary *ComponentSummary, styles printStyles) {
 		if len(truncated) > 40 {
 			truncated = truncated[:37] + "..."
 		}
-		fmt.Println(renderSummaryRow(fmt.Sprintf("  %s: %-40s %3d", styles.dim.Render(fmt.Sprintf("%d.", i+1)), truncated, ic.count)))
+		fmt.Println(renderSummaryRow(fmt.Sprintf("  %s %-40s %3d", styles.dim.Render(fmt.Sprintf("%d.", i+1)), truncated, ic.count)))
 	}
 }
 

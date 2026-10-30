@@ -1,6 +1,6 @@
 # Plugin Lint Rules
 
-Documentation for all plugin-specific validation rules enforced by cclint.
+Reference for numbered plugin-manifest checks. The CLI also validates plugin paths and fields beyond this numbered list.
 
 ---
 
@@ -435,8 +435,10 @@ Various messages depending on detected pattern type
 
 ### Invalid Examples
 
+The comments below explain the failures; remove them to produce parseable JSON manifests.
+
 #### Reserved Word Violation (Rule 084)
-```json
+```jsonc
 {
   "name": "claude-helper",  // ❌ Contains reserved word "claude"
   "description": "A helper plugin",
@@ -446,9 +448,9 @@ Various messages depending on detected pattern type
 ```
 
 #### Name Too Long (Rule 085)
-```json
+```jsonc
 {
-  "name": "my-incredibly-long-plugin-name-that-exceeds-the-maximum-allowed-length-limit",  // ❌ 75 chars
+  "name": "my-incredibly-long-plugin-name-that-exceeds-the-maximum-allowed-length-limit",  // ❌ Over 64 chars
   "description": "A plugin with a very long name",
   "version": "1.0.0",
   "author": {"name": "Developer"}
@@ -456,7 +458,7 @@ Various messages depending on detected pattern type
 ```
 
 #### Invalid Semver (Rule 087)
-```json
+```jsonc
 {
   "name": "my-plugin",
   "description": "A plugin with invalid version",
@@ -466,10 +468,10 @@ Various messages depending on detected pattern type
 ```
 
 #### Short Description (Rule 092)
-```json
+```jsonc
 {
   "name": "my-plugin",
-  "description": "A plugin",  // ⚠️ Only 8 chars (suggestion)
+  "description": "A plugin",  // ⚠️ Short description (suggestion)
   "version": "1.0.0",
   "author": {"name": "Developer"}
 }

@@ -236,7 +236,7 @@ func DetectFileType(absPath, rootPath string) (FileType, error) {
 	case ".md":
 		return FileTypeUnknown, fmt.Errorf(
 			"cannot determine type: %s is a .md file but not in agents/, commands/, skills/, or output-styles/ directory. "+
-				"Use --type to specify (agent, command, skill, context, output-style)", relPath)
+				"Use --type to specify (agent, command, skill, context, rule, output-style)", relPath)
 	case ".json":
 		return FileTypeUnknown, fmt.Errorf(
 			"cannot determine type: %s is a .json file but not settings.json or plugin.json. "+

@@ -14,13 +14,23 @@ cclint plugins [flags]
 
 ## Description
 
-The `plugins` subcommand scans for and validates plugin manifest files in your
-Claude Code project. Plugins extend Claude Code with custom functionality and
-are defined via JSON manifests.
+The `plugins` positional component-type filter scans for and validates plugin
+manifest files in your Claude Code project. It is passed to the default lint
+command (`cclint plugins [flags]` invokes the default command with `plugins`
+as its positional type argument), not a separate subcommand. Plugins extend
+Claude Code with custom functionality and are defined via JSON manifests.
+
+See [Plugin Lint Rules](../../rules/plugins.md) for rule-level details.
 
 ### Supported File Patterns
 
-- `**/.claude-plugin/plugin.json`
+- `.claude-plugin/plugin.json` (plugin repo root)
+- `plugins/**/.claude-plugin/plugin.json` (layout root)
+- `.claude/plugins/**/.claude-plugin/plugin.json` (home/project root)
+
+Plugin-shipped agents, skills, and other components are linted under their own
+component types, not by the `plugins` filter. Use their corresponding filters or
+run `cclint` without a type filter.
 
 ### What Gets Validated
 
@@ -29,23 +39,23 @@ are defined via JSON manifests.
 - Name format: lowercase alphanumeric with hyphens, max 64 characters
 - Description quality: 50+ characters recommended
 - Reserved words: `anthropic`, `claude` are prohibited
-- File size limit: 5KB for optimal composition scoring
+- File-size composition scoring: full points through 1,000 bytes; fewer points above that
 
 ---
 
 ## File Size Limit
 
-Plugin manifests should stay under **5KB** for optimal quality scoring.
+Plugin manifests receive composition points through **5,000 bytes**; full composition points require **1,000 bytes or less**. The scorer uses bytes, not a 1,024-byte KiB. The shorthand ≤1KB, ≤2KB, ≤5KB, ≤10KB, and >10KB below uses decimal thousands of bytes.
 
 ### Scoring Tiers
 
-| Size | Score | Grade |
+| Size (bytes) | Composition points | Assessment |
 |------|-------|-------|
-| ≤1KB | 10/10 | Excellent |
-| ≤2KB | 8/10 | Good |
-| ≤5KB | 6/10 | OK |
-| ≤10KB | 3/10 | Large (warning) |
-| >10KB | 0/10 | Too large (error) |
+| ≤1,000 | 10/10 | Excellent |
+| ≤2,000 | 8/10 | Good |
+| ≤5,000 | 6/10 | OK |
+| ≤10,000 | 3/10 | Large |
+| >10,000 | 0/10 | Too large |
 
 ### Rationale
 
@@ -73,12 +83,12 @@ Plugin names must follow these conventions:
 
 ### Example Valid Names
 
+Each line below is a separate JSON example, not one manifest:
+
 ```json
-{
-  "name": "my-plugin",
-  "name": "github-integration",
-  "name": "dbtools-postgres"
-}
+{ "name": "my-plugin" }
+{ "name": "github-integration" }
+{ "name": "dbtools-postgres" }
 ```
 
 ### Example Violation Messages
@@ -125,12 +135,12 @@ The `version` field should follow [semver](https://semver.org/) format:
 
 ### Examples
 
+Each line below is a separate JSON example:
+
 ```json
-{
-  "version": "1.0.0",
-  "version": "2.3.1",
-  "version": "0.5.0-beta"
-}
+{ "version": "1.0.0" }
+{ "version": "2.3.1" }
+{ "version": "0.5.0-beta" }
 ```
 
 ### Example Violation Message

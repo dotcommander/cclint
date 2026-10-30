@@ -16,11 +16,11 @@ Skills follow the "thin skill → fat references" pattern:
 
 ### Why 500 Lines?
 
-The 500-line limit (with 10% tolerance for 550 lines) exists to enforce progressive disclosure and maintainable skills:
+cclint recommends 500 lines and emits a size diagnostic beyond 550 lines. Keep the entry point navigable and move long reference material out when helpful:
 
 - **SKILL.md is the entry point** - provides quick navigation to methodology
 - **references/ for heavy content** - schemas, patterns, examples loaded on demand
-- **500 lines is enough** for any core methodology if references are used properly
+- **500 lines is a guideline** for the core methodology, not a requirement to split useful content mechanically
 - **Keeps skills discoverable** - short skills load faster and are easier to scan
 
 When skills grow beyond 500 lines, it's a signal that reference material should move to a `references/` subdirectory. This keeps the core methodology accessible while preserving detailed documentation.
@@ -31,11 +31,11 @@ cclint enforces the 500-line target with a 10% tolerance:
 
 | Lines | Status | Meaning |
 |-------|--------|---------|
-| <=400 | Excellent | Very focused core methodology |
-| <=500 | Good | Well within limits |
+| <=250 | Excellent | Very focused core methodology |
+| <=400 | Good | Well within limits |
 | <=550 | OK | Within tolerance (500 ± 10%) |
 | >550 | Over limit | Exceeds best practice |
-| >600 | Needs splitting | Strongly exceeds, move content to references/ |
+| >660 | Fat skill | Strongly exceeds, move content to references/ |
 
 ---
 
@@ -43,9 +43,9 @@ cclint enforces the 500-line target with a 10% tolerance:
 
 ### Quick Reference Table
 
-The `## Quick Reference` table is the semantic routing mechanism for skills. It answers: "How do I use this skill?" and provides a navigation map for Claude to find relevant patterns.
+The `## Quick Reference` table is a useful navigation aid for skills. It answers: "How do I use this skill?" and provides a navigation map for Claude to find relevant patterns.
 
-**Required structure:**
+**Example structure:**
 
 ```markdown
 ## Quick Reference
@@ -56,7 +56,7 @@ The `## Quick Reference` table is the semantic routing mechanism for skills. It 
 | [Another intent] | [Another action] |
 ```
 
-**Why it's required:**
+**Why it helps:**
 - **Semantic routing** - Claude matches user intent to actions
 - **Pattern navigation** - Shows available methodology patterns
 - **Skill composition** - Enables cross-references to other skills
@@ -82,7 +82,7 @@ The `## When to Use` section documents trigger patterns. It answers: "When shoul
 
 **Best practices:**
 - Use bullet points for readability
-- Include both reactive and proactive triggers
+- Include reactive or proactive triggers as appropriate
 - Reference domain-specific keywords
 - Mention related task patterns
 
@@ -90,7 +90,7 @@ The `## When to Use` section documents trigger patterns. It answers: "When shoul
 
 ## Skill Frontmatter
 
-Required fields:
+The CUE schema requires `name` and `description`:
 
 ```yaml
 ---
@@ -109,7 +109,7 @@ description: Brief summary. Use when/for/proactively [trigger pattern].
 
 ### Description Guidelines
 
-**Must include trigger phrases** for discoverability:
+Trigger phrases help discovery; cclint suggests them when absent rather than requiring a particular phrase:
 
 - `Use when...` - reactive invocation
 - `Use for...` - domain scope
@@ -122,7 +122,7 @@ description: Brief summary. Use when/for/proactively [trigger pattern].
 
 **Length and style:**
 
-- Minimum 50 characters for sufficient context
+- Aim for 50+ characters for sufficient context (shorter descriptions receive a suggestion)
 - No XML-like tags (`<tag>`)
 - Describe what, not who
 - Include domain keywords for searchability
@@ -200,32 +200,31 @@ my-skill/
 
 ### Referencing from SKILL.md
 
-```markdown
+````markdown
 ## Deep Dive: [Topic]
 
 For detailed [topic] documentation:
 
-```markdown
+```text
 Read(references/topic.md)
 ```
 
 Or inline: `See [reference guide](references/topic.md) for details.`
-```
+````
 
 ### Reference Best Practices
 
-- Keep references one level deep (no chains)
-- Use relative paths only
-- Each reference should be self-contained
-- Reference files should not link to other references
+- Use relative links so the skill remains portable
+- Keep references navigable; deeper links are fine when they genuinely help
+- Make each reference understandable from the entry point
 
 ---
 
 ## Complete Example
 
-Here is a passing skill that demonstrates all best practices:
+Here is an illustrative skill; run cclint on an actual `SKILL.md` to see project-specific findings:
 
-```markdown
+````markdown
 ---
 name: debugging-methodology
 description: Systematic debugging with RPI methodology (Research-Plan-Implement). Use when investigating bugs, analyzing stack traces, diagnosing test failures, or troubleshooting production issues. Proactively use when errors lack clear root cause.
@@ -388,17 +387,16 @@ try {
 - Fix breaks other functionality
 - No test added for regression
 - Root cause unknown
-```
+````
 
 This skill:
-- Is 185 lines (well under 500)
-- Has Quick Reference table for semantic routing
+- Has a Quick Reference table for semantic routing
 - Has When to Use section with trigger patterns
 - Includes trigger phrases in description
 - Has Anti-Patterns and Examples sections
 - Uses third-person description
 - Demonstrates references/ usage
-- Follows all best practices
+- Can be adapted to the actual task and checked with cclint
 
 ---
 
@@ -411,17 +409,16 @@ Before considering a skill complete, verify:
 - [ ] No consecutive hyphens in name
 - [ ] Name does not start or end with hyphen
 - [ ] Name matches parent directory
-- [ ] Description includes trigger phrase (Use when/for/proactively)
-- [ ] Description is 50+ characters
+- [ ] Description explains when this skill helps
+- [ ] Description gives enough context (aim for 50+ characters)
 - [ ] Description is in third person
 - [ ] Description contains no XML tags
 - [ ] Total lines ≤ 550 (preferably ≤ 500)
 - [ ] `## Quick Reference` table present
-- [ ] `## When to Use` section present
-- [ ] `## Anti-Patterns` section present
-- [ ] `## Examples` section present
+- [ ] Usage conditions are clear (a separate section is optional)
+- [ ] Anti-patterns and examples are included when useful (cclint suggests them when absent)
 - [ ] No reserved words in name (anthropic, claude)
-- [ ] References use relative paths (not / or ~)
+- [ ] References use relative paths when the skill should be portable
 
 ---
 

@@ -14,14 +14,20 @@ cclint skills [flags]
 
 ## Description
 
-The `skills` subcommand scans for and validates skill definition files in
-your Claude Code project. Skills contain methodology, patterns, and reference
-material for specialist domains.
+The `skills` positional component-type filter scans for and validates skill
+definition files in your Claude Code project. It is passed to the default lint
+command (`cclint skills [flags]` invokes the default command with `skills` as
+its positional type argument), not a separate subcommand. Skills contain
+methodology, patterns, and reference material for specialist domains.
+
+See [Skills Lint Rules](../../rules/skills.md) for rule-level details.
 
 ### Supported File Patterns
 
 - `.claude/skills/**/SKILL.md`
 - `skills/**/SKILL.md`
+- Lowercase `skill.md` at those locations is discovered so its naming error can be reported.
+- Plugin-shipped skills are also discovered under marketplace plugin `skills/` directories.
 
 ### What Gets Validated
 
@@ -30,7 +36,7 @@ material for specialist domains.
 - Name format (agentskills.io compliance)
 - Line count limit (500 lines ±10% tolerance)
 - Description quality (third-person, trigger phrases)
-- Required sections (Quick Reference, Anti-Patterns)
+- Suggested sections (Quick Reference, Anti-Patterns) and their scoring impact
 - Directory structure validation
 
 ---
@@ -97,7 +103,7 @@ understand when to use the skill based on user questions or task context.
 
 ### Validation
 
-- Checks for `## Quick Reference` heading (case-insensitive)
+- Scores the presence of a `## Quick Reference` heading (case-insensitive); absence reduces quality scoring, not schema validity
 - Table format recommended: `| User Question | Action |`
 - Weighted 8-10 points in quality scoring
 

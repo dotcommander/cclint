@@ -37,8 +37,8 @@ cclint --root /path/to/project agents
 # Check required fields for your component type
 cclint --type agent ./my-file.md
 
-# Verify YAML syntax
-cat ./my-file.md | yq eval '.'
+# Inspect the YAML between the opening and closing --- lines.
+# A Markdown file is not itself a YAML document; do not pipe the whole file to yq.
 
 # Reference the schema documentation
 # See: docs/reference/schemas.md
@@ -51,7 +51,7 @@ cat ./my-file.md | yq eval '.'
 | Agent | `name`, `description` |
 | Command | No required frontmatter fields (`name` is optional) |
 | Skill | `name`, `description` |
-| Plugin | `name`, `version`, `author.name` |
+| Plugin | `name`, `description`, `author.name` |
 
 ## Issue: Type Detection Failure
 
@@ -66,7 +66,7 @@ cat ./my-file.md | yq eval '.'
 # Explicitly specify type
 cclint --type agent ./custom-name.md
 
-# Available types: agent, command, skill, plugin
+# Available types: agent, command, skill, settings, context, plugin, rule, output-style
 ```
 
 ## Issue: Baseline Not Found
@@ -99,8 +99,8 @@ cclint --baseline-path /custom/path/baseline.json --baseline agents
 # Rebuild cclint to embed schemas
 go build -o cclint .
 
-# Verify schemas are embedded
-cclint --verbose agents
+# Run the freshly built binary (not an older cclint on PATH)
+./cclint --verbose agents
 ```
 
 ## Issue: Permission Denied
@@ -116,8 +116,8 @@ cclint --verbose agents
 # Check file permissions
 ls -la ./agents/
 
-# Fix permissions if needed
-chmod 644 ./agents/*.md
+# If you own the files and intend to change their permissions, adjust only
+# the affected file; otherwise ask the owner for read access.
 ```
 
 ## Issue: Orphan Skill Warning
@@ -131,9 +131,9 @@ chmod 644 ./agents/*.md
 ```bash
 # This is informational - not an error
 # Either:
-# 1. Reference the skill in a component: Skill(skill-name)
-# 2. Remove the unused skill file
-# 3. Suppress with: cclint --quiet skills
+# 1. Reference the skill from a component if it is intended for reuse.
+# 2. If intentionally standalone, leave the informational suggestion as is.
+# --quiet suppresses all report output, not just orphan suggestions.
 ```
 
 ## Issue: Scoring Inconsistency
@@ -142,16 +142,16 @@ chmod 644 ./agents/*.md
 
 **Cause**:
 - Code changes between runs
-- Different baseline filtering active
-- Cached scoring data
+- Different content, root, or scoring mode (`--scores` versus a plain lint run)
+- Baseline filtering changes which findings are displayed, not the score calculation
 
 **Solution**:
 ```bash
-# Run without baseline for true scores
-cclint --scores agents
+# Compare scores for the same files and root
+cclint --root /path/to/project --scores agents
 
-# Verify baseline state
-cclint --baseline agents
+# Compare findings separately if baseline filtering is enabled
+cclint --root /path/to/project --baseline agents
 ```
 
 ## Issue: Git Integration Not Working
@@ -160,24 +160,26 @@ cclint --baseline agents
 
 **Cause**:
 - Not in a git repository
-- No staged or modified files
+- No relevant staged components (`--staged`) or relevant tracked/untracked changes (`--diff`)
+- Selected files are outside the configured root or excluded; a component deletion may trigger full lint
 
 **Solution**:
 ```bash
 # Verify git status
 git status
 
-# Stage files first
-git add ./agents/my-agent.md
-cclint --staged agents
+# Inspect the current selection without changing the index
+git diff --cached --name-status
+git status --short
 
-# Or lint all uncommitted changes
-cclint --diff agents
+# Git selection flags do not accept positional type filters
+cclint --staged
+cclint --diff
 ```
 
 ## Issue: Config File Not Loaded
 
-**Symptom**: Custom settings in `.cclintrc` ignored
+**Symptom**: Custom settings in `.cclintrc.yaml`, `.cclintrc.yml`, or `.cclintrc.json` appear ignored
 
 **Cause**:
 - Config file in wrong directory
@@ -191,8 +193,8 @@ cclint --diff agents
 .cclintrc.yaml
 .cclintrc.yml
 
-# Verify syntax
-cat .cclintrc.json | jq .
+# Verify JSON syntax (if using the JSON variant)
+jq . .cclintrc.json
 
 # Use environment variables as alternative
 export CCLINT_FORMAT=json

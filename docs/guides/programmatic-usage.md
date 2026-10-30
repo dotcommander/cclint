@@ -2,7 +2,7 @@
 
 Use cclint internals from code inside this repository (for contributors and tests).
 
-`internal/...` packages are not a supported external API surface.
+`internal/...` packages are accessible only within the `github.com/dotcommander/cclint` import tree and are not a supported external API surface. For other projects, invoke the `cclint` CLI instead. The snippets below show isolated calls; handle returned errors before using values.
 
 ## Core Internal APIs
 
@@ -34,20 +34,23 @@ Validate frontmatter against CUE schemas.
 ```go
 import "github.com/dotcommander/cclint/internal/cue"
 
-// Create validator
+// Create validator and load embedded schemas before validation.
 validator := cue.NewValidator()
-validator.LoadSchemas()
+if err := validator.LoadSchemas(); err != nil {
+    panic(err)
+}
 
 // Parse frontmatter
 fm, err := cue.ParseFrontmatter(markdownContent)
 
 // Validate by type
-errors, err := validator.ValidateAgent(fm.Data)
-errors, err := validator.ValidateCommand(fm.Data)
-errors, err := validator.ValidateSkill(fm.Data)
+agentErrors, err := validator.ValidateAgent(fm.Data)
+commandErrors, err := validator.ValidateCommand(fm.Data)
+skillErrors, err := validator.ValidateSkill(fm.Data)
+// Inspect err and the returned diagnostics for each call.
 
-// Validate file directly
-errors, err := validator.ValidateFile(path, content, "agent")
+// Validate file directly; diagnostics can be returned with nil err.
+fileErrors, err := validator.ValidateFile(path, content, "agent")
 ```
 
 **Types:**
@@ -61,8 +64,11 @@ Orchestrate linting operations.
 ```go
 import "github.com/dotcommander/cclint/internal/lint"
 
-// Create context (auto-detects project root)
-ctx, err := lint.NewLinterContext("", false, false, false)
+// Empty root uses project.FindProjectRoot("."); nil means no exclusions.
+ctx, err := lint.NewLinterContext("", false, false, false, nil)
+if err != nil {
+    panic(err)
+}
 
 // Access components
 validator := ctx.Validator
@@ -71,7 +77,7 @@ crossValidator := ctx.CrossValidator
 ```
 
 **Types:**
-- `LinterContext`: RootPath, Quiet, Verbose, Validator, Discoverer, Files, CrossValidator
+- `LinterContext`: RootPath, Quiet, Verbose, NoCycleCheck, Validator, Discoverer, Files, CrossValidator
 
 ### Scoring (`internal/scoring`)
 
@@ -114,7 +120,9 @@ func main() {
     }
 
     validator := cue.NewValidator()
-    validator.LoadSchemas()
+    if err := validator.LoadSchemas(); err != nil {
+        panic(err)
+    }
 
     errors, err := validator.ValidateFile(
         "agents/my-agent.md",
@@ -143,16 +151,18 @@ import (
 )
 
 func main() {
-    ctx, _ := lint.NewLinterContext("/project", false, false, false)
+    ctx, err := lint.NewLinterContext("/project", false, false, false, nil)
+    if err != nil {
+        panic(err)
+    }
 
     agents := ctx.FilterFilesByType(discovery.FileTypeAgent)
     for _, agent := range agents {
-        errors, _ := ctx.Validator.ValidateFile(
-            agent.Path,
-            agent.Contents,
-            "agent",
-        )
-        // Process errors...
+        diagnostics, err := ctx.Validator.ValidateFile(agent.Path, agent.Contents, "agent")
+        if err != nil {
+            panic(err)
+        }
+        _ = diagnostics // Process diagnostics (which can be nonempty with nil err).
     }
 }
 ```
@@ -171,9 +181,15 @@ import (
 )
 
 func main() {
-    raw, _ := os.ReadFile("agents/my-agent.md")
+    raw, err := os.ReadFile("agents/my-agent.md")
+    if err != nil {
+        panic(err)
+    }
     content := string(raw)
-    fm, _ := cue.ParseFrontmatter(content)
+    fm, err := cue.ParseFrontmatter(content)
+    if err != nil {
+        panic(err)
+    }
 
     scorer := &scoring.AgentScorer{}
     quality := scorer.Score(content, fm.Data, fm.Body)
@@ -186,11 +202,11 @@ func main() {
 
 ## Verification
 
-Run these from the repository root after changing code that uses internal packages:
+For code changes, choose a focused check from the repository root; these examples do not require a full test suite:
 
 ```bash
 go build ./...
-go test ./...
+go test ./internal/lint/... # or the focused package you changed
 ```
 
 ## Related docs

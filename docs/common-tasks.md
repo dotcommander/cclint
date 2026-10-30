@@ -160,9 +160,9 @@ automatic selection and reference discovery.
 
 ## Related docs
 
-- Setup path: `docs/setup.md`
-- Command reference: `docs/reference/commands/commands.md`
-- Rule reference: `docs/rules/README.md`
+- [Setup](setup.md)
+- [Command reference](reference/commands/commands.md)
+- [Rule reference](rules/README.md)
 
 Baseline snapshots created now use version 1.1 fingerprints. Version 1.0 snapshots
 still match legacy fingerprints for the same file and diagnostic source; loading a

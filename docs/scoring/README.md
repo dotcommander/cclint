@@ -2,6 +2,8 @@
 
 ## Overview
 
+Scoring is separate from lint severity: an advisory finding does not automatically subtract points, and a high score does not suppress errors. See [lint rule categories](../rules/README.md) for validation findings.
+
 **Total Score**: 0-100 points across four categories
 
 **Categories**:
@@ -23,9 +25,9 @@
 
 ## Agent Scoring
 
-**Total**: 100 points (Structural: 35, Practices: 35, Composition: 10, Documentation: 10)
+**Total**: 100 points (Structural: 40, Practices: 40, Composition: 10, Documentation: 10)
 
-### Structural (35 points)
+### Structural (40 points)
 
 | Metric | Points | Criteria |
 |--------|--------|----------|
@@ -34,17 +36,17 @@
 | description | 5 | Non-empty string |
 | model | 5 | Non-empty string |
 | tools | 5 | Non-empty string or array |
-| **Required Sections** | **15** | |
-| Foundation section | 5 | Matches `## Foundation` (case-insensitive) |
+| **Required Sections** | **20** | |
+| Foundation section | 10 | Matches `## Foundation` (case-insensitive) |
 | Phase workflow | 4 | Contains `### Phase` pattern |
 | Success Criteria | 3 | Matches `## Success Criteria` (case-insensitive) |
 | Edge Cases | 3 | Matches `## Edge Cases` (case-insensitive) |
 
-### Practices (35 points)
+### Practices (40 points)
 
 | Metric | Points | Criteria |
 |--------|--------|----------|
-| Skill: reference | 10 | Detects: `Skill: foo`, `**Skill**: foo`, `Skill(foo)`, `Skills:` |
+| Skill: reference | 15 | Detects: `Skill: foo`, `**Skill**: foo`, `Skill(foo)`, `Skills:` |
 | Anti-Patterns section | 5 | Contains `## Anti-Patterns` (case-insensitive) |
 | Expected Output section | 5 | Contains `## Expected Output` (case-insensitive) |
 | HARD GATE markers | 5 | Contains `HARD GATE` (case-insensitive) |
@@ -93,14 +95,14 @@
 | description | 10 | Non-empty string |
 | argument-hint | 10 | Non-empty string |
 | **Delegation Pattern** | **10** | |
-| Task() delegation | 10 | Contains `Task(...)` pattern in body |
+| Task()/Agent() delegation | 10 | Contains `Task(...)` or `Agent(...)` pattern in body |
 
 ### Practices (40 points)
 
 | Metric | Points | Criteria |
 |--------|--------|----------|
 | Success criteria | 15 | Contains "success criteria" (case-insensitive) or checkbox `- [ ]` |
-| Task delegation | 15 | Body contains ≥1 `Task(` call |
+| Task/Agent delegation | 15 | Body contains ≥1 `Task(` or `Agent(` call |
 | Flags documented | 10 | Contains `## Flags` or `--flag` pattern |
 
 ### Composition (10 points)
@@ -263,11 +265,11 @@ Section requirements vary by type.
 
 ### Category Weights
 
-All component types use the same category structure but with different maximum points:
+These four scored component types use the same category maximums:
 
 | Component | Structural | Practices | Composition | Documentation |
 |-----------|------------|-----------|-------------|---------------|
-| Agent | 35 | 35 | 10 | 10 |
+| Agent | 40 | 40 | 10 | 10 |
 | Command | 40 | 40 | 10 | 10 |
 | Skill | 40 | 40 | 10 | 10 |
 | Plugin | 40 | 40 | 10 | 10 |
@@ -294,22 +296,6 @@ Common scoring utilities:
 - `ScoreComposition()`: Applies thresholds with tolerance
 - `NewQualityScore()`: Creates final 0-100 score with tier grade
 
-### Source Attribution
+### Threshold Ownership
 
-Scoring thresholds are configurable per project via `.cclintrc.json`:
-
-```json
-{
-  "scoring": {
-    "agent": {
-      "composition": {
-        "excellent": 120,
-        "good": 180,
-        "ok": 220
-      }
-    }
-  }
-}
-```
-
-Default values are shown in this reference.
+These thresholds are defined in `internal/scoring/` and are not currently loaded from `.cclintrc.json`. The tables above describe the implemented defaults.

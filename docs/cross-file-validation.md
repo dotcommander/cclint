@@ -13,6 +13,7 @@ cclint performs cross-file validation to ensure components reference each other 
 3. **Orphan Detection** - Skills not referenced by any agent/command
 4. **Tool Validation** - Commands using tools they haven't declared
 5. **Ghost Trigger Detection** - Trigger mapping tables routing to skills or agents that don't exist
+6. **Skill Reference Files** - Missing `references/*.md` targets and unmentioned reference files
 
 ## Skill Reference Detection
 
@@ -29,9 +30,9 @@ cclint uses multiple regex patterns to detect skill references in agent files:
 
 ### Code Block Support
 
-Skill references inside markdown code blocks are fully supported:
+Skill references inside markdown code blocks are also detected (the extractor does not exclude fenced blocks):
 
-```markdown
+~~~markdown
 ## Foundation
 
 **MANDATORY: Load skills:**
@@ -40,7 +41,7 @@ Skill: first-skill     # Detected ✓
 Skill: second-skill    # Detected ✓
 Skill: third-skill     # Detected ✓
 ```
-```
+~~~
 
 All three skills are detected and validated.
 
@@ -49,14 +50,14 @@ All three skills are detected and validated.
 The detection uses this regex pattern:
 
 ```go
-regexp.MustCompile(`(?m)^[^*\n]*\bSkill:\s*([a-z0-9][a-z0-9-]*)`)
+regexp.MustCompile(`(?m)^[^*\n]*\bSkill:[ \t]*(` + skillRefNamePattern + `)`) // plain form
 ```
 
 Key components:
 - `(?m)` - Multiline mode, `^` matches start of each line
 - `[^*\n]*` - Match any chars except `*` (bold markers) or `\n` (newlines)
 - `\bSkill:` - Word boundary followed by "Skill:"
-- `([a-z0-9][a-z0-9-]*)` - Capture skill name (lowercase, hyphens)
+- `skillRefNamePattern` - Capture a local or `plugin:skill`-qualified name; other regexes handle bold, function and list forms
 
 **Important:** The `\n` exclusion is critical. Without it, Go's regex engine would greedily match across newlines, causing only the last skill in a block to be detected.
 
@@ -70,7 +71,7 @@ Circular dependencies occur when components form a loop in their reference chain
 agent-a → skill-b → agent-c → skill-d → agent-a  (cycle!)
 ```
 
-These cycles can cause infinite loops in Claude Code when agents delegate to each other.
+These cycles indicate potentially recursive delegation or loading paths; the checker reports graph references rather than executing them.
 
 ### How It Works
 
@@ -111,7 +112,8 @@ cclint --no-cycle-check agents
 An orphaned skill is one with no incoming references from:
 - Commands (via `Task(X-specialist)` delegation)
 - Agents (via `Skill:` declarations)
-- Other skills (via cross-references)
+- Other skills (via name mentions)
+- Skill trigger routing tables in `references/*.md`
 
 ### Output
 
@@ -284,21 +286,21 @@ $ cclint commands
 
 ### Skills in Comments
 
-Skill references in markdown comments are NOT detected:
+An inline comment prefixed with `<!--` does not match the plain `Skill:` regex:
 
 ```markdown
 <!-- Skill: hidden-skill -->  ← Not detected (inside comment)
 ```
 
-This is intentional - commented references shouldn't count.
+Do not rely on Markdown comments to hide references: extraction is regex-based, and a `Skill:` line inside a multiline comment can still match. Remove stale references rather than commenting them out.
 
 ## Best Practices
 
 ### Wire Skills to Agents
 
-Every skill should be referenced by at least one agent:
+To avoid an orphan suggestion, reference the skill from an agent, command, another skill, or trigger map. For example, in an agent:
 
-```markdown
+~~~markdown
 ## Foundation
 
 **MANDATORY: Load skills based on context:**
@@ -306,7 +308,7 @@ Every skill should be referenced by at least one agent:
 Skill: primary-skill      # Always loaded
 Skill: secondary-skill    # When applicable
 ```
-```
+~~~
 
 ### Use Consistent Formatting
 
@@ -317,9 +319,9 @@ Prefer the plain `Skill: name` format for clarity:
 Skill: my-skill
 
 # Also good (in code blocks)
-```
+~~~text
 Skill: my-skill
-```
+~~~
 
 # Avoid (harder to read)
 **Skill**: my-skill

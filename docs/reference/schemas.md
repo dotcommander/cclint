@@ -23,10 +23,12 @@ Schemas are embedded in the cclint binary via `//go:embed`:
 
 ```
 internal/cue/schemas/
-├── agent.cue      # Agent frontmatter schema
-├── command.cue    # Command frontmatter schema
-├── skill.cue      # Skill frontmatter schema
-└── settings.cue   # Settings.json schema
+├── agent.cue           # Agent frontmatter schema
+├── command.cue         # Command frontmatter schema
+├── skill.cue           # Skill frontmatter schema
+├── settings.cue        # Settings.json schema
+├── claude_md.cue       # Context-file schema (reference links, sections)
+└── component_hooks.cue # Definitions-only fragment composed into agent/command/skill schemas
 ```
 
 ## Agent Schema
@@ -46,23 +48,24 @@ internal/cue/schemas/
 
 | Field | Type | Values | Description |
 |-------|------|--------|-------------|
-| `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit` | Model preference |
+| `model` | string | See [Model Values](#model-values) | Model preference |
 | `color` | string | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, `cyan`, `gray`, `magenta`, `white` | Terminal color |
 | `tools` | `*`, string, array | `*` for all, or tool names | Tool access allowlist (agents use `tools:` not `allowed-tools:`) |
 | `disallowedTools` | `*`, string, array | Tool names | Tool access denylist |
-| `permissionMode` | string | `default`, `acceptEdits`, `delegate`, `dontAsk`, `bypassPermissions`, `plan` | Permission handling |
+| `permissionMode` | string | `default`, `acceptEdits`, `bypassPermissions`, `plan`, `dontAsk`, `auto` | Permission handling |
 | `skills` | string | comma-separated skill names | Skills to preload into agent context |
-| `hooks` | object | Event → hooks mapping | Agent-level hooks (PreToolUse, PostToolUse, Stop) |
+| `hooks` | object | Event → hooks mapping | Agent-level hooks; see [Component Hooks](#component-hooks) |
 
 ### Known Tools
 
 ```
-Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, Task, NotebookEdit,
-WebFetch, WebSearch, TodoWrite, BashOutput, KillBash, ExitPlanMode,
-AskUserQuestion, Agent, TaskCreate, TaskUpdate, TaskList, TaskGet, TaskStop,
-EnterPlanMode, EnterWorktree, ExitWorktree, KillShell, TaskOutput, LSP, Skill,
-DBClient, SendMessage, Monitor, RemoteTrigger, CronCreate, CronDelete, CronList,
-Workflow, ScheduleWakeup, PushNotification, REPL
+Read, Write, Edit, MultiEdit, Glob, Grep, LS, Bash, Task, Agent,
+NotebookEdit, WebFetch, WebSearch, TodoWrite, AskUserQuestion, TaskCreate,
+TaskUpdate, TaskList, TaskGet, TaskStop, KillBash, KillShell, Skill, LSP,
+DBClient, SendMessage, Monitor, RemoteTrigger, Workflow, EnterPlanMode,
+ExitPlanMode, EnterWorktree, ExitWorktree, CronCreate, CronDelete, CronList,
+ScheduleWakeup, PushNotification, REPL, EndConversation, SendFeedback,
+JavaScript, ToolSearch, SendUserMessage
 ```
 
 ### Hooks Format
@@ -82,15 +85,21 @@ hooks:
           command: /cleanup.sh
 ```
 
-**Hook Events**: `PreToolUse`, `PostToolUse`, `Stop`
+### Component Hooks
 
-**Hook Fields**:
+The shared component hook schema (`component_hooks.cue`) accepts any event-name key, rather than restricting the map to a fixed list. Component hook entries contain optional `matcher` and required `hooks` arrays; their commands have `type: command` and optional `command` or exec-form `args`. This is narrower than [settings hooks](#settings-schema): component hooks do not accept `prompt`, `agent`, `http`, or `mcp_tool` command types.
+
+**Component hook fields**:
 - `matcher` (optional): Tool name pattern to match
 - `hooks`: Array of hook commands
   - `type`: Must be `"command"`
   - `command`: Shell command to execute
   - `timeout`: Timeout in seconds (optional)
   - `once`: Run only once per session (optional, v2.1.0+)
+  - `args`: Exec-form argument array (optional alternative to `command`)
+  - `continueOnBlock`: Continue after a PostToolUse rejection (optional)
+  - `onFailure`: `continue` or `block` (optional)
+  - `if`: Conditional expression (optional)
 
 ### Example
 
@@ -134,14 +143,14 @@ hooks:
 | `description` | string | max 1024 chars | Command description for help |
 | `allowed-tools` | `*`, string, array | `*` for all, or tool names | Tools available to command (commands use `allowed-tools:` not `tools:`) |
 | `argument-hint` | string | - | Argument hint text for help |
-| `model` | string | `sonnet`, `opus`, `haiku`, `sonnet[1m]`, `opusplan`, `inherit` | Model preference |
+| `model` | string | See [Model Values](#model-values) | Model preference |
 | `disable-model-invocation` | bool | - | Prevent SlashCommand tool from calling |
 | `disallowed-tools` | `*`, string, array | Tool names | Tools removed from model while command is active (v2.1.152+) |
 | `hooks` | object | Event → hooks mapping | Command-level hooks |
 
 ### Hooks Format
 
-Same format as Agent hooks (PreToolUse, PostToolUse, Stop).
+Same [component hook format](#component-hooks) as agents.
 
 ### Example
 
@@ -177,7 +186,7 @@ hooks:
 | Field | Type | Constraints | Description |
 |-------|------|-------------|-------------|
 | `name` | string | `^[a-z0-9]+(-[a-z0-9]+)*$`, max 64 chars | No leading/trailing/consecutive hyphens |
-| `description` | string | non-empty, max 250 chars | Skill description |
+| `description` | string | non-empty, max 1536 chars | Skill description |
 
 ### Optional Claude Code Fields
 
@@ -192,7 +201,7 @@ hooks:
 | `context` | string | `fork` | Run in forked sub-agent context |
 | `agent` | string | Agent name | Agent type for execution |
 | `disallowed-tools` | `*`, string, array | Tool names | Tools removed from model while skill is active (v2.1.152+) |
-| `hooks` | object | Event → hooks mapping | Skill-level hooks (PreToolUse, PostToolUse, Stop) |
+| `hooks` | object | Event → hooks mapping | Skill-level [component hooks](#component-hooks) |
 
 ### Optional AgentSkills.io Fields
 
@@ -209,7 +218,7 @@ Available in skill hook commands:
 
 ### Hooks Format
 
-Same format as Agent hooks (PreToolUse, PostToolUse, Stop).
+Same [component hook format](#component-hooks) as agents.
 
 ### Example
 
@@ -316,6 +325,13 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
   - `url`: URL for HTTP hooks (required when type is "http") (v2.1.63+)
   - `headers`: Additional HTTP headers, `{[string]: string}` (http only, v2.1.63+)
   - `allowedEnvVars`: Env vars allowed in header interpolation, `[...string]` (http only, v2.1.63+)
+  - `async`: Run the hook asynchronously (settings hooks only)
+  - `args`: Exec-form arguments, `[...string]` — alternative to `command` for type=`command` (v2.1.139+)
+  - `continueOnBlock`: Feed the hook's rejection reason back to Claude and continue the turn (PostToolUse only, v2.1.139+)
+  - `if`: Condition expression gating hook execution
+  - `model`: Model override for type=`prompt` and type=`agent` hooks (v2.1.300+)
+  - `prompt`: Prompt text (for type=`prompt`)
+  - `onFailure`: `continue` or `block` when a hook cannot start, times out, or exits unexpectedly (v2.1.295+)
 
 ## Validation Rules Summary
 
@@ -323,7 +339,7 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
 |-----------|-----------------|-------------------|------------|
 | Agent | `name`, `description` | `^[a-z0-9-]+$` | name: 64, description: 1024 |
 | Command | None | `^[a-z0-9-]+$` (if provided) | name: 64, description: 1024 |
-| Skill | `name`, `description` | `^[a-z0-9]+(-[a-z0-9]+)*$` | name: 64, description: 1024 |
+| Skill | `name`, `description` | `^[a-z0-9]+(-[a-z0-9]+)*$` | name: 64, description: 1536 |
 | Settings | None | - | - |
 
 ## Common Patterns
@@ -340,12 +356,16 @@ Standard model names:
 - `sonnet` - Default model for most tasks
 - `opus` - Complex reasoning, architecture
 - `haiku` - Quick tasks, lookups
+- `fable` - Fable model
+- `best` - Best available model
 - `sonnet[1m]` - Extended context
+- `opus[1m]`, `fable[1m]`, `haiku[1m]`, `best[1m]` - Extended-context variants
 - `opusplan` - Planning mode
+- `opusplan[1m]` - Planning mode with extended context
 - `inherit` - Use parent model
 - `claude-opus-5` - Claude Opus 5 alias (v2.1.219+)
 
-Full model names are also accepted (e.g., `claude-sonnet-4-20250514`).
+Full model names are also accepted (e.g., `claude-sonnet-4-20250514`, `claude-fable-5[1m]`).
 
 ### Marketplace Source Values
 

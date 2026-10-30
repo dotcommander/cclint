@@ -14,14 +14,19 @@ cclint commands [flags]
 
 ## Description
 
-The `commands` subcommand scans for and validates command definition files in
-your Claude Code project. Commands are the thin orchestration layer that route
-user invocations to appropriate specialist agents.
+The `commands` positional component-type filter scans for and validates
+command definition files in your Claude Code project. It is passed to the
+default lint command (`cclint commands [flags]` invokes the default command
+with `commands` as its positional type argument), not a separate subcommand.
+Commands work best as thin routes from user invocations to specialist agents.
+See [Command Lint Rules](../../rules/commands.md) for rule-level details.
 
 ### Supported File Patterns
 
 - `.claude/commands/**/*.md`
 - `commands/**/*.md`
+- Plugin-shipped commands under `plugins/marketplaces/*/plugins/*/commands/**/*.md`
+  and `.claude/plugins/marketplaces/*/plugins/*/commands/**/*.md`
 
 ### What Gets Validated
 
@@ -75,7 +80,7 @@ logic inline.
 
 ### Thin Command Pattern
 
-A "thin" command uses `Task()` to delegate to an agent:
+A "thin" command delegates via `Task()` or `Agent()`. For example:
 
 ```markdown
 ---
@@ -100,7 +105,7 @@ These sections indicate the command should delegate to an agent instead.
 ### Validation
 
 - Rule 025 detects implementation sections
-- Rule 026 checks for `allowed-tools: Task` when using `Task()` delegation
+- Rule 026 suggests `allowed-tools: Task` when using `Task()` without an `allowed-tools` field
 - Rule 027-031 detect bloat sections in thin commands
 
 ---

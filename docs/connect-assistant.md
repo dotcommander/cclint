@@ -7,7 +7,7 @@ Integrate cclint into assistant-driven workflows and CI so broken components fai
 ## Prerequisites
 
 - cclint installed on the runner or local machine
-- Claude Code components committed in your repository
+- A project containing Claude Code components to validate
 
 ## Main workflow
 
@@ -17,7 +17,7 @@ Use staged linting in local hook flows:
 cclint --staged
 ```
 
-Use full changed-file linting during review:
+Use changed-file linting during review:
 
 ```bash
 cclint --diff
@@ -44,6 +44,10 @@ cclint --baseline --format json --output report.json
 
 ## Related docs
 
-- Hook setup details: `docs/guides/git-hooks.md`
-- Schema and frontmatter contracts: `docs/reference/schemas.md`
-- Cross-file checks: `docs/cross-file-validation.md`
+- [Hook setup](guides/git-hooks.md)
+- [Schema and frontmatter reference](reference/schemas.md)
+- [Cross-file checks](cross-file-validation.md)
+
+Git selection normally reports selected files, but a relevant deletion triggers
+project-wide validation. Both Git modes read current working-tree contents, not
+file contents from the Git index; see [common tasks](common-tasks.md).

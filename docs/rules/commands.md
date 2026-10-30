@@ -1,6 +1,6 @@
 # Command Lint Rules
 
-Documentation of all validation rules enforced by cclint for command components.
+Reference for numbered command checks. The CLI also performs schema and cross-file validation; these numbers are documentation labels, not emitted rule IDs.
 
 ---
 
@@ -97,7 +97,7 @@ cclint observation (thin command pattern)
 **Category:** security
 
 **Description:**
-Checks that commands using the `Task()` tool in their body include the `allowed-tools` permission in frontmatter. This ensures explicit permission for agent delegation.
+Checks that commands using `Task()` in their body declare `allowed-tools` in frontmatter. The separate delegation guidance also recognizes `Agent`-based commands; this entry describes the `Task()`-specific check.
 
 **Pass Criteria:**
 - If `Task(` appears in command body, `allowed-tools:` must be present in frontmatter
@@ -314,9 +314,9 @@ hooks:
 | Rule Range | Category | Count |
 |------------|----------|-------|
 | 022-023 | Structural (format, schema) | 2 |
-| 024-026 | Best Practice (architecture) | 3 |
+| 024-026 | Architecture and tool permissions (including security rule 026) | 3 |
 | 027-031 | Best Practice (bloat detection) | 5 |
-| 032-034 | Documentation | 3 |
+| 032-034 | Examples and documentation | 3 |
 
 **Total:** 13 command-specific rules (022-034)
 

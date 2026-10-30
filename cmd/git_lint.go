@@ -62,6 +62,17 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		relative, e := filepath.Rel(canonicalRoot, file)
 		if e == nil && filepath.IsLocal(relative) {
 			if !discovery.IsExcluded(filepath.ToSlash(relative), cfg.Exclude) {
+				// Without a --type override, LintFiles would fail on any changed
+				// file outside component directories (docs, README, .go, ...).
+				// Probe first and skip non-component files.
+				if stringValue(cmd.Type) == "" {
+					if _, e := discovery.DetectFileType(filepath.Join(cfg.Root, relative), cfg.Root); e != nil {
+						if !cfg.Quiet && cfg.Verbose {
+							fmt.Fprintf(os.Stderr, "Skipping non-component file: %s\n", filepath.ToSlash(relative))
+						}
+						continue
+					}
+				}
 				selected = append(selected, filepath.Join(cfg.Root, relative))
 			}
 		}

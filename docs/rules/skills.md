@@ -1,6 +1,6 @@
 # Skill Lint Rules
 
-Validation rules enforced by cclint for skill components.
+Reference for skill lint checks. Numeric labels are documentation labels, not CLI-emitted rule IDs; the index skips 051, and the directory checks below are indexed by their actual titles.
 
 ---
 
@@ -23,7 +23,7 @@ Skills must be named `SKILL.md` and follow Anthropic's documentation standards f
 | 043 | [Missing trigger phrases](#rule-043-missing-trigger-phrases) | suggestion |
 | 044 | [Invalid semver version format](#rule-044-invalid-semver-version-format) | warning |
 | 045 | [Missing Anti-Patterns section](#rule-045-missing-anti-patterns-section) | suggestion |
-| 046 | [Skill exceeds 500 lines](#rule-046-skill-exceeds-500-lines) | suggestion |
+| 046 | [Skill exceeds 550 lines](#rule-046-skill-exceeds-550-lines) | suggestion |
 | 047 | [Missing Examples section](#rule-047-missing-examples-section) | suggestion |
 | 048 | [Name cannot start/end with hyphen](#rule-048-name-cannot-startend-with-hyphen) | error |
 | 049 | [Consecutive hyphens in name](#rule-049-consecutive-hyphens-in-name) | error |
@@ -34,9 +34,8 @@ Skills must be named `SKILL.md` and follow Anthropic's documentation standards f
 | 055 | [Invalid metadata structure](#rule-055-invalid-metadata-structure) | suggestion |
 | 056 | [Script missing shebang](#rule-056-script-missing-shebang) | suggestion |
 | 057 | [Script not executable](#rule-057-script-not-executable) | suggestion |
-| 058 | [Reference file too large](#rule-058-reference-file-too-large) | suggestion |
-| 059 | [Absolute path in markdown link](#rule-059-absolute-path-in-markdown-link) | warning |
-| 060 | [Reference chain too deep](#rule-060-reference-chain-too-deep) | suggestion |
+| 058 | [Absolute path in markdown link](#rule-058-absolute-path-in-markdown-link) | warning |
+| 059 | [Reference chain too deep](#rule-059-reference-chain-too-deep) | suggestion |
 | 061 | [Ghost trigger in trigger map](#rule-061-ghost-trigger-in-trigger-map) | error |
 
 ---
@@ -681,12 +680,12 @@ A well-structured skill should include:
 
 ### Size Guidelines
 
-Per [agentskills.io specification](https://agentskills.io/specification):
+cclint's 500-line guideline (with 10% tolerance) is an observed best practice, not a limit imposed by the agentskills.io specification:
 
 | Component | Lines | Action |
 |-----------|-------|--------|
-| SKILL.md | <500 | Core methodology only |
-| references/ | unlimited | Heavy docs, schemas, examples |
+| SKILL.md | ≤550 for cclint's size suggestion (500-line target + 10% tolerance) | Core methodology; move heavy content to references/ |
+| references/ | No line limit in this size check | Heavy docs, schemas, examples |
 
 ### Description Guidelines
 

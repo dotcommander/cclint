@@ -6,7 +6,7 @@ This guide explains how to write effective agent components that pass cclint val
 
 ## Overview
 
-Agents are autonomous task execution components in the Claude Code system. They orchestrate work by delegating to skills and other specialized agents. A well-written agent is thin, focused, and references reusable methodology from skills.
+Agents are specialized Claude Code instructions for delegated tasks. They need not delegate further; keep the agent focused and link reusable methodology from a skill when it exists.
 
 ---
 
@@ -16,11 +16,11 @@ Agents should be orchestration layers, not methodology repositories. This is the
 
 ### Why 200 Lines?
 
-The 200-line limit (with 220-line tolerance) exists to enforce the thin-agent/fat-skill pattern:
+cclint recommends 200 lines, with a 10% tolerance before its size diagnostic:
 
 - **Agents orchestrate** - they coordinate work, make decisions, and delegate
 - **Skills contain methodology** - they hold reusable patterns, reference material, and domain knowledge
-- **200 lines is enough** for any orchestration task if methodology is properly extracted
+- **200 lines is a guideline**; move lengthy reusable methodology to a skill when useful
 
 When agents grow beyond 200 lines, it's a signal that methodology should move to a skill. This keeps agents focused on delegation and skills focused on reusable knowledge.
 
@@ -44,11 +44,7 @@ cclint enforces the 200-line target with a 10% tolerance:
 
 The `## Foundation` section establishes the agent's purpose, capabilities, and constraints. It answers: "What does this agent do and how should it work?"
 
-Required elements:
-
-- **Purpose statement** - What problem does this agent solve?
-- **Key capabilities** - What tools and patterns does it use?
-- **Constraints** - What are the boundaries and limitations?
+Useful elements include purpose, capabilities, and constraints; do not add them solely to satisfy a template.
 
 Example:
 
@@ -59,8 +55,8 @@ Example:
 
 **Capabilities:**
 - Detect architectural violations (coupling, duplication)
-- Extract abstractions on 3rd occurrence (YAGNI principle)
-- Apply SOLID design patterns with minimal changes
+- Identify repeated patterns before proposing an extraction
+- Apply focused changes within the requested scope
 
 **Constraints:**
 - Don't add features beyond improvement scope
@@ -85,22 +81,21 @@ Agents should use phase-based workflows:
 
 ### Phase 2: Plan Refactoring
 
-1. Extract common patterns (3rd occurrence threshold)
-2. Apply SOLID principles where applicable
+1. Select only patterns relevant to the requested change
+2. Apply focused changes where useful
 3. Minimize changes to address specific issues
 
 ### Phase 3: Verify
 
-1. Run tests to confirm behavior preserved
-2. Run lint/typecheck/build
-3. Mark task complete when all pass
+1. Run the focused check for the changed behavior
+2. Report any unverified boundaries
 ```
 
 ---
 
 ## Agent Frontmatter
 
-Required fields:
+Required by the CUE schema: `name` and `description`. Other fields below are optional, although cclint may suggest a model and award scoring points for tools.
 
 ```yaml
 ---
@@ -121,7 +116,7 @@ tools:
 
 ### Description Guidelines
 
-**Must include** `Use PROACTIVELY when...` pattern for discoverability:
+Describe concrete activation conditions. cclint rewards proactive/"use when" triggers in scoring, but does not require the exact phrase `Use PROACTIVELY when...`:
 
 ```yaml
 description: Comprehensive code-quality specialist for SOLID principles and DRY analysis. Use PROACTIVELY when improving code structure, extracting abstractions, or applying design patterns.
@@ -154,12 +149,12 @@ Agents should reference skills rather than defining methodology inline. This ena
 
 ### Reference Formats
 
-All these formats are detected as skill references:
+The scorer recognizes these patterns (cross-file reference validation has its own matching rules):
 
 ```markdown
 - Direct reference: `Skill: react-patterns`
 - Inline call: `Skill(react-patterns)`
-- List format: `Skills: react-patterns, svelte`
+- List format: `Skills:` followed by skill names on the next line
 - Bold reference: `**Skill**: react-patterns`
 ```
 
@@ -167,7 +162,7 @@ All these formats are detected as skill references:
 
 Move methodology to a skill when:
 
-1. **Pattern appears 3+ times** across agents/commands
+1. **Methodology is reused** across agents/commands
 2. **Agent exceeds 200 lines** - likely contains methodology
 3. **Reference material needed** - lookup tables, formulas, patterns
 4. **Cross-domain knowledge** - API docs, protocol details
@@ -178,14 +173,14 @@ Move methodology to a skill when:
 
 ### DO
 
-- Keep agents under 200 lines (220 with tolerance)
+- Aim for fewer than 200 lines (size diagnostic beyond 220)
 - Reference skills for methodology
 - Use phase-based workflows (Foundation + Workflow)
-- Include `Use PROACTIVELY when...` in description
+- Describe when the agent should be used
 - Write descriptions in third person
 - Name agents after what they do, not how they work
 - Include `## Success Criteria` and `## Edge Cases` sections
-- Mark hard gates with `HARD GATE` markers
+- Mark genuine hard gates clearly; the scorer rewards `HARD GATE` text
 
 ### DON'T
 
@@ -202,7 +197,7 @@ Move methodology to a skill when:
 
 ## Complete Example
 
-Here is a passing agent that demonstrates all best practices:
+Here is an illustrative agent. Its exact score and validation result depend on the current project and linked skills:
 
 ```markdown
 ---
@@ -213,13 +208,11 @@ tools:
   - Read
   - Write
   - Edit
-  - MultiEdit
   - Bash
   - Grep
   - Glob
   - Task
   - AskUserQuestion
-  - TodoWrite
 ---
 
 ## Foundation
@@ -228,16 +221,16 @@ tools:
 
 **Capabilities:**
 - Detect architectural violations (tight coupling, duplication)
-- Extract abstractions on 3rd occurrence (YAGNI principle)
-- Apply SOLID patterns with minimal targeted changes
-- Iterative analysis with verification cycles
+- Identify repeated patterns before proposing an extraction
+- Apply focused changes within the requested scope
+- Verify behavior with the relevant check
 
 **Constraints:**
-- Abstract on 3rd occurrence, not before
+- Avoid speculative abstraction
 - Preserve existing behavior - no functional changes
 - Don't add features beyond improvement scope
 - Don't add comments/docstrings to unchanged code
-- Use agent delegation for multi-file operations
+- Delegate only when it helps the task
 
 ## Workflow
 
@@ -249,22 +242,19 @@ tools:
 
 ### Phase 2: Extract
 
-1. Extract common patterns (3rd occurrence threshold)
-2. Apply SOLID principles where applicable
+1. Extract only patterns needed for the requested change
+2. Apply focused changes where useful
 3. Minimize changes to address specific violations
 
 ### Phase 3: Verify
 
-1. Run tests to confirm behavior preserved
-2. Run lint/typecheck/build
-3. Complete when all pass
+1. Run the focused check for the changed behavior
+2. Report any unverified boundaries
 
 ## Success Criteria
 
-- All tests pass
-- Lint/typecheck/build succeed
-- Code follows SOLID principles (≥80% score)
-- Duplication eliminated (DRY satisfied)
+- Relevant check confirms the requested behavior
+- Requested code improvement is delivered without unrelated changes
 
 ## Edge Cases
 
@@ -274,13 +264,7 @@ tools:
 - External dependencies: can't be improved safely
 ```
 
-This agent:
-- Is 42 lines (well under 200)
-- Has Foundation and Workflow sections
-- References SOLID/DRY methodology (would be in a skill)
-- Includes `Use PROACTIVELY when...` in description
-- Has clear Success Criteria and Edge Cases
-- Uses third-person description
+This example has Foundation and Workflow sections, third-person description triggers, and a focused success condition. If a skill actually owns the methodology, add a real `Skill: skill-name` reference rather than mentioning it only in commentary.
 
 ---
 
@@ -289,7 +273,7 @@ This agent:
 Before considering an agent complete, verify:
 
 - [ ] Name uses lowercase, numbers, hyphens only
-- [ ] Description includes `Use PROACTIVELY when...`
+- [ ] Description explains useful activation conditions
 - [ ] Description is in third person
 - [ ] Total lines ≤ 220 (preferably ≤ 200)
 - [ ] `## Foundation` section present
@@ -298,7 +282,7 @@ Before considering an agent complete, verify:
 - [ ] No `## When to Use` section
 - [ ] No `## What it does` section
 - [ ] No `## Usage` section
-- [ ] Skill references present for methodology
+- [ ] Reusable methodology links to an existing skill, if applicable
 - [ ] No inline scoring formulas
 - [ ] No inline priority matrices
 - [ ] No inline regex patterns (unless trivial)
