@@ -69,17 +69,19 @@ func BuildFlatIssues(summary *lint.LintSummary) []FlatIssue {
 	return issues
 }
 
-// issuesForResult returns the subset of issues whose ResultIndex == idx.
-// Used by formatters that render per-file (console) to avoid re-touching
-// LintResult.Errors directly.
-func issuesForResult(issues []FlatIssue, idx int) []FlatIssue {
-	var out []FlatIssue
-	for _, is := range issues {
-		if is.ResultIndex == idx {
-			out = append(out, is)
+// groupIssuesByResult indexes the ordered flat IR once per report. BuildFlatIssues
+// emits each result's issues contiguously, including when filenames repeat.
+func groupIssuesByResult(issues []FlatIssue, resultCount int) [][]FlatIssue {
+	groups := make([][]FlatIssue, resultCount)
+	cursor := 0
+	for i := range groups {
+		start := cursor
+		for cursor < len(issues) && issues[cursor].ResultIndex == i {
+			cursor++
 		}
+		groups[i] = issues[start:cursor]
 	}
-	return out
+	return groups
 }
 
 // countBySeverity counts issues of a given severity within a slice.

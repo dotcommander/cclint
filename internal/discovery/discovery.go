@@ -3,7 +3,6 @@ package discovery
 import (
 	"bytes"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -464,58 +463,12 @@ func (fd *FileDiscovery) DiscoverFiles() ([]File, error) {
 // DiscoverFilesWithRegistry finds files using a custom registry.
 // This allows filtering or extending the default file types.
 func (fd *FileDiscovery) DiscoverFilesWithRegistry(registry []FileTypeEntry) ([]File, error) {
-	var files []File
-
-	for _, ftc := range registry {
-		discovered, err := fd.findFilesByPattern(ftc.Patterns, ftc.Type)
-		if err != nil {
-			return nil, fmt.Errorf("error discovering %s files: %w", ftc.Type.String(), err)
-		}
-		files = append(files, discovered...)
-	}
-
-	return files, nil
+	return fd.discoverWithRegistry(registry, true)
 }
 
 // findFilesByPattern finds files matching the given glob patterns.
 func (fd *FileDiscovery) findFilesByPattern(patterns []string, fileType FileType) ([]File, error) {
-	var files []File
-
-	canonicalRoot, err := filepath.EvalSymlinks(fd.rootPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot resolve discovery root %s: %w", fd.rootPath, err)
-	}
-	info, err := os.Stat(canonicalRoot)
-	if err != nil || !info.IsDir() {
-		return nil, fmt.Errorf("discovery root is not an accessible directory: %s", fd.rootPath)
-	}
-	for _, pattern := range patterns {
-		if strings.HasPrefix(pattern, "**/") {
-			// A **-leading glob full-walks the root; bound it. All default
-			// registry patterns are literal-prefixed, so this guard only
-			// protects future registry entries from unbounded walks.
-			files = append(files, fd.boundedStarWalk(pattern, fileType)...)
-			continue
-		}
-		// Use doublestar for glob matching with ** patterns
-		options := []doublestar.GlobOption{}
-		if !fd.followSymlinks {
-			options = append(options, doublestar.WithNoFollow())
-		}
-		matches, err := doublestar.Glob(os.DirFS(fd.rootPath), pattern, options...)
-		if err != nil {
-			return nil, fmt.Errorf("error evaluating pattern %s: %w", pattern, err)
-		}
-
-		for _, match := range matches {
-			f, ok := fd.processMatch(match, fileType)
-			if ok {
-				files = append(files, f)
-			}
-		}
-	}
-
-	return files, nil
+	return fd.findFilesByPatternMode(patterns, fileType, true)
 }
 
 // pruneDirNames lists directory basenames never worth walking for Claude
@@ -549,55 +502,12 @@ func pathDepth(p string) int {
 // walk is bounded; directory symlinks are never followed (fs.WalkDir
 // semantics), which is the safe default for discovery.
 func (fd *FileDiscovery) boundedStarWalk(pattern string, fileType FileType) []File {
-	var files []File
-	_ = fs.WalkDir(os.DirFS(fd.rootPath), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil // skip unreadable entries, keep walking
-		}
-		if d.IsDir() {
-			if pruneDirNames[d.Name()] || pathDepth(p) >= maxWalkDepth {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if ok, matchErr := doublestar.Match(pattern, p); matchErr == nil && ok {
-			if f, ok := fd.processMatch(p, fileType); ok {
-				files = append(files, f)
-			}
-		}
-		return nil
-	})
-	return files
+	return fd.boundedStarWalkMode(pattern, fileType, true)
 }
 
 // processMatch converts a glob match into a File, returning false if the match should be skipped.
 func (fd *FileDiscovery) processMatch(match string, fileType FileType) (File, bool) {
-	if IsExcluded(match, fd.exclude) {
-		return File{}, false
-	}
-	fullPath := filepath.Join(fd.rootPath, match)
-
-	if !fd.allowedPath(fullPath) {
-		return File{}, false
-	}
-	info, err := os.Stat(fullPath)
-	if err != nil || info.IsDir() {
-		return File{}, false
-	}
-
-	contents, err := os.ReadFile(fullPath)
-	if err != nil {
-		return File{}, false
-	}
-
-	relPath := match
-	return File{
-		Path:     fullPath,
-		RelPath:  relPath,
-		Size:     info.Size(),
-		Type:     fileType,
-		Contents: string(contents),
-	}, true
+	return fd.processMatchMode(match, fileType, true)
 }
 
 // allowedPath checks every descendant component, including linked ancestors.

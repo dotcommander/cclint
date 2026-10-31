@@ -299,25 +299,11 @@ func (v *CrossFileValidator) ValidateTriggerMaps(rootPath string) []cue.Validati
 	// Store rootPath so orphan detection can also scan trigger maps.
 	v.rootPath = rootPath
 
-	relPaths := discoverReferenceFiles(rootPath)
-
 	var errors []cue.ValidationError
 	seen := make(map[string]bool)
 
-	for _, relPath := range relPaths {
-		fullPath := rootPath + "/" + relPath
-		data, err := os.ReadFile(fullPath) //nolint:gosec // G304: path comes from controlled glob inside rootPath
-		if err != nil {
-			continue
-		}
-		contents := string(data)
-
-		if !IsTriggerMap(contents) {
-			continue
-		}
-
-		refs := ParseTriggerTable(relPath, contents)
-		for _, ref := range refs {
+	for _, entry := range v.referenceEntries(rootPath) {
+		for _, ref := range entry.refs {
 			dedupeKey := ref.RefType + ":" + ref.RefName + "@" + ref.File
 			if seen[dedupeKey] {
 				continue

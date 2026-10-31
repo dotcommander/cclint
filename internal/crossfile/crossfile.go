@@ -579,19 +579,8 @@ func (v *CrossFileValidator) collectTriggerMapReferences(referencedSkills map[st
 	if v.rootPath == "" {
 		return
 	}
-	relPaths := discoverReferenceFiles(v.rootPath)
-	for _, relPath := range relPaths {
-		fullPath := v.rootPath + "/" + relPath
-		data, err := os.ReadFile(fullPath) //nolint:gosec // G304: path comes from controlled glob inside rootPath
-		if err != nil {
-			continue
-		}
-		contents := string(data)
-		if !IsTriggerMap(contents) {
-			continue
-		}
-		refs := ParseTriggerTable(relPath, contents)
-		for _, ref := range refs {
+	for _, entry := range v.referenceEntries(v.rootPath) {
+		for _, ref := range entry.refs {
 			if ref.RefType == "skill" {
 				referencedSkills[ref.RefName] = true
 			}

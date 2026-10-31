@@ -2,7 +2,6 @@ package crossfile
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -161,24 +160,10 @@ func extractMappingsFromRow(filePath, row string, routingCols []int) []TriggerMa
 // Returns warning-level ValidationErrors for each conflicting keyword.
 // Same keyword routing to the same target in multiple files is NOT a conflict.
 func (v *CrossFileValidator) DetectTriggerConflicts(rootPath string) []cue.ValidationError {
-	relPaths := discoverReferenceFiles(rootPath)
-
 	keywordTargets := make(map[string][]triggerTargetEntry)
 
-	for _, relPath := range relPaths {
-		fullPath := rootPath + "/" + relPath
-		data, err := os.ReadFile(fullPath) //nolint:gosec // G304: path comes from controlled glob inside rootPath
-		if err != nil {
-			continue
-		}
-		contents := string(data)
-
-		if !IsTriggerMap(contents) {
-			continue
-		}
-
-		mappings := ParseTriggerMappings(relPath, contents)
-		for _, m := range mappings {
+	for _, entry := range v.referenceEntries(rootPath) {
+		for _, m := range entry.mappings {
 			keywordTargets[m.Keyword] = append(keywordTargets[m.Keyword], triggerTargetEntry{
 				target:  m.Target,
 				refType: m.RefType,

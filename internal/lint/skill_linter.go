@@ -166,32 +166,13 @@ func (l *SkillLinter) GetImprovements(contents string, data map[string]any) []te
 
 // PostProcessBatch implements BatchPostProcessor — thin orchestrator over four named helpers.
 func (l *SkillLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
-	applyOrphanedSkills(ctx, summary)
-	applyGhostTriggers(ctx, summary)
-	applyTriggerConflicts(ctx, summary)
-	applySkillRefIssues(ctx, summary)
-	if !ctx.NoCycleCheck && ctx.CrossValidator != nil {
-		for _, cycle := range ctx.CrossValidator.DetectCycles() {
-			for _, node := range cycle.Path {
-				parts := strings.SplitN(node, ":", 2)
-				if len(parts) != 2 || parts[0] != "skill" {
-					continue
-				}
-				for i := range summary.Results {
-					if filepath.Base(filepath.Dir(summary.Results[i].File)) == parts[1] {
-						issue := cue.ValidationError{File: summary.Results[i].File, Message: "Circular dependency detected: " + crossfile.FormatCycle(cycle), Severity: cue.SeverityError, Source: cue.SourceCClintObserve}
-						duplicate := false
-						for _, existing := range summary.Results[i].Errors {
-							if existing.Message == issue.Message {
-								duplicate = true
-							}
-						}
-						if !duplicate {
-							categorizeIssues(&summary.Results[i], []cue.ValidationError{issue})
-						}
-					}
-				}
-			}
-		}
-	}
+	// Reference snapshots belong to this batch, while cycle reuse belongs to
+	// the original invocation context (not the reference-validator clone).
+	batch := &LinterContext{RootPath: ctx.RootPath, CrossValidator: ctx.CrossValidator.WithReferenceSnapshot(ctx.RootPath)}
+	issues := newSkillIssueIndex(summary)
+	issues.applyOrphanedSkills(batch)
+	issues.applyGhostTriggers(batch)
+	issues.applyTriggerConflicts(batch)
+	issues.applySkillRefIssues(batch)
+	attachSkillCycles(summary, ctx.batchCycles())
 }

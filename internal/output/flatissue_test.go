@@ -69,16 +69,16 @@ func TestBuildFlatIssues(t *testing.T) {
 		}
 	})
 
-	t.Run("issuesForResult", func(t *testing.T) {
+	t.Run("groupIssuesByResult", func(t *testing.T) {
 		t.Parallel()
-		issues := BuildFlatIssues(summary)
-		a := issuesForResult(issues, 0)
-		b := issuesForResult(issues, 1)
+		groups := groupIssuesByResult(BuildFlatIssues(summary), len(summary.Results))
+		a := groups[0]
+		b := groups[1]
 		if len(a) != 3 {
-			t.Errorf("issuesForResult(0): expected 3, got %d", len(a))
+			t.Errorf("group 0: expected 3, got %d", len(a))
 		}
 		if len(b) != 1 {
-			t.Errorf("issuesForResult(1): expected 1, got %d", len(b))
+			t.Errorf("group 1: expected 1, got %d", len(b))
 		}
 	})
 
@@ -107,7 +107,7 @@ func TestBuildFlatIssues(t *testing.T) {
 	t.Run("severityErrors warning message", func(t *testing.T) {
 		t.Parallel()
 		issues := BuildFlatIssues(summary)
-		aIssues := issuesForResult(issues, 0)
+		aIssues := groupIssuesByResult(issues, len(summary.Results))[0]
 		warnings := severityErrors(aIssues, SeverityWarning)
 		if len(warnings) != 1 {
 			t.Fatalf("expected 1 warning, got %d", len(warnings))

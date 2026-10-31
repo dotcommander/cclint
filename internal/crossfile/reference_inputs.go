@@ -16,6 +16,7 @@ type CrossFileValidator struct {
 	skills            map[string]discovery.File
 	commands          map[string]discovery.File
 	rootPath          string
+	referenceSnapshot *referenceSnapshot
 	userScopeAgentDir string
 	userScopeSkillDir string
 }

@@ -1,9 +1,6 @@
 package scoring
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
 // Description quality rating constants to avoid goconst warnings.
 const (
@@ -74,15 +71,15 @@ func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
 	add("Skill: reference", s.hasSkillReference(bodyContent), 15)
 
 	// Anti-Patterns section (5 points)
-	hasAntiPatterns, _ := regexp.MatchString(`(?i)## Anti-Patterns`, bodyContent)
+	hasAntiPatterns := agentAntiPatternsPattern.MatchString(bodyContent)
 	add("Anti-Patterns section", hasAntiPatterns, 5)
 
 	// Expected Output section (5 points)
-	hasExpectedOutput, _ := regexp.MatchString(`(?i)## Expected Output`, bodyContent)
+	hasExpectedOutput := agentExpectedOutputPattern.MatchString(bodyContent)
 	add("Expected Output section", hasExpectedOutput, 5)
 
 	// HARD GATE markers (5 points)
-	hasHardGates, _ := regexp.MatchString(`(?i)HARD GATE`, bodyContent)
+	hasHardGates := agentHardGatesPattern.MatchString(bodyContent)
 	add("HARD GATE markers", hasHardGates, 5)
 
 	// Third-person description (5 points)
@@ -98,14 +95,8 @@ func (s *AgentScorer) scorePractices(bodyContent string) (int, []Metric) {
 
 // hasSkillReference checks if the content contains skill references.
 func (s *AgentScorer) hasSkillReference(bodyContent string) bool {
-	skillPatterns := []string{
-		`(?i)Skill:\s*\S+`,
-		`(?i)\*\*Skill\*\*:\s*\S+`,
-		`(?i)Skill\(\s*["']?[a-z0-9-]+`,
-		`(?i)Skills:\s*\n`,
-	}
-	for _, pattern := range skillPatterns {
-		if matched, _ := regexp.MatchString(pattern, bodyContent); matched {
+	for _, pattern := range agentSkillPatterns {
+		if pattern.MatchString(bodyContent) {
 			return true
 		}
 	}

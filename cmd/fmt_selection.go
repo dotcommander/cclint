@@ -171,7 +171,7 @@ func discoverFilesByType(rootPath string, exclude []string, componentTypes ...st
 	}
 
 	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
-	allFiles, err := discoverer.DiscoverFiles()
+	allFiles, err := discoverer.DiscoverPathsOfTypes(targetTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func discoverFilesByType(rootPath string, exclude []string, componentTypes ...st
 // discoverAllFiles discovers all component files.
 func discoverAllFiles(rootPath string, exclude []string) ([]string, error) {
 	discoverer := discovery.NewFileDiscovery(rootPath, false).WithExclude(exclude)
-	allFiles, err := discoverer.DiscoverFiles()
+	allFiles, err := discoverer.DiscoverPaths()
 	if err != nil {
 		return nil, err
 	}

@@ -34,7 +34,7 @@ func (f *MarkdownFormatter) Format(summary *lint.LintSummary) error {
 
 	f.writeHeader(&builder, summary)
 	f.writeSummaryTable(&builder, summary)
-	f.writeDetailedResults(&builder, summary)
+	f.writeDetailedResults(&builder, summary, groupIssuesByResult(BuildFlatIssues(summary), len(summary.Results)))
 	f.writeConclusion(&builder, summary)
 
 	return f.writeOutput(builder.String())
@@ -61,7 +61,7 @@ func (f *MarkdownFormatter) writeSummaryTable(builder *strings.Builder, summary 
 	builder.WriteString("\n")
 }
 
-func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summary *lint.LintSummary) {
+func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summary *lint.LintSummary, issuesByResult [][]FlatIssue) {
 	builder.WriteString("## Detailed Results\n\n")
 
 	if summary.TotalFiles == 0 {
@@ -69,19 +69,18 @@ func (f *MarkdownFormatter) writeDetailedResults(builder *strings.Builder, summa
 		return
 	}
 
-	f.writeTableOfContents(builder, summary)
-	f.writeFileResults(builder, summary)
+	f.writeTableOfContents(builder, summary, issuesByResult)
+	f.writeFileResults(builder, summary, issuesByResult)
 }
 
-func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summary *lint.LintSummary) {
+func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summary *lint.LintSummary, issuesByResult [][]FlatIssue) {
 	if summary.TotalFiles <= 1 {
 		return
 	}
 	builder.WriteString("### Files\n\n")
-	issues := BuildFlatIssues(summary)
 	for i := range summary.Results {
 		result := summary.Results[i]
-		if !f.shouldRenderResult(result, issuesForResult(issues, i)) {
+		if !f.shouldRenderResult(result, issuesByResult[i]) {
 			continue
 		}
 		fileName := strings.TrimPrefix(result.File, "./")
@@ -90,11 +89,10 @@ func (f *MarkdownFormatter) writeTableOfContents(builder *strings.Builder, summa
 	builder.WriteString("\n")
 }
 
-func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *lint.LintSummary) {
-	issues := BuildFlatIssues(summary)
+func (f *MarkdownFormatter) writeFileResults(builder *strings.Builder, summary *lint.LintSummary, issuesByResult [][]FlatIssue) {
 	for i := range summary.Results {
 		result := summary.Results[i]
-		fileIssues := issuesForResult(issues, i)
+		fileIssues := issuesByResult[i]
 		if !f.shouldRenderResult(result, fileIssues) {
 			continue
 		}

@@ -89,97 +89,68 @@ func (s *SkillScorer) scorePractices(bodyContent string) (int, []Metric) {
 
 	// Semantic routing table format (10 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "Semantic routing table",
-		pattern:  "\\|.*User Question.*\\|.*Action.*\\|",
-		points:   10,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "Semantic routing table",
+		regex:   skillRoutingTablePattern,
+		points:  10,
+		content: bodyContent,
 	})
 
 	// Phase-based workflow (8 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "Phase-based workflow",
-		pattern:  "(?i)### Phase \\d",
-		points:   8,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "Phase-based workflow",
+		regex:   skillPhasePattern,
+		points:  8,
+		content: bodyContent,
 	})
 
 	// Anti-patterns as table (6 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "Anti-patterns table format",
-		pattern:  "\\|.*Anti-Pattern.*\\|.*Problem.*\\|.*Fix.*\\|",
-		points:   6,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "Anti-patterns table format",
+		regex:   skillAntiPatternsTablePattern,
+		points:  6,
+		content: bodyContent,
 	})
 
 	// HARD GATE markers (4 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "HARD GATE markers",
-		pattern:  "(?i)HARD GATE",
-		points:   4,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "HARD GATE markers",
+		regex:   skillHardGatePattern,
+		points:  4,
+		content: bodyContent,
 	})
 
 	// Success criteria checkboxes (4 points) - literal substring check
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "Success criteria checkboxes",
-		pattern:  "- [ ]",
-		points:   4,
-		content:  bodyContent,
-		useRegex: false,
+		details: &details,
+		name:    "Success criteria checkboxes",
+		pattern: "- [ ]",
+		points:  4,
+		content: bodyContent,
 	})
 
 	// References to references/ directory (4 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "References to references/",
-		pattern:  "references/\\w+\\.md",
-		points:   4,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "References to references/",
+		regex:   skillReferencePattern,
+		points:  4,
+		content: bodyContent,
 	})
 
 	// Scoring formula (4 points)
 	practices += addPracticeMetric(practiceMetricCheck{
-		details:  &details,
-		name:     "Scoring formula",
-		pattern:  "(?i)(score\\s*=|scoring formula)",
-		points:   4,
-		content:  bodyContent,
-		useRegex: true,
+		details: &details,
+		name:    "Scoring formula",
+		regex:   skillScoringFormulaPattern,
+		points:  4,
+		content: bodyContent,
 	})
 
 	return practices, details
-}
-
-// practiceMetricCheck encapsulates parameters for a practice metric check.
-type practiceMetricCheck struct {
-	details  *[]Metric
-	name     string
-	pattern  string
-	points   int
-	content  string
-	useRegex bool
-}
-
-// addPracticeMetric checks for a pattern and adds a metric if present.
-// Returns the points awarded.
-func addPracticeMetric(check practiceMetricCheck) int {
-	hasMatch := false
-	if check.useRegex {
-		hasMatch, _ = regexp.MatchString(check.pattern, check.content)
-	} else {
-		hasMatch = strings.Contains(check.content, check.pattern)
-	}
-	return recordMetric(check.details, "practices", check.name, hasMatch, check.points)
 }
 
 // scoreComposition scores the composition/line count of a skill.

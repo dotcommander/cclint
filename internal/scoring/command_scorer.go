@@ -1,9 +1,6 @@
 package scoring
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
 // CommandScorer scores command files on a 0-100 scale
 type CommandScorer struct{}
@@ -27,7 +24,7 @@ func (s *CommandScorer) scoreStructural(frontmatter map[string]any, body string)
 	}
 	points, details := ScoreRequiredFields(frontmatter, fieldSpecs)
 
-	hasTaskDelegation, _ := regexp.MatchString(`(?:Task|Agent)\([^)]+\)`, body)
+	hasTaskDelegation := commandTaskPattern.MatchString(body)
 	points += recordMetric(&details, "structural", "Task() delegation", hasTaskDelegation, 10)
 
 	return points, details
@@ -38,14 +35,14 @@ func (s *CommandScorer) scorePractices(body string) (int, []Metric) {
 	var details []Metric
 	points := 0
 
-	hasSuccessCriteria, _ := regexp.MatchString(`(?i)Success criteria|^\s*- \[ \]`, body)
+	hasSuccessCriteria := commandSuccessPattern.MatchString(body)
 	points += recordMetric(&details, "practices", "Success criteria", hasSuccessCriteria, 15)
 
 	taskCount := strings.Count(body, "Task(") + strings.Count(body, "Agent(")
 	hasTask := taskCount >= 1
 	points += recordMetric(&details, "practices", "Task delegation", hasTask, 15, pluralize(taskCount, "Task() call"))
 
-	hasFlags, _ := regexp.MatchString(`(?i)## Flags|--\w+`, body)
+	hasFlags := commandFlagsPattern.MatchString(body)
 	points += recordMetric(&details, "practices", "Flags documented", hasFlags, 10)
 
 	return points, details

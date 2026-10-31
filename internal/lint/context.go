@@ -3,6 +3,7 @@ package lint
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/dotcommander/cclint/internal/crossfile"
 	"github.com/dotcommander/cclint/internal/cue"
@@ -22,6 +23,8 @@ type LinterContext struct {
 	Discoverer     *discovery.FileDiscovery
 	Files          []discovery.File
 	CrossValidator *crossfile.CrossFileValidator
+	cycleOnce      sync.Once
+	cycles         []crossfile.Cycle
 }
 
 // NewLinterContext creates a new LinterContext with all dependencies initialized.
@@ -70,6 +73,16 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclud
 		Files:          files,
 		CrossValidator: crossValidator,
 	}, nil
+}
+
+// batchCycles computes cycles once per context, only when a postprocessor asks.
+// Standalone lint calls construct a fresh context, so they never retain this result.
+func (ctx *LinterContext) batchCycles() []crossfile.Cycle {
+	if ctx.NoCycleCheck || ctx.CrossValidator == nil {
+		return nil
+	}
+	ctx.cycleOnce.Do(func() { ctx.cycles = ctx.CrossValidator.DetectCycles() })
+	return ctx.cycles
 }
 
 // FilterFilesByType returns files matching the specified type.

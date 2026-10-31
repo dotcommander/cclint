@@ -23,7 +23,6 @@ package lint
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -52,8 +51,9 @@ type SingleFileLinterContext struct {
 	crossLoaded    bool
 	crossLoadErr   error
 
-	// Shared discovery cache (optional, set by LintFiles for multi-file mode)
+	// Optional invocation state belongs to LintFiles, never standalone calls.
 	discoveryCache *DiscoveryCache
+	invocation     *singleFileInvocation
 }
 
 // SingleFileRequest groups the inputs needed for a single-file lint run.
@@ -64,126 +64,7 @@ type SingleFileRequest struct {
 	Quiet          bool
 	Verbose        bool
 	DiscoveryCache *DiscoveryCache
-}
-
-// NewSingleFileLinterContext creates a context for linting a single file.
-//
-// This function performs comprehensive path validation and type detection:
-//   - Resolves absolute path
-//   - Validates file exists and is readable
-//   - Detects project root
-//   - Determines component type from path
-//   - Reads file contents
-//
-// Parameters:
-//   - filePath: Path to the file (absolute or relative)
-//   - rootPath: Project root (empty to auto-detect)
-//   - typeOverride: Force component type (empty to auto-detect)
-//   - quiet: Suppress non-essential output
-//   - verbose: Enable verbose output
-//
-// Returns an error with actionable message for any validation failure.
-func NewSingleFileLinterContext(filePath, rootPath, typeOverride string, quiet, verbose bool) (*SingleFileLinterContext, error) {
-	return newSingleFileLinterContext(SingleFileRequest{
-		FilePath:     filePath,
-		RootPath:     rootPath,
-		TypeOverride: typeOverride,
-		Quiet:        quiet,
-		Verbose:      verbose,
-	})
-}
-
-func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext, error) {
-	// Validate file path (checks existence, not dir, not binary, etc.)
-	//
-	// Resolve a relative file path against an explicitly-set --root (default is ""),
-	// so `cclint --root /DIR ./file.md` finds the file under /DIR, not cwd.
-	filePath := req.FilePath
-	if req.RootPath != "" && !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(req.RootPath, filePath)
-	}
-	absPath, err := discovery.ValidateFilePath(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Find project root if not provided
-	rootPath := req.RootPath
-	if rootPath == "" {
-		rootPath, err = findProjectRootForFile(absPath)
-		if err != nil {
-			return nil, fmt.Errorf("cannot determine project root: %w", err)
-		}
-	} else {
-		// Resolve provided root to absolute
-		rootPath, err = filepath.Abs(rootPath)
-		if err != nil {
-			return nil, fmt.Errorf("invalid root path: %w", err)
-		}
-	}
-
-	// Determine file type
-	var fileType discovery.FileType
-	if req.TypeOverride != "" {
-		fileType, err = discovery.ParseFileType(req.TypeOverride)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fileType, err = discovery.DetectFileType(absPath, rootPath)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Read file contents
-	contents, err := os.ReadFile(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read file %s: %w", absPath, err)
-	}
-
-	// Compute relative path for display
-	relPath, err := filepath.Rel(rootPath, absPath)
-	if err != nil {
-		relPath = filepath.Base(absPath)
-	}
-	relPath = filepath.ToSlash(relPath) // Normalize for display
-
-	// Get file info for size
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot stat file %s: %w", absPath, err)
-	}
-
-	file := discovery.File{
-		Path:     absPath,
-		RelPath:  relPath,
-		Size:     info.Size(),
-		Type:     fileType,
-		Contents: string(contents),
-	}
-
-	// Initialize CUE validator
-	validator := cue.NewValidator()
-	var warnings []cue.ValidationError
-	if err := validator.LoadSchemas(); err != nil {
-		warnings = append(warnings, cue.ValidationError{
-			File:     relPath,
-			Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", err),
-			Severity: cue.SeverityWarning,
-			Source:   cue.SourceCClintObserve,
-		})
-	}
-
-	return &SingleFileLinterContext{
-		RootPath:       rootPath,
-		File:           file,
-		Quiet:          req.Quiet,
-		Verbose:        req.Verbose,
-		Validator:      validator,
-		Warnings:       warnings,
-		discoveryCache: req.DiscoveryCache,
-	}, nil
+	invocation     *singleFileInvocation
 }
 
 // EnsureCrossFileValidator lazy-loads the cross-file validator.
@@ -192,13 +73,18 @@ func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext
 // for cross-file validation (agent→skill, command→agent, etc.).
 // The result is cached for subsequent calls.
 //
-// When a DiscoveryCache is set (multi-file mode via LintFiles), discovery
-// results are shared across all SingleFileLinterContext instances, avoiding
-// redundant N+1 discovery scans.
+// LintFiles shares discovery and reference indexes per root for one invocation.
+// Standalone callers can optionally share discovery through DiscoveryCache.
 //
 // Returns nil if discovery fails (cross-file validation will be skipped).
 func (ctx *SingleFileLinterContext) EnsureCrossFileValidator() *crossfile.CrossFileValidator {
 	if ctx.crossLoaded {
+		return ctx.crossValidator
+	}
+
+	if ctx.invocation != nil {
+		ctx.crossValidator, ctx.crossLoadErr = ctx.invocation.crossFileValidator(ctx.RootPath)
+		ctx.crossLoaded = true
 		return ctx.crossValidator
 	}
 
@@ -334,9 +220,9 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 		StartTime: time.Now(),
 	}
 
-	// Share one discovery snapshot per root across this invocation.
-	// Files from different projects keep independent discovery results.
-	cache := &DiscoveryCache{}
+	// The state lives only for this call; discovery and reference indexes are
+	// shared per root while CUE schemas are shared across all selected files.
+	invocation := &singleFileInvocation{}
 
 	var firstRoot string
 
@@ -347,12 +233,12 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 			effectiveType = fh.TypeHint
 		}
 		result, err := lintSingleFileRequest(SingleFileRequest{
-			FilePath:       fh.Path,
-			RootPath:       rootPath,
-			TypeOverride:   effectiveType,
-			Quiet:          quiet,
-			Verbose:        verbose,
-			DiscoveryCache: cache,
+			FilePath:     fh.Path,
+			RootPath:     rootPath,
+			TypeOverride: effectiveType,
+			Quiet:        quiet,
+			Verbose:      verbose,
+			invocation:   invocation,
 		})
 		if err != nil {
 			// Record as failed result with error message

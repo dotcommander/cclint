@@ -1,7 +1,6 @@
 package lint
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/dotcommander/cclint/internal/crossfile"
@@ -80,7 +79,8 @@ func (l *AgentLinter) GetImprovements(contents string, data map[string]any) []te
 // PostProcessBatch implements BatchPostProcessor for cycle detection.
 func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary) {
 	if !ctx.NoCycleCheck {
-		cycles := ctx.CrossValidator.DetectCycles()
+		cycles := ctx.batchCycles()
+		agents := agentResultIndex(summary)
 		cyclesReported := make(map[string]bool)
 
 		for _, cycle := range cycles {
@@ -91,7 +91,11 @@ func (l *AgentLinter) PostProcessBatch(ctx *LinterContext, summary *LintSummary)
 			cyclesReported[cycleDesc] = true
 
 			// Report cycle errors to all agents in the cycle
-			l.reportCycleError(summary, cycle, cycleDesc)
+			for agentName := range extractAgentsFromCycle(cycle.Path) {
+				if i, ok := agents[agentName]; ok {
+					appendAgentCycle(summary, i, cycleDesc)
+				}
+			}
 		}
 	}
 }
@@ -117,24 +121,9 @@ func extractAgentsFromCycle(path []string) map[string]bool {
 	return agentsInCycle
 }
 
-// addCycleToSummary adds a cycle error to the summary for a specific agent.
+// addCycleToSummary retains the direct helper API for package callers.
 func addCycleToSummary(summary *LintSummary, agentName, cycleDesc string) {
-	for i := range summary.Results {
-		resultName := crossfile.ExtractAgentName(summary.Results[i].File)
-		if resultName == agentName {
-			summary.Results[i].Errors = append(summary.Results[i].Errors, cue.ValidationError{
-				File:     summary.Results[i].File,
-				Message:  fmt.Sprintf("Circular dependency detected: %s", cycleDesc),
-				Severity: cue.SeverityError,
-				Source:   cue.SourceCClintObserve,
-			})
-			summary.TotalErrors++
-			if summary.Results[i].Success {
-				summary.Results[i].Success = false
-				summary.SuccessfulFiles--
-				summary.FailedFiles++
-			}
-			break
-		}
+	if i, ok := agentResultIndex(summary)[agentName]; ok {
+		appendAgentCycle(summary, i, cycleDesc)
 	}
 }

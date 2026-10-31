@@ -173,15 +173,8 @@ func boolToInt(b bool) int {
 // IsMethodologySkill returns true if skill has workflow/phase patterns.
 // Methodology skills require Success Criteria; reference/pattern skills don't.
 func IsMethodologySkill(content string) bool {
-	patterns := []string{
-		`(?i)## Workflow`,
-		`(?i)### Phase \d`,
-		`(?i)## Algorithm`,
-		`(?i)## Process`,
-		`(?i)### Step \d`,
-	}
-	for _, pattern := range patterns {
-		if matched, _ := regexp.MatchString(pattern, content); matched {
+	for _, pattern := range methodologyPatterns {
+		if pattern.MatchString(content) {
 			return true
 		}
 	}

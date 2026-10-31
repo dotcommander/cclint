@@ -70,9 +70,9 @@ func (f *ConsoleFormatter) printHeader(summary *lint.LintSummary) {
 
 // printFileResults prints results for each file
 func (f *ConsoleFormatter) printFileResults(summary *lint.LintSummary) {
-	issues := BuildFlatIssues(summary)
+	issuesByResult := groupIssuesByResult(BuildFlatIssues(summary), len(summary.Results))
 	for i := range summary.Results {
-		fileIssues := issuesForResult(issues, i)
+		fileIssues := issuesByResult[i]
 		if !f.shouldShowFile(&summary.Results[i], fileIssues) {
 			continue
 		}
