@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/lint"
 	"github.com/dotcommander/cclint/internal/textutil"
@@ -43,6 +43,10 @@ func (f *ConsoleFormatter) outputWriter() io.Writer {
 
 // Format formats the lint summary for console output
 func (f *ConsoleFormatter) Format(summary *lint.LintSummary) error {
+	// Lip Gloss v2 renders ANSI regardless of the destination; keep piped output plain.
+	requestedColor := f.colorize
+	f.colorize = requestedColor && f.isTTY()
+	defer func() { f.colorize = requestedColor }()
 	if f.quiet {
 		// Only show exit code in quiet mode
 		return nil
@@ -319,7 +323,8 @@ func (f *ConsoleFormatter) printConclusion(summary *lint.LintSummary) {
 
 // isTTY returns true if stdout is a terminal
 func (f *ConsoleFormatter) isTTY() bool {
-	return term.IsTerminal(int(os.Stdout.Fd()))
+	file, ok := f.outputWriter().(*os.File)
+	return ok && term.IsTerminal(int(file.Fd()))
 }
 
 // printCelebration shows a sparkle animation for perfect success.

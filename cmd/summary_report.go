@@ -2,9 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
+	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/term"
+
+	"charm.land/lipgloss/v2"
 )
 
 const summaryTopBorder = "╔═══════════════════════════════════════════════════════════╗"
@@ -28,6 +32,9 @@ type printStyles struct {
 
 // newPrintStyles creates a new set of print styles.
 func newPrintStyles() printStyles {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return printStyles{}
+	}
 	return printStyles{
 		header: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12")),
 		tierA:  lipgloss.NewStyle().Foreground(lipgloss.Color("10")),
@@ -158,6 +165,9 @@ func renderBar(count, total int, color string) string {
 		filled = 1
 	}
 	bar := ""
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
+	}
 	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
 	for i := 0; i < filled; i++ {
 		bar += style.Render("█")

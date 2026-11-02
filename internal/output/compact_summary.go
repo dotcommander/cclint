@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/dotcommander/cclint/internal/lint"
 	"golang.org/x/term"
 )

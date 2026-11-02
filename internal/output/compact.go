@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/dotcommander/cclint/internal/cue"
 	"github.com/dotcommander/cclint/internal/discovery"
 	"github.com/dotcommander/cclint/internal/lint"
@@ -36,6 +36,10 @@ func NewCompactFormatter(quiet, verbose, showScores, showImprovements bool, star
 
 // FormatAll formats multiple lint summaries in compact style.
 func (f *CompactFormatter) FormatAll(summaries []*lint.LintSummary) error {
+	// Lip Gloss v2 emits ANSI even when stdout is redirected.
+	requestedColor := f.colorize
+	f.colorize = requestedColor && f.isTTY()
+	defer func() { f.colorize = requestedColor }()
 	if f.quiet {
 		return nil
 	}
