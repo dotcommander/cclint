@@ -259,10 +259,11 @@ hooks:
 | `respectGitignore` | bool | Git integration - per-project @-mention picker - v2.1.0+ |
 | `plansDirectory` | string | Custom plans directory path (default: `.claude/plans`) - v2.1.9+ |
 | `model` | string | Default model |
-| `permissions` | object | Permission rules, optional `defaultMode`, and `blockReadsOutsideWorkingDirectories` - v2.1.257+ for the read block |
+| `permissions` | object | Permission rules, optional `defaultMode`, `blockReadsOutsideWorkingDirectories` - v2.1.257+, and `blockWritesOutsideWorkingDirectories` - v2.1.314+ |
 | `mcp` | object | MCP server settings (supports `auto:N` syntax for tool search threshold) - v2.1.9+ |
 | `managedMcpServers` | object | Managed HTTP/SSE MCP servers keyed by name; command entries are invalid - v2.1.259+ |
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
+| `sandbox.excludedCommands` | `[...string]` | Command patterns excluded from the sandbox - the whole command or its start followed by ` *` |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
 | `sandbox.network.strictAllowlist` | bool | Require an explicit network allowlist - v2.1.219+ |

@@ -200,7 +200,7 @@ keyed table below remains here.
 
 | Key | Value |
 |-----|-------|
-| claude_code_last_updated | v2.1.310 (binary installed: v2.1.310) |
+| claude_code_last_updated | v2.1.316 (binary installed: v2.1.316) |
 | claude_surface_var | `cmd.ClaudeCodeSurface` in `cmd/root.go` — mirrors the claude_code_last_updated row; /updater bumps both; `TestClaudeCodeSurfaceMatchesAGENTSRow` guards drift |
 | valid_agent_colors | red, blue, green, yellow, purple, orange, pink, cyan, gray, magenta, white (11 total) |
 | command_allowed_tools | Task, Agent, Skill, AskUserQuestion (delegation tools) — other tools are warnings |

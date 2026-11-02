@@ -131,6 +131,21 @@ func TestValidatePermissions(t *testing.T) {
 			wantSeverity: "error",
 		},
 		{
+			name: "valid write block",
+			perms: map[string]any{
+				"blockWritesOutsideWorkingDirectories": true,
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "write block not a boolean",
+			perms: map[string]any{
+				"blockWritesOutsideWorkingDirectories": "yes",
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
 			name: "allow not an array",
 			perms: map[string]any{
 				"allow": "Read",

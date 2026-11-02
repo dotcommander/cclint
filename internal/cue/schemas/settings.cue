@@ -142,6 +142,7 @@ package schemas
 		ask?: [...string]
 		defaultMode?: string // modeled permissively; bypassPermissions is runtime-tier-gated
 		blockReadsOutsideWorkingDirectories?: bool // v2.1.257+
+		blockWritesOutsideWorkingDirectories?: bool // v2.1.314+
 		// v2.1.296 binary-verified policy keys; each honors the literal "disable"
 		disableAutoMode?: string
 		disableBypassPermissionsMode?: string
@@ -284,6 +285,9 @@ package schemas
 		// Relax nested-sandbox and network-isolation defaults (binary-verified v2.1.308)
 		enableWeakerNestedSandbox?:  bool
 		enableWeakerNetworkIsolation?: bool
+		// Command patterns excluded from the sandbox: the whole command, or
+		// its start followed by ` *` (pre-existing; backfill surfaced v2.1.314)
+		excludedCommands?: [...string]
 
 		// Credential file / secret-env blocking for sandboxed commands (v2.1.187+)
 		credentials?: {

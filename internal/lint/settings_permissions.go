@@ -10,7 +10,7 @@ import (
 
 // validatePermissions validates the permissions section of settings.json.
 // Expected structure: optional allow/deny/ask arrays, defaultMode string, and
-// blockReadsOutsideWorkingDirectories boolean.
+// blockReads/blockWritesOutsideWorkingDirectories booleans.
 func validatePermissions(perms any, filePath string) []cue.ValidationError {
 	var errors []cue.ValidationError
 
@@ -40,11 +40,11 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 			}
 			continue
 		}
-		if key == "blockReadsOutsideWorkingDirectories" {
+		if key == "blockReadsOutsideWorkingDirectories" || key == "blockWritesOutsideWorkingDirectories" {
 			if _, ok := val.(bool); !ok {
 				errors = append(errors, cue.ValidationError{
 					File:     filePath,
-					Message:  "permissions.blockReadsOutsideWorkingDirectories must be a boolean",
+					Message:  fmt.Sprintf("permissions.%s must be a boolean", key),
 					Severity: cue.SeverityError,
 					Source:   cue.SourceAnthropicDocs,
 				})
@@ -77,7 +77,7 @@ func validatePermissions(perms any, filePath string) []cue.ValidationError {
 		if key != "allow" && key != "deny" && key != "ask" {
 			errors = append(errors, cue.ValidationError{
 				File:     filePath,
-				Message:  fmt.Sprintf("permissions: unknown key '%s'. Supported keys: allow, deny, ask, defaultMode, disableAutoMode, disableBypassPermissionsMode, blockReadsOutsideWorkingDirectories, additionalDirectories", key),
+				Message:  fmt.Sprintf("permissions: unknown key '%s'. Supported keys: allow, deny, ask, defaultMode, disableAutoMode, disableBypassPermissionsMode, blockReadsOutsideWorkingDirectories, blockWritesOutsideWorkingDirectories, additionalDirectories", key),
 				Severity: cue.SeverityError,
 				Source:   cue.SourceAnthropicDocs,
 			})
