@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.62.0 (2026-11-01)
+
+### Features
+
+- model Claude Code v2.1.311-v2.1.316 lint surface: `permissions.blockWritesOutsideWorkingDirectories` (v2.1.314) and the `sandbox.excludedCommands` backfill; the tracked surface now reports v2.1.316.
+
+### Changed
+
+- reuse lint analysis and avoid redundant discovery work.
+- migrate output rendering to `charm.land/lipgloss/v2` and emit plain text when stdout is not a terminal.
+
 ## v0.61.1 (2026-10-30)
 
 ### Fixed
