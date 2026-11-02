@@ -277,6 +277,7 @@ Close:
 | Stale `./cclint` binary | Phantom results | `go build -o cclint .` before smoke |
 | Unscoped `go test ./...` | Slow; scope creep | `./internal/cue/ ./internal/lint/` |
 | Committing AGENTS.md row without the root.go var | `TestClaudeCodeSurfaceMatchesAGENTSRow` breaks mid-history | Same commit, always |
+| Adding a `permissions.*` key to `settings.cue` only | Go-side closed key list in `internal/lint/settings_permissions.go` still rejects it ("unknown key"); per-package tests miss the drift | Edit both sites plus the Supported-keys message in one change; the Phase 7 smoke fixture catches it |
 | Editing an AGENTS.md alias | May edit a different file than intended | Edit the physical repo-root AGENTS.md |
 | Assuming a clean tree authorizes a commit | Unauthorized history change | Commit only with explicit authorization; preserve pre-existing changes |
 | Dispatching small mechanical edits | Adds coordination and drift risk | Prefer direct edits; review any delegated diff |
