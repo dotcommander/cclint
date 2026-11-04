@@ -33,6 +33,8 @@ func TestValidateHooksValidEvents(t *testing.T) {
 		{"valid StopFailure hook", hook("StopFailure", cmd("echo stop failed")), 0},
 		{"valid SubagentStart hook", hook("SubagentStart", cmd("echo subagent started")), 0},
 		{"valid PostToolUseFailure hook", hook("PostToolUseFailure", cmd("echo tool failed")), 0},
+		{"valid PostToolBatch hook", hook("PostToolBatch", cmd("echo batch resolved")), 0},
+		{"valid UserPromptExpansion hook", hook("UserPromptExpansion", cmd("echo expanding prompt")), 0},
 		{"valid TeammateIdle hook", hook("TeammateIdle", cmd("echo teammate idle")), 0},
 		{"valid TaskCompleted hook", hook("TaskCompleted", cmd("echo task done")), 0},
 		{"valid ConfigChange hook", hook("ConfigChange", cmd("echo config changed")), 0},

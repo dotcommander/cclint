@@ -16,37 +16,39 @@ func LintSettings(rootPath string, quiet bool, verbose bool, noCycleCheck bool, 
 
 // Valid hook events according to Anthropic documentation
 var validHookEvents = map[string]bool{
-	"PreToolUse":         true,
-	"PermissionRequest":  true,
-	"PostToolUse":        true,
-	"PostToolUseFailure": true,
-	"Notification":       true,
-	"MessageDisplay":     true, // transforms/hides assistant message text (v2.1.152+)
-	"PreModelSwitch":     true, // block, confirm, or annotate a model switch (v2.1.251)
-	"PostModelSwitch":    true, // fires after a model switch completes (v2.1.251)
-	"UserPromptSubmit":   true,
-	"Stop":               true,
-	"SubagentStart":      true,
-	"SubagentStop":       true,
-	"PreCompact":         true,
-	"SessionStart":       true,
-	"SessionEnd":         true,
-	"TeammateIdle":       true, // multi-agent workflow event (v2.1.33+)
-	"TaskCompleted":      true, // multi-agent workflow event (v2.1.33+)
-	"ConfigChange":       true, // config file change event (v2.1.49+)
-	"WorktreeCreate":     true, // worktree lifecycle event (v2.1.50+)
-	"WorktreeRemove":     true, // worktree lifecycle event (v2.1.50+)
-	"InstructionsLoaded": true, // instructions loaded event (v2.1.69+)
-	"PostCompact":        true, // fires after compaction completes (v2.1.76+)
-	"Elicitation":        true, // MCP elicitation request event (v2.1.76+)
-	"ElicitationResult":  true, // MCP elicitation result event (v2.1.76+)
-	"StopFailure":        true, // API error stop event (v2.1.78+)
-	"CwdChanged":         true, // working directory change event (v2.1.83+)
-	"FileChanged":        true, // file change event (v2.1.83+)
-	"DirectoryAdded":     true, // working directory registration event (v2.1.219+)
-	"TaskCreated":        true, // task creation event (v2.1.84+)
-	"PermissionDenied":   true, // auto mode denial event (v2.1.88+)
-	"Setup":              true, // repo setup hook with init/maintenance triggers (v2.1.100+)
+	"PreToolUse":          true,
+	"PermissionRequest":   true,
+	"PostToolUse":         true,
+	"PostToolUseFailure":  true,
+	"PostToolBatch":       true, // fires once after all tool calls in a parallel batch resolve (pre-v2.1.317 backfill)
+	"Notification":        true,
+	"MessageDisplay":      true, // transforms/hides assistant message text (v2.1.152+)
+	"PreModelSwitch":      true, // block, confirm, or annotate a model switch (v2.1.251)
+	"PostModelSwitch":     true, // fires after a model switch completes (v2.1.251)
+	"UserPromptSubmit":    true,
+	"UserPromptExpansion": true, // slash-command / MCP prompt expansion before submission (pre-v2.1.317 backfill)
+	"Stop":                true,
+	"SubagentStart":       true,
+	"SubagentStop":        true,
+	"PreCompact":          true,
+	"SessionStart":        true,
+	"SessionEnd":          true,
+	"TeammateIdle":        true, // multi-agent workflow event (v2.1.33+)
+	"TaskCompleted":       true, // multi-agent workflow event (v2.1.33+)
+	"ConfigChange":        true, // config file change event (v2.1.49+)
+	"WorktreeCreate":      true, // worktree lifecycle event (v2.1.50+)
+	"WorktreeRemove":      true, // worktree lifecycle event (v2.1.50+)
+	"InstructionsLoaded":  true, // instructions loaded event (v2.1.69+)
+	"PostCompact":         true, // fires after compaction completes (v2.1.76+)
+	"Elicitation":         true, // MCP elicitation request event (v2.1.76+)
+	"ElicitationResult":   true, // MCP elicitation result event (v2.1.76+)
+	"StopFailure":         true, // API error stop event (v2.1.78+)
+	"CwdChanged":          true, // working directory change event (v2.1.83+)
+	"FileChanged":         true, // file change event (v2.1.83+)
+	"DirectoryAdded":      true, // working directory registration event (v2.1.219+)
+	"TaskCreated":         true, // task creation event (v2.1.84+)
+	"PermissionDenied":    true, // auto mode denial event (v2.1.88+)
+	"Setup":               true, // repo setup hook with init/maintenance triggers (v2.1.100+)
 }
 
 // validComponentHookEvents lists hook events valid for agents and skills.

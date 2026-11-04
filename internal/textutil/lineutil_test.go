@@ -163,6 +163,15 @@ func TestValidateAllowedTools(t *testing.T) {
 	}
 }
 
+func TestKnownToolsArtifactFamily(t *testing.T) {
+	t.Parallel()
+	for _, tool := range []string{"Artifact", "ArtifactComments", "ArtifactData", "ArtifactCheck"} {
+		if !KnownTools[tool] {
+			t.Errorf("KnownTools missing %s (Artifact tool family, binary-verified v2.1.318)", tool)
+		}
+	}
+}
+
 func TestValidateToolFieldName(t *testing.T) {
 	tests := []struct {
 		name          string

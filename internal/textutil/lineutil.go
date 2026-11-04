@@ -313,6 +313,8 @@ var KnownTools = map[string]bool{
 	"SendFeedback": true,
 	// Current-tool-list additions (verified v2.1.296)
 	"JavaScript": true, "ToolSearch": true, "SendUserMessage": true,
+	// Artifact tool family (backfill, binary-verified v2.1.318; present in the v2.1.316 binary)
+	"Artifact": true, "ArtifactComments": true, "ArtifactData": true, "ArtifactCheck": true,
 	// Wildcards
 	"*": true,
 }
