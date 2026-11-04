@@ -7,7 +7,7 @@ toolchain go1.26.2
 require (
 	charm.land/lipgloss/v2 v2.0.6
 	cuelang.org/go v0.17.1
-	github.com/alecthomas/kong v1.16.1
+	github.com/alecthomas/kong v1.17.0
 	github.com/bmatcuk/doublestar/v4 v4.10.4
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1

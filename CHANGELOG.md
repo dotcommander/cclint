@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.63.0 (2026-11-03)
+
+### Features
+
+- model Claude Code v2.1.317-v2.1.318 lint surface: hook events `PostToolBatch` and `UserPromptExpansion` and the `Artifact`/`ArtifactComments`/`ArtifactData`/`ArtifactCheck` tool family; the tracked surface now reports v2.1.318.
+- support user-extensible CUE schemas via `schemas.extensions`: per-component-type constraint files unify with the built-in schemas.
+- lint component batches concurrently when `parallel` is enabled, bounded by `concurrency`; result ordering is unchanged.
+- demote warning-severity findings to suggestions when `rules.strict` is false; errors are unaffected.
+- skip CUE schema validation when `schemas.enabled` is false; Go-based checks still run.
+
+### Changed
+
+- record the dual-site permissions-key validation gotcha in the updater procedure.
+
 ## v0.62.0 (2026-11-01)
 
 ### Features
