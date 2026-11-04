@@ -122,7 +122,7 @@ func (l *pipelineTestLinter) PostProcess(result *LintResult) {
 
 func TestLintFileCorePreservesStageAndIssueOrder(t *testing.T) {
 	linter := &pipelineTestLinter{}
-	result := lintFileCore(pipelineTestFilePath, pipelineTestContents, linter, nil, &crossfile.CrossFileValidator{})
+	result := lintFileCore(pipelineTestFilePath, pipelineTestContents, linter, cue.NewValidator(), &crossfile.CrossFileValidator{})
 
 	wantEvents := []string{
 		pipelineStepPreValidate,

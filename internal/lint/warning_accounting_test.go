@@ -60,7 +60,7 @@ func TestBaselineWarningProducers(t *testing.T) {
 			if err := baseline.CreateBaseline(known).SaveBaseline(path); err != nil {
 				t.Fatal(err)
 			}
-			o := NewOrchestrator(&config.Config{Root: root, Quiet: true},
+			o := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true},
 				OrchestratorConfig{UseBaseline: true, BaselinePath: path})
 			var result *Result
 			var err error
@@ -102,7 +102,7 @@ func TestBaselineWarningMemory(t *testing.T) {
 	if err := baseline.CreateBaseline(issues).SaveBaseline(path); err != nil {
 		t.Fatal(err)
 	}
-	result, err := NewOrchestrator(&config.Config{Root: root, Quiet: true},
+	result, err := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true},
 		OrchestratorConfig{UseBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{}).Run()
 	if err != nil {
 		t.Fatal(err)

@@ -87,7 +87,7 @@ func TestLoadConfigFromJSON(t *testing.T) {
 		"schemas": map[string]any{
 			"enabled": false,
 			"extensions": map[string]any{
-				"custom": "value",
+				"agent": "value",
 			},
 		},
 	}
@@ -125,7 +125,7 @@ func TestLoadConfigFromJSON(t *testing.T) {
 	assert.False(t, config.Parallel)
 	assert.False(t, config.Rules.Strict)
 	assert.False(t, config.Schemas.Enabled)
-	assert.Equal(t, "value", config.Schemas.Extensions["custom"])
+	assert.Equal(t, "value", config.Schemas.Extensions["agent"])
 }
 
 // TestLoadConfigFromYAML tests loading configuration from YAML file
@@ -155,7 +155,7 @@ rules:
 schemas:
   enabled: true
   extensions:
-    yaml: test
+    agent: test
 `
 
 	configPath := filepath.Join(tmpDir, ".cclintrc.yaml")
@@ -189,7 +189,7 @@ schemas:
 	assert.True(t, config.Parallel)
 	assert.True(t, config.Rules.Strict)
 	assert.True(t, config.Schemas.Enabled)
-	assert.Equal(t, "test", config.Schemas.Extensions["yaml"])
+	assert.Equal(t, "test", config.Schemas.Extensions["agent"])
 }
 
 // TestLoadConfigYMLExtension tests .yml extension
@@ -701,7 +701,9 @@ func TestLoadConfigWithNullExtensions(t *testing.T) {
 	config, err := LoadConfig("")
 	require.NoError(t, err)
 	assert.True(t, config.Schemas.Enabled)
-	assert.Nil(t, config.Schemas.Extensions)
+	// The documented Default: {} applies when the config value is null.
+	assert.NotNil(t, config.Schemas.Extensions)
+	assert.Empty(t, config.Schemas.Extensions)
 }
 
 // TestLoadConfigEmptyRootPath tests that empty rootPath uses config value

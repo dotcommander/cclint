@@ -12,8 +12,14 @@ import (
 type singleFileInvocation struct {
 	discovery DiscoveryCache
 	validator *cue.Validator
-	schemaErr error
-	cross     map[string]crossFileIndex
+	// schemaErr is a soft LoadSchemas failure (per-file warning); extensionErr
+	// is fatal (extension files fail the run with the file named).
+	schemaErr        error
+	extensionErr     error
+	schemaInit       bool
+	skipSchema       bool
+	schemaExtensions map[string]any
+	cross            map[string]crossFileIndex
 }
 
 type crossFileIndex struct {
@@ -21,10 +27,20 @@ type crossFileIndex struct {
 	err       error
 }
 
-func (run *singleFileInvocation) cueValidator() (*cue.Validator, error) {
-	if run.validator == nil {
+// cueValidator returns the shared validator, nil when schema validation is
+// skipped. The returned error is the soft schema-load failure; extension load
+// failures are stored separately and fail the run via extensionErr.
+func (run *singleFileInvocation) cueValidator(rootPath string) (*cue.Validator, error) {
+	if run.skipSchema {
+		return nil, nil
+	}
+	if !run.schemaInit {
+		run.schemaInit = true
 		run.validator = cue.NewValidator()
 		run.schemaErr = run.validator.LoadSchemas()
+		if run.schemaErr == nil && len(run.schemaExtensions) > 0 {
+			run.extensionErr = run.validator.LoadExtensions(rootPath, run.schemaExtensions)
+		}
 	}
 	return run.validator, run.schemaErr
 }

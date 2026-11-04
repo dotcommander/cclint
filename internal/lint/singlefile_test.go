@@ -313,7 +313,7 @@ Task(test): Do something
 		t.Fatal(err)
 	}
 
-	summary, err := LintFiles([]string{validAgent, validCommand}, tmpDir, "", true, false)
+	summary, err := LintFiles([]string{validAgent, validCommand}, tmpDir, "", true, false, false, nil)
 	if err != nil {
 		t.Fatalf("LintFiles() error: %v", err)
 	}

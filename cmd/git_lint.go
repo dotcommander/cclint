@@ -96,7 +96,7 @@ func runGitLint(opts executionOptions, cmd *lintCommand) error {
 		return nil
 	}
 
-	summary, err := lint.LintFiles(changes.Files, cfg.Root, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(changes.Files, cfg.Root, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose, !cfg.Schemas.Enabled, cfg.Schemas.Extensions)
 	if err != nil {
 		return err
 	}

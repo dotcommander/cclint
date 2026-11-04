@@ -135,7 +135,7 @@ func TestRegistryPluginFactoryReceivesRoot(t *testing.T) {
 }
 
 func TestNewOrchestratorAndWithLinters(t *testing.T) {
-	cfg := &config.Config{Root: t.TempDir(), Quiet: true}
+	cfg := &config.Config{Rules: config.RulesConfig{Strict: true}, Root: t.TempDir(), Quiet: true}
 	orch := NewOrchestrator(cfg, OrchestratorConfig{BaselinePath: ".cclintbaseline.json"})
 	if orch.cfg != cfg || len(orch.linters) != len(DefaultLinters()) {
 		t.Fatal("NewOrchestrator did not retain config and defaults")
@@ -157,7 +157,7 @@ func TestRunSharesContextAndPropagatesResolvedRoot(t *testing.T) {
 		fakeEntry(discovery.FileTypeAgent, "agents", nil, &contexts, &roots),
 		fakeEntry(discovery.FileTypeCommand, "commands", nil, &contexts, &roots),
 	}
-	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{BaselinePath: ".cclintbaseline.json"}).WithLinters(linters)
+	orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{BaselinePath: ".cclintbaseline.json"}).WithLinters(linters)
 	result, err := orch.Run()
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
@@ -186,7 +186,7 @@ func TestRunSelectedSubset(t *testing.T) {
 		return &recordingComponentLinter{fileType: discovery.FileTypeCommand, typeName: "commands"}
 	}
 
-	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters([]LinterEntry{command})
+	orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters([]LinterEntry{command})
 	result, err := orch.Run()
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +208,7 @@ func TestRunAggregatesAndSkipsEmptySummaries(t *testing.T) {
 		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
 		fakeEntry(discovery.FileTypeCommand, "commands", nil, nil, nil),
 	}
-	result, err := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters(linters).Run()
+	result, err := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{}).WithLinters(linters).Run()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestRunAggregatesAndSkipsEmptySummaries(t *testing.T) {
 }
 
 func TestRunEmptySelectionDoesNotInitializeContext(t *testing.T) {
-	result, err := NewOrchestrator(&config.Config{Root: filepath.Join(t.TempDir(), "missing"), Quiet: true}, OrchestratorConfig{}).WithLinters(nil).Run()
+	result, err := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: filepath.Join(t.TempDir(), "missing"), Quiet: true}, OrchestratorConfig{}).WithLinters(nil).Run()
 	if err != nil {
 		t.Fatalf("empty run error = %v", err)
 	}
@@ -237,7 +237,7 @@ func TestResolveBaselinePath(t *testing.T) {
 		{"relative.json", filepath.Join(root, "relative.json")},
 	}
 	for _, tt := range tests {
-		orch := NewOrchestrator(&config.Config{Root: root}, OrchestratorConfig{BaselinePath: tt.path})
+		orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root}, OrchestratorConfig{BaselinePath: tt.path})
 		if got := orch.resolveBaselinePath(); got != tt.want {
 			t.Errorf("resolveBaselinePath(%q) = %q, want %q", tt.path, got, tt.want)
 		}
@@ -247,7 +247,7 @@ func TestResolveBaselinePath(t *testing.T) {
 func TestLoadAndSaveBaseline(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "baseline.json")
-	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path})
+	orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path})
 	if got, err := orch.loadBaseline(path); err != nil || got != nil {
 		t.Fatalf("missing baseline = (%v, %v), want (nil, nil)", got, err)
 	}
@@ -266,7 +266,7 @@ func TestRunCreatesBaseline(t *testing.T) {
 	writeComponentFile(t, root, discovery.FileTypeAgent)
 	path := filepath.Join(root, "baseline.json")
 	issues := []cue.ValidationError{{Message: "new", Severity: cue.SeverityError, Source: "test"}}
-	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{CreateBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
+	orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{CreateBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
 		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
 	})
 	result, err := orch.Run()
@@ -296,7 +296,7 @@ func TestRunFiltersBaseline(t *testing.T) {
 		{Message: "known", Severity: cue.SeverityError, Source: "test"},
 		{Message: "new", Severity: cue.SeverityError, Source: "test"},
 	}
-	orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
+	orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{UseBaseline: true, BaselinePath: path}).WithLinters([]LinterEntry{
 		fakeEntry(discovery.FileTypeAgent, "agents", issues, nil, nil),
 	})
 	result, err := orch.Run()

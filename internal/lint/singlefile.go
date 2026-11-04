@@ -18,7 +18,7 @@
 //	summary, err := LintSingleFile("./agents/my-agent.md", "", false, false)
 //
 //	// Lint multiple files
-//	summary, err := LintFiles([]string{"a.md", "b.md"}, "", "", false, false)
+//	summary, err := LintFiles([]string{"a.md", "b.md"}, "", "", false, false, false, nil)
 package lint
 
 import (
@@ -64,7 +64,12 @@ type SingleFileRequest struct {
 	Quiet          bool
 	Verbose        bool
 	DiscoveryCache *DiscoveryCache
-	invocation     *singleFileInvocation
+	// SkipSchemaValidation leaves the context without a CUE validator
+	// (schemas.enabled=false); SchemaExtensions are unified with the embedded
+	// schemas before validation runs.
+	SkipSchemaValidation bool
+	SchemaExtensions     map[string]any
+	invocation           *singleFileInvocation
 }
 
 // EnsureCrossFileValidator lazy-loads the cross-file validator.
@@ -203,7 +208,9 @@ func lintSingleFileRequest(req SingleFileRequest) (*LintSummary, error) {
 //   - typeOverride: Force component type (empty to auto-detect)
 //   - quiet: Suppress non-essential output
 //   - verbose: Enable verbose output
-func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose bool) (*LintSummary, error) {
+//   - skipSchemaValidation: skip CUE schema validation (schemas.enabled=false)
+//   - schemaExtensions: CUE extension files unified with the embedded schemas
+func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose bool, skipSchemaValidation bool, schemaExtensions map[string]any) (*LintSummary, error) {
 	if len(filePaths) == 0 {
 		return nil, fmt.Errorf("no files specified")
 	}
@@ -222,7 +229,10 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 
 	// The state lives only for this call; discovery and reference indexes are
 	// shared per root while CUE schemas are shared across all selected files.
-	invocation := &singleFileInvocation{}
+	invocation := &singleFileInvocation{
+		skipSchema:       skipSchemaValidation,
+		schemaExtensions: schemaExtensions,
+	}
 
 	var firstRoot string
 
@@ -233,12 +243,14 @@ func LintFiles(filePaths []string, rootPath, typeOverride string, quiet, verbose
 			effectiveType = fh.TypeHint
 		}
 		result, err := lintSingleFileRequest(SingleFileRequest{
-			FilePath:     fh.Path,
-			RootPath:     rootPath,
-			TypeOverride: effectiveType,
-			Quiet:        quiet,
-			Verbose:      verbose,
-			invocation:   invocation,
+			FilePath:             fh.Path,
+			RootPath:             rootPath,
+			TypeOverride:         effectiveType,
+			Quiet:                quiet,
+			Verbose:              verbose,
+			SkipSchemaValidation: skipSchemaValidation,
+			SchemaExtensions:     schemaExtensions,
+			invocation:           invocation,
 		})
 		if err != nil {
 			// Record as failed result with error message

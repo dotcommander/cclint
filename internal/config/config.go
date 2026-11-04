@@ -136,6 +136,7 @@ func setDefaults(vp *viper.Viper, homeDir string) {
 	vp.SetDefault("parallel", true)
 	vp.SetDefault("rules.strict", true)
 	vp.SetDefault("schemas.enabled", true)
+	vp.SetDefault("schemas.extensions", map[string]any{})
 }
 
 // validateConfig validates the configuration
@@ -153,6 +154,27 @@ func validateConfig(config *Config) error {
 	// Validate concurrency
 	if config.Concurrency < 1 {
 		return fmt.Errorf("concurrency must be at least 1")
+	}
+
+	// Validate schemas.extensions shape; file existence is checked at load time.
+	for key, value := range config.Schemas.Extensions {
+		switch key {
+		case "agent", "command", "skill", "settings", "claude_md":
+		default:
+			return fmt.Errorf("schemas.extensions[%q]: unknown component type (must be one of agent, command, skill, settings, claude_md)", key)
+		}
+		switch v := value.(type) {
+		case string:
+		case []string:
+		case []any:
+			for i, elem := range v {
+				if _, ok := elem.(string); !ok {
+					return fmt.Errorf("schemas.extensions[%q]: list element %d must be a string path, got %T", key, i, elem)
+				}
+			}
+		default:
+			return fmt.Errorf("schemas.extensions[%q]: value must be a file path string or a list of paths, got %T", key, value)
+		}
 	}
 
 	// Note: --format json/markdown without --output writes to stdout,

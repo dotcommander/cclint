@@ -63,7 +63,7 @@ func TestOrchestratorDiscoverySnapshot(t *testing.T) {
 					}
 				},
 			}
-			orch := NewOrchestrator(&config.Config{Root: root, Quiet: true}, OrchestratorConfig{}).
+			orch := NewOrchestrator(&config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}, OrchestratorConfig{}).
 				WithLinters([]LinterEntry{entry})
 			for run, want := range tt.wantWarnings {
 				result, err := orch.Run()

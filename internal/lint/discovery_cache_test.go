@@ -109,7 +109,7 @@ func TestSharedDiscoveryCacheKeepsCrossFileIndexesLocal(t *testing.T) {
 		}
 	}
 	// Exercise the actual selected-file caller with independently inferred roots.
-	summary, err := LintFiles(agents, "", "", true, false)
+	summary, err := LintFiles(agents, "", "", true, false, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

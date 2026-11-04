@@ -23,14 +23,43 @@ type LinterContext struct {
 	Discoverer     *discovery.FileDiscovery
 	Files          []discovery.File
 	CrossValidator *crossfile.CrossFileValidator
-	cycleOnce      sync.Once
-	cycles         []crossfile.Cycle
+	// Parallel enables concurrent per-file linting inside batch runs.
+	// Zero values mean sequential execution for all pre-existing callers.
+	Parallel    bool
+	Concurrency int
+	cycleOnce   sync.Once
+	cycles      []crossfile.Cycle
+}
+
+// LinterOptions carries run-wide options for batch linting.
+type LinterOptions struct {
+	Quiet, Verbose, NoCycleCheck bool
+	Exclude                      []string
+	FollowSymlinks               bool
+	Parallel                     bool
+	Concurrency                  int
+	SkipSchemaValidation         bool
+	SchemaExtensions             map[string]any
 }
 
 // NewLinterContext creates a new LinterContext with all dependencies initialized.
 // It handles project root detection, schema loading, file discovery, and
 // cross-file validator setup.
 func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclude []string, followSymlinks ...bool) (*LinterContext, error) {
+	return NewLinterContextWithOptions(rootPath, LinterOptions{
+		Quiet:          quiet,
+		Verbose:        verbose,
+		NoCycleCheck:   noCycleCheck,
+		Exclude:        exclude,
+		FollowSymlinks: len(followSymlinks) > 0 && followSymlinks[0],
+	})
+}
+
+// NewLinterContextWithOptions creates a new LinterContext from LinterOptions.
+// When SkipSchemaValidation is set no validator is constructed and CUE
+// validation is skipped for the run. SchemaExtensions are loaded into the
+// validator after the embedded schemas; a load error fails context creation.
+func NewLinterContextWithOptions(rootPath string, opts LinterOptions) (*LinterContext, error) {
 	// Find project root if not provided
 	if rootPath == "" {
 		var err error
@@ -40,19 +69,25 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclud
 		}
 	}
 
-	// Initialize validator
-	validator := cue.NewValidator()
+	// Initialize validator unless schema validation is intentionally skipped.
+	var validator *cue.Validator
+	if !opts.SkipSchemaValidation {
+		validator = cue.NewValidator()
 
-	// Load schemas (soft failure - continue with Go validation)
-	if err := validator.LoadSchemas(); err != nil {
-		if !quiet {
-			fmt.Fprintf(os.Stderr, "Warning: CUE schemas not loaded, using Go validation\n")
+		// Load schemas (soft failure - continue with Go validation)
+		if err := validator.LoadSchemas(); err != nil {
+			if !opts.Quiet {
+				fmt.Fprintf(os.Stderr, "Warning: CUE schemas not loaded, using Go validation\n")
+			}
+		} else if len(opts.SchemaExtensions) > 0 {
+			if err := validator.LoadExtensions(rootPath, opts.SchemaExtensions); err != nil {
+				return nil, fmt.Errorf("load schema extensions: %w", err)
+			}
 		}
 	}
 
 	// Initialize discoverer
-	follow := len(followSymlinks) > 0 && followSymlinks[0]
-	discoverer := discovery.NewFileDiscovery(rootPath, follow).WithExclude(exclude)
+	discoverer := discovery.NewFileDiscovery(rootPath, opts.FollowSymlinks).WithExclude(opts.Exclude)
 
 	// Discover all files
 	files, err := discoverer.DiscoverFiles()
@@ -65,13 +100,15 @@ func NewLinterContext(rootPath string, quiet, verbose, noCycleCheck bool, exclud
 
 	return &LinterContext{
 		RootPath:       rootPath,
-		Quiet:          quiet,
-		Verbose:        verbose,
-		NoCycleCheck:   noCycleCheck,
+		Quiet:          opts.Quiet,
+		Verbose:        opts.Verbose,
+		NoCycleCheck:   opts.NoCycleCheck,
 		Validator:      validator,
 		Discoverer:     discoverer,
 		Files:          files,
 		CrossValidator: crossValidator,
+		Parallel:       opts.Parallel,
+		Concurrency:    opts.Concurrency,
 	}, nil
 }
 

@@ -189,6 +189,11 @@ func runPreValidation(result *LintResult, filePath, contents string, linter Comp
 
 // runCUEValidation runs CUE schema validation.
 func runCUEValidation(result *LintResult, filePath string, linter ComponentLinter, validator *cue.Validator, data map[string]any) {
+	// Nil validator means schema validation was intentionally skipped
+	// (schemas.enabled=false); implementations dereference the validator.
+	if validator == nil {
+		return
+	}
 	cueErrors, cueErr := linter.ValidateCUE(validator, data)
 	if cueErr != nil {
 		result.Errors = append(result.Errors, cue.ValidationError{
@@ -300,9 +305,18 @@ func lintBatch(ctx *LinterContext, linter ComponentLinter) *LintSummary {
 	summary := ctx.NewSummary(len(files))
 	summary.ComponentType = linter.Type()
 
-	for _, file := range files {
-		result := lintBatchFile(ctx, file, linter)
+	var results []LintResult
+	if ctx.Parallel && ctx.Concurrency > 1 && len(files) > 1 {
+		results = lintBatchParallel(ctx, files, linter)
+	} else {
+		results = make([]LintResult, 0, len(files))
+		for _, file := range files {
+			results = append(results, lintBatchFile(ctx, file, linter))
+		}
+	}
 
+	// Apply in input order so parallel runs produce identical summaries.
+	for _, result := range results {
 		applyResultToSummary(summary, result)
 
 		summary.Results = append(summary.Results, result)

@@ -51,7 +51,7 @@ func TestBaselineWarningReport(t *testing.T) {
 		if err := baseline.CreateBaseline(known).SaveBaseline(path); err != nil {
 			t.Fatal(err)
 		}
-		cfg := &config.Config{Root: root, Quiet: mode == "quiet"}
+		cfg := &config.Config{Root: root, Quiet: mode == "quiet", Rules: config.RulesConfig{Strict: true}}
 		summary := &lint.LintSummary{Results: []lint.LintResult{{
 			File: "test.md", Type: "agent", Errors: known[:1],
 			Warnings: known[1:2], Suggestions: known[2:],

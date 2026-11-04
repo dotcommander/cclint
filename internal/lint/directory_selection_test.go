@@ -44,7 +44,7 @@ func TestLintFilesRootRelativeDirectory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			summary, err := LintFiles([]string{tt.path}, tt.root, "", true, false)
+			summary, err := LintFiles([]string{tt.path}, tt.root, "", true, false, false, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

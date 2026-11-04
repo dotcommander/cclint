@@ -52,7 +52,7 @@ func TestQuietMemoryChecksParticipateInBaseline(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "CLAUDE.local.md"), []byte("local memory"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := &config.Config{Root: root, Quiet: true}
+	cfg := &config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true}
 	opts := OrchestratorConfig{CreateBaseline: true, BaselinePath: "baseline.json"}
 	created, err := NewOrchestrator(cfg, opts).WithLinters([]LinterEntry{}).Run()
 	if err != nil {

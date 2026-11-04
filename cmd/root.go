@@ -181,7 +181,7 @@ func runSingleFileLint(opts executionOptions, cmd *lintCommand, files []string) 
 	if selectionRoot == "" && cfg.RootExplicit {
 		selectionRoot = cfg.Root
 	}
-	summary, err := lint.LintFiles(files, selectionRoot, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose)
+	summary, err := lint.LintFiles(files, selectionRoot, stringValue(cmd.Type), cfg.Quiet, cfg.Verbose, !cfg.Schemas.Enabled, cfg.Schemas.Extensions)
 	if err != nil {
 		return err
 	}

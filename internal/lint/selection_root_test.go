@@ -102,7 +102,7 @@ func TestLintFilesSelectedProjectRoot(t *testing.T) {
 	root := selectionTestRoot(t)
 	writeSelectionFile(t, root, ".claude/agents/example.md", "---\nname: example\ndescription: Test agent\n---\n## Foundation\nTest.\n")
 	writeSelectionFile(t, root, ".claude/commands/example.md", "---\ndescription: Test command\nallowed-tools: Task\n---\nTask(example): Test.\n")
-	summary, err := LintFiles([]string{root}, "", "", true, false)
+	summary, err := LintFiles([]string{root}, "", "", true, false, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

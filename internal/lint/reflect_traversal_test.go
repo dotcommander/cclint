@@ -55,7 +55,7 @@ func TestReflectTraversalPolicy(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			cfg := &config.Config{Root: root, Quiet: true, Exclude: tt.exclude, FollowSymlinks: true}
+			cfg := &config.Config{Rules: config.RulesConfig{Strict: true}, Root: root, Quiet: true, Exclude: tt.exclude, FollowSymlinks: true}
 			result, err := NewOrchestrator(cfg, OrchestratorConfig{}).WithLinters(nil).Run()
 			if err != nil {
 				t.Fatal(err)

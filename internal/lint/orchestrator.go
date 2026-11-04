@@ -87,7 +87,11 @@ func (o *Orchestrator) Run() (*Result, error) {
 			categorizeIssues(&r, []cue.ValidationError{issue})
 			summary.Results = append(summary.Results, r)
 		}
-		recalculateTotals(summary)
+		if !o.cfg.Rules.Strict {
+			demoteSummaryWarnings(summary)
+		} else {
+			recalculateTotals(summary)
+		}
 		result.Summaries = append(result.Summaries, summary)
 		allIssues = append(allIssues, issues...)
 		if o.opts.UseBaseline && b != nil {
@@ -122,13 +126,28 @@ func (o *Orchestrator) runAllLinters(b *baseline.Baseline, result *Result) ([]cu
 		return allIssues, nil, nil
 	}
 
-	ctx, err := NewLinterContext(o.cfg.Root, o.cfg.Quiet, o.cfg.Verbose, o.cfg.NoCycleCheck, o.cfg.Exclude, o.cfg.FollowSymlinks)
+	ctx, err := NewLinterContextWithOptions(o.cfg.Root, LinterOptions{
+		Quiet:                o.cfg.Quiet,
+		Verbose:              o.cfg.Verbose,
+		NoCycleCheck:         o.cfg.NoCycleCheck,
+		Exclude:              o.cfg.Exclude,
+		FollowSymlinks:       o.cfg.FollowSymlinks,
+		Parallel:             o.cfg.Parallel,
+		Concurrency:          o.cfg.Concurrency,
+		SkipSchemaValidation: !o.cfg.Schemas.Enabled,
+		SchemaExtensions:     o.cfg.Schemas.Extensions,
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize lint context: %w", err)
 	}
 
 	for _, l := range o.linters {
 		summary := lintBatch(ctx, l.New(ctx.RootPath))
+
+		// Relaxed runs demote warnings to suggestions before any accounting.
+		if !o.cfg.Rules.Strict {
+			demoteSummaryWarnings(summary)
+		}
 
 		// Skip empty results (no files of this type)
 		if summary.TotalFiles == 0 {
@@ -231,6 +250,10 @@ func (o *Orchestrator) memoryIssues(ctx *LinterContext) []cue.ValidationError {
 // ProcessSelected applies the same baseline lifecycle to an explicitly selected
 // result set, without expanding its scope to project-wide checks.
 func (o *Orchestrator) ProcessSelected(summary *LintSummary) (*Result, error) {
+	// Relaxed runs demote warnings to suggestions before totals are computed.
+	if !o.cfg.Rules.Strict {
+		demoteSummaryWarnings(summary)
+	}
 	recalculateTotals(summary)
 	result := &Result{StartTime: time.Now(), Summaries: []*LintSummary{summary}}
 	path := o.resolveBaselinePath()

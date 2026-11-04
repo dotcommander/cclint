@@ -192,32 +192,32 @@ Disable cyclic dependency detection.
 **Default:** `10`
 **Minimum:** `1`
 
-Number of parallel workers for file processing.
+Number of parallel workers used when linting files in a batch run. Only meaningful when `parallel` is enabled.
 
 ### `parallel`
 
 **Type:** `boolean`
 **Default:** `true`
 
-Enable parallel processing of files.
+When true, files within each component batch are linted concurrently, bounded by `concurrency`; when false, processing is forced sequential. Result ordering is unaffected.
 
 ### `rules.strict`
 
 **Type:** `boolean`
 **Default:** `true`
 
-Enable strict rule enforcement.
+When false, warning-severity findings are demoted to suggestions — they are still reported, but no longer counted as warnings and cannot trip `failOn: warning`. Errors are unaffected.
 
 ### `schemas.enabled`
 
 **Type:** `boolean`
 **Default:** `true`
 
-Enable CUE schema validation for component frontmatter.
+When false, CUE schema validation of component frontmatter is skipped. Go-based checks still run.
 
 ### `schemas.extensions`
 
 **Type:** `object`
 **Default:** `{}`
 
-Stored in the configuration object; this guide does not imply that custom CUE schemas are loaded automatically.
+Map of component type (`agent`, `command`, `skill`, `settings`, `claude_md`) to a CUE file path or list of paths (relative to the project root) whose definitions — e.g. `#Agent: { maxTurns?: int & >100 }` — unify with (AND into) the built-in schema. A field written without `?` in the extension also becomes required for every component of that type; with `?` the constraint applies only when the field is present. Missing or invalid files fail the run with the file named.

@@ -72,7 +72,7 @@ func TestSingleFileInvocationRepeatsSchemaLoadWarningPerFile(t *testing.T) {
 		writeSelectionFile(t, root, "agents/second.md", "second\n"),
 	}
 	// Simulate a failed schema load without depending on the embedded schemas.
-	run := &singleFileInvocation{validator: cue.NewValidator(), schemaErr: errSchemaFixture{}}
+	run := &singleFileInvocation{validator: cue.NewValidator(), schemaErr: errSchemaFixture{}, schemaInit: true}
 	for _, path := range paths {
 		ctx, err := newSingleFileLinterContext(SingleFileRequest{FilePath: path, RootPath: root, invocation: run})
 		if err != nil {

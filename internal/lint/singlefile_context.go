@@ -107,23 +107,42 @@ func newSingleFileLinterContext(req SingleFileRequest) (*SingleFileLinterContext
 	}
 
 	// Schema load is shared only within a LintFiles invocation. Each file still
-	// receives its own warning when that load fails.
+	// receives its own warning when that load fails. An intentional skip
+	// (schemas.enabled=false) leaves the validator nil without a warning;
+	// extension load failures fail context creation with the file named.
 	var validator *cue.Validator
-	var schemaErr error
-	if req.invocation != nil {
-		validator, schemaErr = req.invocation.cueValidator()
-	} else {
-		validator = cue.NewValidator()
-		schemaErr = validator.LoadSchemas()
-	}
 	var warnings []cue.ValidationError
-	if schemaErr != nil {
-		warnings = append(warnings, cue.ValidationError{
-			File:     relPath,
-			Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", schemaErr),
-			Severity: cue.SeverityWarning,
-			Source:   cue.SourceCClintObserve,
-		})
+	switch {
+	case req.SkipSchemaValidation:
+		// Intentional skip: Go-based checks still run.
+	case req.invocation != nil:
+		var schemaErr error
+		validator, schemaErr = req.invocation.cueValidator(rootPath)
+		if req.invocation.extensionErr != nil {
+			return nil, fmt.Errorf("load schema extensions: %w", req.invocation.extensionErr)
+		}
+		if schemaErr != nil {
+			warnings = append(warnings, cue.ValidationError{
+				File:     relPath,
+				Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", schemaErr),
+				Severity: cue.SeverityWarning,
+				Source:   cue.SourceCClintObserve,
+			})
+		}
+	default:
+		validator = cue.NewValidator()
+		if schemaErr := validator.LoadSchemas(); schemaErr != nil {
+			warnings = append(warnings, cue.ValidationError{
+				File:     relPath,
+				Message:  fmt.Sprintf("CUE schemas not loaded, using Go validation: %v", schemaErr),
+				Severity: cue.SeverityWarning,
+				Source:   cue.SourceCClintObserve,
+			})
+		} else if len(req.SchemaExtensions) > 0 {
+			if err := validator.LoadExtensions(rootPath, req.SchemaExtensions); err != nil {
+				return nil, fmt.Errorf("load schema extensions: %w", err)
+			}
+		}
 	}
 
 	return &SingleFileLinterContext{
