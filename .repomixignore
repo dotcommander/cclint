@@ -1,1 +1,1 @@
-.release-dev/.repomixignore
+*_test.go

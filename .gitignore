@@ -53,6 +53,7 @@ claude-agents-report.html
 
 # Work artifacts (scratch, audits, specs — not for commit)
 .work/
+.dc/
 
 # No test files in docs/
 docs/**/*_test.go
@@ -63,7 +64,6 @@ docs/**/*_test.go
 # git cannot re-include a file under an excluded directory.
 !.claude/
 .claude/*
-!.claude/go.mod
 !.claude/rules/
 .claude/rules/*
 !.claude/rules/lint-surface.md
