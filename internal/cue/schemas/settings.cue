@@ -143,6 +143,9 @@ package schemas
 		defaultMode?: string // modeled permissively; bypassPermissions is runtime-tier-gated
 		blockReadsOutsideWorkingDirectories?: bool // v2.1.257+
 		blockWritesOutsideWorkingDirectories?: bool // v2.1.314+
+		// Never wait on a person at a permission prompt: a call that would
+		// prompt is denied at once and the turn carries on (v2.1.319+)
+		denyInsteadOfPrompting?: bool
 		// v2.1.296 binary-verified policy keys; each honors the literal "disable"
 		disableAutoMode?: string
 		disableBypassPermissionsMode?: string
@@ -189,6 +192,15 @@ package schemas
 	enabledPlugins?: {
 		[string]: bool
 	}
+
+	// Ordered plugin lists, primarily managed tier (runtime-shape-verified v2.1.325):
+	// plugin specifiers like "name@marketplace". prependPlugins entries load
+	// before the rest, appendPlugins after; a plugin named in both is prepended.
+	prependPlugins?: [...string]
+	appendPlugins?:  [...string]
+	// Deprecated and ignored (v2.1.323+): settings that hold it still load;
+	// plugins take the organization's trust instead. Marketplace name -> digests.
+	pluginDigests?: {[string]: [...string]}
 
 	// Additional plugin marketplaces (v2.1.45+)
 	// Map of marketplace name to source configuration
@@ -282,6 +294,11 @@ package schemas
 		allowPty?: bool
 		// Allow writes to .git/config files (binary-verified v2.1.308)
 		allowGitConfig?: bool
+		// Approve a Bash command that will run inside the sandbox without a
+		// permission prompt, unless a deny/ask rule or safety check stops it.
+		// macOS and Linux/WSL only; independent of filesystem isolation;
+		// defaults false (v2.1.325+)
+		autoAllowBashIfSandboxed?: bool
 		// Relax nested-sandbox and network-isolation defaults (binary-verified v2.1.308)
 		enableWeakerNestedSandbox?:  bool
 		enableWeakerNetworkIsolation?: bool
@@ -518,6 +535,10 @@ package schemas
 	// Status line + commit attribution. attribution accepts `false` to hide
 	// all commit and PR attribution (v2.1.281+) or an open struct.
 	statusLine?:          {...}
+	// Deprecated, no effect (v2.1.323+): subagent rows always use the default
+	// look; settings files that still hold the key load as before. Binary zod
+	// narrows it to {type: "command", command: string} — kept open here so
+	// legacy shapes do not start erroring on a dead key.
 	subagentStatusLine?:  {...}
 	attribution?:         bool | {...}
 	includeCoAuthoredBy?: bool // deprecated, superseded by attribution

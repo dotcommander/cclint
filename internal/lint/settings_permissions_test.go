@@ -83,6 +83,21 @@ func TestValidatePermissions(t *testing.T) {
 			wantErrors: 0,
 		},
 		{
+			name: "valid denyInsteadOfPrompting bool",
+			perms: map[string]any{
+				"denyInsteadOfPrompting": true,
+			},
+			wantErrors: 0,
+		},
+		{
+			name: "denyInsteadOfPrompting not a bool",
+			perms: map[string]any{
+				"denyInsteadOfPrompting": "yes",
+			},
+			wantErrors:   1,
+			wantSeverity: "error",
+		},
+		{
 			name: "disableAutoMode not a string",
 			perms: map[string]any{
 				"disableAutoMode": 5,

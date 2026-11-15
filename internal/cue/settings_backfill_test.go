@@ -60,6 +60,75 @@ func TestSettingsBackfillFields(t *testing.T) {
 			wantError: false,
 		},
 		{
+			name: "valid permissions.denyInsteadOfPrompting bool",
+			data: map[string]any{
+				"permissions": map[string]any{
+					"denyInsteadOfPrompting": true,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid permissions.denyInsteadOfPrompting as string",
+			data: map[string]any{
+				"permissions": map[string]any{
+					"denyInsteadOfPrompting": "yes",
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid sandbox.autoAllowBashIfSandboxed bool",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"autoAllowBashIfSandboxed": true,
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid sandbox.autoAllowBashIfSandboxed as number",
+			data: map[string]any{
+				"sandbox": map[string]any{
+					"autoAllowBashIfSandboxed": 1,
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "valid prependPlugins/appendPlugins arrays",
+			data: map[string]any{
+				"prependPlugins": []any{"cc-plugin-sec-default@builtin"},
+				"appendPlugins":  []any{"my-plugin@my-market"},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid appendPlugins as string",
+			data: map[string]any{
+				"appendPlugins": "my-plugin@my-market",
+			},
+			wantError: true,
+		},
+		{
+			name: "valid pluginDigests map of digest arrays",
+			data: map[string]any{
+				"pluginDigests": map[string]any{
+					"my-market": []any{"sha256-abc", "sha256-def"},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid pluginDigests entry as string",
+			data: map[string]any{
+				"pluginDigests": map[string]any{
+					"my-market": "sha256-abc",
+				},
+			},
+			wantError: true,
+		},
+		{
 			name: "invalid includeCoAuthoredBy as string",
 			data: map[string]any{
 				"includeCoAuthoredBy": "no",

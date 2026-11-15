@@ -23,6 +23,7 @@ var knownPluginFields = map[string]bool{
 	"keywords":       true, // Optional: discoverability tags
 	"dependencies":   true, // Optional: plugin dependencies
 	"metadata":       true, // Optional: free-form metadata; preserved on the parsed manifest but not read by Claude Code (v2.1.281+)
+	"engines":        true, // Optional: host version ranges (v2.1.323+) — record of host -> semver range; "claude-code" (e.g. ">=2.1.320") gates install/update/load; other keys ignored
 	"readme":         true, // Optional: path to README
 	"commands":       true, // Optional: command definitions
 	"agents":         true, // Optional: agent definitions

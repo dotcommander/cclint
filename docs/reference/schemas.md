@@ -259,11 +259,12 @@ hooks:
 | `respectGitignore` | bool | Git integration - per-project @-mention picker - v2.1.0+ |
 | `plansDirectory` | string | Custom plans directory path (default: `.claude/plans`) - v2.1.9+ |
 | `model` | string | Default model |
-| `permissions` | object | Permission rules, optional `defaultMode`, `blockReadsOutsideWorkingDirectories` - v2.1.257+, and `blockWritesOutsideWorkingDirectories` - v2.1.314+ |
+| `permissions` | object | Permission rules, optional `defaultMode`, `blockReadsOutsideWorkingDirectories` - v2.1.257+, `blockWritesOutsideWorkingDirectories` - v2.1.314+, and `denyInsteadOfPrompting` (bool, deny prompts instead of waiting - v2.1.319+) |
 | `mcp` | object | MCP server settings (supports `auto:N` syntax for tool search threshold) - v2.1.9+ |
 | `managedMcpServers` | object | Managed HTTP/SSE MCP servers keyed by name; command entries are invalid - v2.1.259+ |
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
 | `sandbox.excludedCommands` | `[...string]` | Command patterns excluded from the sandbox - the whole command or its start followed by ` *` |
+| `sandbox.autoAllowBashIfSandboxed` | bool | Approve sandboxed Bash commands without a permission prompt (macOS/Linux/WSL, default false) - v2.1.325+ |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
 | `sandbox.network.strictAllowlist` | bool | Require an explicit network allowlist - v2.1.219+ |
@@ -282,6 +283,8 @@ hooks:
 | `prUrlTemplate` | string | Custom code-review URL for the footer PR badge instead of github.com - v2.1.119+ |
 | `allowAllClaudeAiMcps` | bool | Enterprise managed setting loading claude.ai cloud MCP connectors alongside managed-mcp.json - v2.1.149+ |
 | `pluginSuggestionMarketplaces` | `[...#MarketplaceSource]` | Managed setting allowlisting org marketplaces whose plugins may be suggested via context-aware tips - v2.1.152+ |
+| `prependPlugins` / `appendPlugins` | `[...string]` | Ordered plugin specifiers (`name@marketplace`, primarily managed tier); prepend entries load before the rest, append after - runtime-shape-verified v2.1.325 |
+| `pluginDigests` | object | Deprecated and ignored (v2.1.323+): map of marketplace name to plugin digests; settings that hold it still load |
 | `allowedMcpServers` | `[...string]` | Managed-settings MCP server allowlist (entry shape inferred) |
 | `deniedMcpServers` | `[...string]` | Managed-settings MCP server denylist (entry shape inferred) |
 | `agent` | string | Default subagent for dispatched sessions; overridable via `--agent <name>` - v2.1.157+ |

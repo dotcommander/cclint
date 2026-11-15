@@ -307,6 +307,19 @@ func TestValidatePluginSpecific(t *testing.T) {
 			wantMinErrors: 0,
 		},
 		{
+			name: "engines field recognized (v2.1.323)",
+			data: map[string]any{
+				"name":        "test-plugin",
+				"description": "A comprehensive test plugin for validation purposes with detailed description",
+				"version":     "1.0.0",
+				"author":      map[string]any{"name": "Test Author"},
+				"engines":     map[string]any{"claude-code": ">=2.1.320"},
+			},
+			filePath:      "plugin.json",
+			contents:      `{"name":"test-plugin","engines":{"claude-code":">=2.1.320"}}`,
+			wantMinErrors: 0,
+		},
+		{
 			name: "listing metadata fields recognized (v2.1.281)",
 			data: map[string]any{
 				"name":             "test-plugin",
@@ -700,7 +713,7 @@ func TestKnownPluginFields(t *testing.T) {
 	expected := []string{
 		"$schema",
 		"name", "description", "displayName", "version", "author", "homepage", "repository",
-		"license", "keywords", "dependencies", "metadata", "readme", "commands", "agents", "skills",
+		"license", "keywords", "dependencies", "metadata", "engines", "readme", "commands", "agents", "skills",
 		"hooks", "mcpServers", "outputStyles", "lspServers", "monitors", "themes", "experimental",
 		"defaultEnabled",
 		"icon", "screenshots", "classification", "privacyPolicyUrl", "privacy_policy",
