@@ -1,7 +1,5 @@
 package crossfile
 
-import "os"
-
 // referenceSnapshot holds only parsed trigger tables, not file contents. It is
 // owned by one batch invocation; standalone validators never retain it.
 type referenceSnapshot struct {
@@ -19,7 +17,7 @@ type referenceEntry struct {
 // Callers should discard the returned validator after the batch completes.
 func (v *CrossFileValidator) WithReferenceSnapshot(root string) *CrossFileValidator {
 	batch := *v
-	batch.referenceSnapshot = &referenceSnapshot{root: root, entries: readReferenceEntries(root)}
+	batch.referenceSnapshot = &referenceSnapshot{root: root, entries: v.readReferenceEntries(root)}
 	return &batch
 }
 
@@ -27,17 +25,14 @@ func (v *CrossFileValidator) referenceEntries(root string) []referenceEntry {
 	if v.referenceSnapshot != nil && v.referenceSnapshot.root == root {
 		return v.referenceSnapshot.entries
 	}
-	return readReferenceEntries(root)
+	return v.readReferenceEntries(root)
 }
 
-func readReferenceEntries(root string) []referenceEntry {
+func (v *CrossFileValidator) readReferenceEntries(root string) []referenceEntry {
 	var entries []referenceEntry
-	for _, relPath := range discoverReferenceFiles(root) {
-		data, err := os.ReadFile(root + "/" + relPath) //nolint:gosec // G304: path comes from controlled glob inside root
-		if err != nil {
-			continue
-		}
-		contents := string(data)
+	files, _ := v.referenceDiscoverer(root).DiscoverFilesWithRegistry(referenceRegistry())
+	for _, file := range files {
+		relPath, contents := file.RelPath, file.Contents
 		if !IsTriggerMap(contents) {
 			continue
 		}

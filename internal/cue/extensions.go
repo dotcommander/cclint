@@ -9,12 +9,6 @@ import (
 	"cuelang.org/go/cue"
 )
 
-// extensionComponentTypes is the closed set of component types that accept
-// schema extensions. It matches the embedded schema roots keyed in loadSchemas.
-var extensionComponentTypes = map[string]bool{
-	"agent": true, "command": true, "skill": true, "settings": true, "claude_md": true,
-}
-
 // LoadExtensions unifies user-supplied CUE constraint files with the embedded
 // schema for each component type. Keys: agent, command, skill, settings,
 // claude_md. Values: a file path or a list of paths, resolved against rootPath
@@ -34,7 +28,8 @@ func (v *Validator) LoadExtensions(rootPath string, exts map[string]any) error {
 	sort.Strings(keys)
 
 	for _, key := range keys {
-		if !extensionComponentTypes[key] {
+		definition, ok := schemaDefinition(key)
+		if !ok {
 			return fmt.Errorf("schemas.extensions[%q]: unknown component type (must be one of agent, command, skill, settings, claude_md)", key)
 		}
 		base, ok := v.schemas[key]
@@ -53,6 +48,9 @@ func (v *Validator) LoadExtensions(rootPath string, exts map[string]any) error {
 			compiled := v.ctx.CompileBytes(content, cue.Filename(path))
 			if err := compiled.Err(); err != nil {
 				return fmt.Errorf("schemas.extensions[%q]: invalid CUE in extension file %s: %w", key, path, err)
+			}
+			if !compiled.LookupPath(cue.ParsePath(definition)).Exists() {
+				return fmt.Errorf("schemas.extensions[%q]: extension file %s is missing expected definition %s", key, path, definition)
 			}
 			unified := base.Unify(compiled)
 			if err := unified.Err(); err != nil {

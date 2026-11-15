@@ -112,14 +112,10 @@ func (fd *FileDiscovery) boundedStarWalkMode(pattern string, fileType FileType, 
 }
 
 func (fd *FileDiscovery) processMatchMode(match string, fileType FileType, loadContents bool) (File, bool) {
-	if IsExcluded(match, fd.exclude) {
+	if !fd.AllowsPath(match) {
 		return File{}, false
 	}
 	fullPath := filepath.Join(fd.rootPath, match)
-
-	if !fd.allowedPath(fullPath) {
-		return File{}, false
-	}
 	info, err := os.Stat(fullPath)
 	if err != nil || info.IsDir() {
 		return File{}, false

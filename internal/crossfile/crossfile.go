@@ -558,6 +558,7 @@ func (v *CrossFileValidator) collectAgentReferences(referencedSkills map[string]
 		for _, skillRef := range FindSkillReferences(agent.Contents) {
 			referencedSkills[skillRef] = true
 		}
+		v.collectAgentPreloadReferences(agent.Contents, referencedSkills)
 	}
 }
 

@@ -101,13 +101,8 @@ func (v *Validator) validateAgainstSchemaLocked(schema cue.Value, data map[strin
 		return nil, fmt.Errorf("error encoding data: %w", encErr)
 	}
 
-	// Use Unify to check if data conforms to schema
-	// Definition names are explicit because CLAUDE.md does not follow title casing.
-	definitions := map[string]string{
-		"agent": "#Agent", "command": "#Command", "skill": "#Skill",
-		"settings": "#Settings", "claude_md": "#ClaudeMD",
-	}
-	definition, ok := definitions[schemaType]
+	// Use Unify to check if data conforms to schema.
+	definition, ok := schemaDefinition(schemaType)
 	if !ok {
 		return nil, fmt.Errorf("unknown CUE schema type: %s", schemaType)
 	}

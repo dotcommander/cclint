@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,11 +68,14 @@ func LoadConfig(rootPath string) (*Config, error) {
 		for _, name := range []string{".cclintrc.json", ".cclintrc.yaml", ".cclintrc.yml"} {
 			path := filepath.Join(configDir, name)
 			if _, err := os.Stat(path); err != nil {
-				continue
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return nil, fmt.Errorf("stat config %s: %w", path, err)
 			}
 			vp.SetConfigFile(path)
 			if err := vp.ReadInConfig(); err != nil {
-				continue
+				return nil, fmt.Errorf("read config %s: %w", path, err)
 			}
 			found = true
 			break

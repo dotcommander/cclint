@@ -96,7 +96,9 @@ func NewLinterContextWithOptions(rootPath string, opts LinterOptions) (*LinterCo
 	}
 
 	// Initialize cross-file validator
-	crossValidator := crossfile.NewCrossFileValidator(files, rootPath)
+	crossValidator := crossfile.NewCrossFileValidator(files, rootPath).WithReferencePolicy(crossfile.ReferencePolicy{
+		Exclude: opts.Exclude, FollowSymlinks: opts.FollowSymlinks,
+	})
 
 	return &LinterContext{
 		RootPath:       rootPath,

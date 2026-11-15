@@ -2,11 +2,9 @@ package crossfile
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
-	"github.com/bmatcuk/doublestar/v4"
 	"github.com/dotcommander/cclint/internal/cue"
 )
 
@@ -241,22 +239,6 @@ func ParseTriggerTable(filePath, contents string) []TriggerRef {
 	}
 
 	return refs
-}
-
-// discoverReferenceFiles globs for all reference markdown files under rootPath.
-func discoverReferenceFiles(rootPath string) []string {
-	fsys := os.DirFS(rootPath)
-	var results []string
-
-	for _, pattern := range referenceFileGlobs {
-		matches, err := doublestar.Glob(fsys, pattern)
-		if err != nil {
-			continue
-		}
-		results = append(results, matches...)
-	}
-
-	return results
 }
 
 // validateTriggerRef checks a single TriggerRef against the known skills/agents maps

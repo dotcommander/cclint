@@ -31,7 +31,7 @@ func (v *CrossFileValidator) ValidateSkillReferences(rootPath string) []cue.Vali
 
 	for _, name := range skillNames {
 		skill := v.skills[name]
-		errors = append(errors, validateSingleSkillRefs(rootPath, skill.RelPath, skill.Contents)...)
+		errors = append(errors, v.validateSingleSkillRefs(rootPath, skill.RelPath, skill.Contents)...)
 	}
 
 	return errors
@@ -39,16 +39,7 @@ func (v *CrossFileValidator) ValidateSkillReferences(rootPath string) []cue.Vali
 
 // validateSingleSkillRefs checks a single skill file for phantom and orphaned refs.
 func validateSingleSkillRefs(rootPath, relPath, contents string) []cue.ValidationError {
-	skillDir := filepath.Join(rootPath, filepath.Dir(relPath))
-	refsDir := filepath.Join(skillDir, "references")
-
-	mentioned := extractMentionedRefs(contents)
-	actual := listActualRefs(refsDir)
-
-	var errors []cue.ValidationError
-	errors = append(errors, phantomRefErrors(relPath, refsDir, mentioned, actual)...)
-	errors = append(errors, orphanedRefErrors(relPath, refsDir, mentioned, actual)...)
-	return errors
+	return (&CrossFileValidator{}).validateSingleSkillRefs(rootPath, relPath, contents)
 }
 
 // extractMentionedRefs returns a sorted, deduplicated list of reference filenames
