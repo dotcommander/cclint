@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.64.0 (2026-11-14)
+
+### Features
+
+- model Claude Code v2.1.319-v2.1.325 lint surface: `permissions.denyInsteadOfPrompting`, `sandbox.autoAllowBashIfSandboxed`, `plugin.json` `engines`, backfills for `prependPlugins`/`appendPlugins` and `pluginDigests`; the tracked surface now reports v2.1.325.
+- add reference discovery policy, agent preload reference validation, and fail-closed config loading.
+
+### Changed
+
+- remove `.release-dev/` directory and restore standard repository layout with native files in place of symlinks.
+- purge internal developer tracking files and sanitize local absolute path references.
+- update repository `.gitignore` and default git author email.
+- expand README installation, usage options, and gating documentation.
+
 ## v0.63.0 (2026-11-03)
 
 ### Features
