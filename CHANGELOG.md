@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.65.0 (2026-11-19)
+
+### Features
+
+- model Claude Code v2.1.326-v2.1.329 lint surface: `mcp_tool` hook fields `server`/`tool`/`input` (with a conditional requiring `server`+`tool`, and `onFailure` coverage); `attributionProject` and `attributionProjectPolicy`; `sandbox.filesystem` path controls `allowWrite`/`denyWrite`/`denyRead`/`allowRead`/`allowManagedReadPathsOnly`; and managed `allowedHttpHookUrls`/`httpHookAllowedEnvVars`. The tracked surface now reports v2.1.329.
+
+### Fixed
+
+- accept valid `mcp_tool` hooks that the closed hook schema previously rejected for unknown `server`/`tool`/`input` fields.
+
 ## v0.64.0 (2026-11-14)
 
 ### Features
