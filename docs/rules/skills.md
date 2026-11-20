@@ -268,7 +268,7 @@ Document contains at least one of:
 **Category:** structural
 
 **Description:**
-Skills should be kept under ~550 lines (500 lines with 10% tolerance). Larger skills become difficult to maintain and slow to load. Heavy documentation, schemas, or examples should be moved to a `references/` subdirectory and loaded on demand.
+Skills should be kept under ~550 lines (500 lines with 10% tolerance). The [Writing Skills guide](../guides/writing-skills.md) covers the thin→fat methodology for moving heavy content to `references/`.
 
 **Pass Criteria:**
 - File has 550 or fewer lines
@@ -618,50 +618,10 @@ Trigger mapping tables in reference files (e.g., `skills/*/references/*.md`) ref
 
 ## New Frontmatter Fields
 
-### Claude Code Fields (v2.1.0+)
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `context` | `"fork"` | Run skill in forked sub-agent context |
-| `agent` | string | Agent type for execution (e.g., "code-quality-specialist") |
-| `user-invocable` | bool | Show in slash command menu (default: true for /skills/) |
-| `hooks` | object | Lifecycle hooks scoped to skill execution |
-
-### agentskills.io Fields
-
-Per [agentskills.io specification](https://agentskills.io/specification):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `license` | string | SPDX identifier (e.g., "MIT", "Apache-2.0") or license file reference |
-| `compatibility` | string | Environment requirements (max 500 chars) |
-| `metadata` | object | Arbitrary key-value mapping for additional properties |
-
-### Example with All Fields
-
-```yaml
----
-name: my-skill
-description: Example skill demonstrating all optional fields. Use when working with PDF documents.
-# Claude Code fields
-context: fork
-agent: code-quality-specialist
-user-invocable: true
-hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: echo "Before bash"
-          once: true
-# agentskills.io fields
-license: MIT
-compatibility: Designed for Claude Code. Requires git.
-metadata:
-  author: example-org
-  version: "1.0"
----
-```
+Skill frontmatter — Claude Code fields (`context`, `agent`, `user-invocable`,
+`hooks`) and [agentskills.io](https://agentskills.io/specification) fields
+(`license`, `compatibility`, `metadata`) — is documented field-by-field in the
+[skill schema](../reference/schemas.md#skill-schema), including a worked example.
 
 ---
 

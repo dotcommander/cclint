@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.65.1 (2026-11-19)
+
+### Changed
+
+- Consolidate the command, skill, and plugin references into a [component type guide](docs/reference/component-types.md) covering file discovery, validation, and path mode.
+- Link to a single hook-event list and skill frontmatter reference instead of repeating them across rule pages.
+- Refresh the existing Lip Gloss, `golang.org/x/term`, and `golang.org/x/text` dependencies. The minimum Go version is unchanged.
+
 ## v0.65.0 (2026-11-19)
 
 ### Features

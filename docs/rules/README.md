@@ -2,6 +2,8 @@
 
 This directory is a topical reference for cclint lint findings. Rule numbers are documentation labels, not IDs emitted by the CLI; some ranges overlap and newer checks may not have a numbered entry. For the current validation behavior, consult `internal/lint/`, `internal/cue/schemas/`, and `internal/textutil/`.
 
+Run `cclint --version` to see which Claude Code version your installed binary tracks.
+
 ## Rule Categories
 
 | File | Rules | Component | Description |

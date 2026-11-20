@@ -161,7 +161,7 @@ automatic selection and reference discovery.
 ## Related docs
 
 - [Setup](setup.md)
-- [Command reference](reference/commands/commands.md)
+- [Component type reference](reference/component-types.md)
 - [Rule reference](rules/README.md)
 
 Baseline snapshots created now use version 1.1 fingerprints. Version 1.0 snapshots

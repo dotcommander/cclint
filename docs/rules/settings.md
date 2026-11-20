@@ -32,7 +32,7 @@ File contains well-formed JSON with proper syntax (valid braces, quotes, commas,
 **Category:** structural
 
 **Description:**
-Hook event names must match Anthropic's documented event types. Valid events: PreToolUse, PostToolUse, PostToolUseFailure, PostToolBatch, PermissionRequest, Notification, UserPromptSubmit, UserPromptExpansion, Stop, StopFailure, SubagentStart, SubagentStop, PreCompact, SessionStart, SessionEnd, TeammateIdle, TaskCompleted, TaskCreated, ConfigChange, WorktreeCreate, WorktreeRemove, InstructionsLoaded, PostCompact, Elicitation, ElicitationResult, CwdChanged, FileChanged, DirectoryAdded, PermissionDenied, Setup, MessageDisplay, PreModelSwitch, PostModelSwitch.
+Hook event names must match Anthropic's documented event types. The canonical list lives in the [hook events reference](../reference/schemas.md#hook-events).
 
 **Pass Criteria:**
 Every key in the `hooks` object matches a valid hook event name from Anthropic documentation.
