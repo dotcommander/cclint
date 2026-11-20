@@ -40,6 +40,13 @@ package schemas
 	// Optional: environment variables to forward (type: "http" only)
 	allowedEnvVars?: [...string]
 
+	// MCP server name (required for type "mcp_tool", v2.1.118+)
+	server?: string
+	// MCP tool name (required for type "mcp_tool", v2.1.118+)
+	tool?: string
+	// Tool input: string or object; supports ${path} interpolation, e.g. ${tool_input.file_path} (v2.1.118+, binary-verified v2.1.328)
+	input?: string | {...}
+
 	// Optional: status message displayed while hook runs
 	statusMessage?: string
 
@@ -63,7 +70,7 @@ package schemas
 	// What a failure of this hook does: it could not start (a missing script
 	// or plugin directory), timed out, or exited with an unexpected code.
 	// "continue" lets the action through (the default); "block" stops the
-	// action instead (v2.1.295+, type: "command" and "http" hooks).
+	// action instead (v2.1.295+, type: "command" and "http" hooks; type: "mcp_tool" since v2.1.328).
 	onFailure?: "continue" | "block"
 
 	// Optional: conditional filter using permission rule syntax (v2.1.85+)
@@ -78,6 +85,12 @@ package schemas
 	// Enforce url field when type is "http"
 	if type == "http" {
 		url: string
+	}
+
+	// mcp_tool hooks require server and tool (v2.1.118+)
+	if type == "mcp_tool" {
+		server: string
+		tool: string
 	}
 }
 
@@ -357,6 +370,16 @@ package schemas
 		filesystem?: {
 			// Skip filesystem isolation entirely (v2.1.216+)
 			disabled?: bool
+			// Paths sandboxed commands may write; merged with Edit permission rules (v2.1.326+)
+			allowWrite?: [...string]
+			// Paths sandboxed commands may not write; merged with Edit deny rules (v2.1.326+)
+			denyWrite?: [...string]
+			// Paths sandboxed commands may not read; merged with Read deny rules (v2.1.326+)
+			denyRead?: [...string]
+			// Re-allow reads within denyRead paths; takes precedence over denyRead (v2.1.326+)
+			allowRead?: [...string]
+			// Managed-only: when true, only allowRead paths from policySettings are used (v2.1.326+)
+			allowManagedReadPathsOnly?: bool
 			...
 		}
 		...
@@ -404,6 +427,11 @@ package schemas
 	// When set, sandbox.allowedReadPaths entries from non-managed settings sources
 	// are ignored — only the managed/enterprise allowedReadPaths list is honored.
 	allowManagedReadPathsOnly?: bool
+
+	// Managed-only: allowlist of URL patterns HTTP hooks may target; * wildcard (binary-verified v2.1.328, present since v2.1.326)
+	allowedHttpHookUrls?: [...string]
+	// Managed-only: allowlist of env var names HTTP hooks may interpolate into headers; intersected with hook allowedEnvVars (binary-verified v2.1.328, present since v2.1.326)
+	httpHookAllowedEnvVars?: [...string]
 
 	// Parent-tier settings merge behavior (v2.1.133+, admin tier)
 	// "first-wins" (default) → SDK managedSettings does not merge into the policy chain.
@@ -542,6 +570,13 @@ package schemas
 	subagentStatusLine?:  {...}
 	attribution?:         bool | {...}
 	includeCoAuthoredBy?: bool // deprecated, superseded by attribution
+	// Session billing group: claude_proj_/chan_ ID or UUID; empty string names none and stops lower-precedence files (v2.1.327)
+	attributionProject?: string
+	// Managed-only: default billing group for attributionProject (v2.1.327)
+	attributionProjectPolicy?: {
+		default?: string
+		...
+	}
 
 	// Context / compaction.
 	autoCompactEnabled?:       bool

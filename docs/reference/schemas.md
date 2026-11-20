@@ -265,6 +265,11 @@ hooks:
 | `sandbox` | object | Sandbox settings - v2.1.83+ |
 | `sandbox.excludedCommands` | `[...string]` | Command patterns excluded from the sandbox - the whole command or its start followed by ` *` |
 | `sandbox.autoAllowBashIfSandboxed` | bool | Approve sandboxed Bash commands without a permission prompt (macOS/Linux/WSL, default false) - v2.1.325+ |
+| `sandbox.filesystem.allowWrite` | `[...string]` | Paths sandboxed commands may write; merged with Edit permission rules - v2.1.326+ |
+| `sandbox.filesystem.denyWrite` | `[...string]` | Paths sandboxed commands may not write; merged with Edit deny rules - v2.1.326+ |
+| `sandbox.filesystem.denyRead` | `[...string]` | Paths sandboxed commands may not read; merged with Read deny rules - v2.1.326+ |
+| `sandbox.filesystem.allowRead` | `[...string]` | Re-allow reads within `denyRead` paths; takes precedence over `denyRead` - v2.1.326+ |
+| `sandbox.filesystem.allowManagedReadPathsOnly` | bool | Managed-only: when true, only `allowRead` paths from policySettings are used - v2.1.326+ |
 | `sandbox.network.allowedDomains` | `[...string]` | Domains the sandbox may reach (e.g. `"*.anthropic.com"`) - v2.1.83+ |
 | `sandbox.network.deniedDomains` | `[...string]` | Domains blocked even when a wildcard `allowedDomains` would permit them - v2.1.113+ |
 | `sandbox.network.strictAllowlist` | bool | Require an explicit network allowlist - v2.1.219+ |
@@ -279,6 +284,8 @@ hooks:
 | `allowManagedHooksOnly` | bool | When set, only hooks from managed/enterprise settings and force-enabled plugins run - v2.1.101+ |
 | `allowManagedDomainsOnly` | bool | When set, `sandbox.network.allowedDomains` from non-managed sources are ignored - v2.1.126+ |
 | `allowManagedReadPathsOnly` | bool | When set, `sandbox.allowedReadPaths` from non-managed sources are ignored - v2.1.126+ |
+| `allowedHttpHookUrls` | `[...string]` | Managed-only: URL patterns HTTP hooks may target (`*` wildcard) - binary-verified v2.1.328, present since v2.1.326 |
+| `httpHookAllowedEnvVars` | `[...string]` | Managed-only: env var names HTTP hooks may interpolate into headers; intersected with hook `allowedEnvVars` - binary-verified v2.1.328, present since v2.1.326 |
 | `wslInheritsWindowsSettings` | bool | WSL on Windows inherits Windows-side managed settings (policy key) - v2.1.118+ |
 | `prUrlTemplate` | string | Custom code-review URL for the footer PR badge instead of github.com - v2.1.119+ |
 | `allowAllClaudeAiMcps` | bool | Enterprise managed setting loading claude.ai cloud MCP connectors alongside managed-mcp.json - v2.1.149+ |
@@ -290,6 +297,8 @@ hooks:
 | `agent` | string | Default subagent for dispatched sessions; overridable via `--agent <name>` - v2.1.157+ |
 | `timeFormat` | string | `"auto"`, `"12-hour"`, `"24-hour"`, `"24-hour-utc"`, or a strftime pattern - v2.1.257+ |
 | `timeZone` | string | IANA time zone used for UI timestamps - v2.1.257+ |
+| `attributionProject` | string | Session billing group (`claude_proj_`/`chan_` ID or UUID); empty string names none and stops lower-precedence files - v2.1.327+ |
+| `attributionProjectPolicy` | object | Managed-only: `{default?: string}` default billing group for `attributionProject` - v2.1.327+ |
 
 ### Hooks Format
 
@@ -329,13 +338,16 @@ Hook types include `command`, `prompt`, `agent` (v2.1.0+), `http` (v2.1.63+), an
   - `url`: URL for HTTP hooks (required when type is "http") (v2.1.63+)
   - `headers`: Additional HTTP headers, `{[string]: string}` (http only, v2.1.63+)
   - `allowedEnvVars`: Env vars allowed in header interpolation, `[...string]` (http only, v2.1.63+)
+  - `server`: MCP server name (required when type is "mcp_tool") (v2.1.118+)
+  - `tool`: MCP tool name (required when type is "mcp_tool") (v2.1.118+)
+  - `input`: Tool input for mcp_tool hooks — string or object; supports `${path}` interpolation (e.g. `${tool_input.file_path}`) (v2.1.118+)
   - `async`: Run the hook asynchronously (settings hooks only)
   - `args`: Exec-form arguments, `[...string]` — alternative to `command` for type=`command` (v2.1.139+)
   - `continueOnBlock`: Feed the hook's rejection reason back to Claude and continue the turn (PostToolUse only, v2.1.139+)
   - `if`: Condition expression gating hook execution
   - `model`: Model override for type=`prompt` and type=`agent` hooks (v2.1.300+)
   - `prompt`: Prompt text (for type=`prompt`)
-  - `onFailure`: `continue` or `block` when a hook cannot start, times out, or exits unexpectedly (v2.1.295+)
+  - `onFailure`: `continue` or `block` when a hook cannot start, times out, or exits unexpectedly (v2.1.295+; command/http hooks, mcp_tool since v2.1.328+)
 
 ## Validation Rules Summary
 
